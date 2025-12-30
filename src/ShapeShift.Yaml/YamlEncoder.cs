@@ -52,7 +52,7 @@ public ref struct YamlEncoder(TextWriter writer) : IEncoder
     }
 
     /// <inheritdoc/>
-    public void Write(string value)
+    public void Write(string? value)
     {
         throw new NotImplementedException();
     }

@@ -9,6 +9,8 @@ namespace ShapeShift;
 /// <summary>
 /// A visitor that prepares type converters.
 /// </summary>
+/// <typeparam name="TEncoder">The type of encoder to use.</typeparam>
+/// <typeparam name="TDecoder">The type of decoder to use.</typeparam>
 internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor
     where TEncoder : IEncoder, allows ref struct
     where TDecoder : IDecoder, allows ref struct

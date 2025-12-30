@@ -25,7 +25,7 @@ internal class ObjectConverter<T, TEncoder, TDecoder> : IConverter<T, TEncoder, 
             return default;
         }
 
-        T result = ctor();
+        T result = this.ctor();
         int? remaining = decoder.ReadStartMap();
         while (decoder.NextTokenType != TokenType.EndMap)
         {

@@ -1,16 +1,13 @@
 // Copyright (c) Andrew Arnott. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-namespace ShapeShift.Tests;
+namespace ShapeShift.Yaml.Tests;
 
-public class CalculatorTests
+public class YamlSerializerTests
 {
-    public CalculatorTests()
-    {
-    }
-
     [Test]
-    public void AddOrSubtract()
+    public void FirstTest()
     {
+
     }
 }

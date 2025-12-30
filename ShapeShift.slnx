@@ -27,5 +27,6 @@
   </Folder>
   <Folder Name="/test/">
     <Project Path="test/ShapeShift.Tests/ShapeShift.Tests.csproj" />
+    <Project Path="test/ShapeShift.Yaml.Tests/ShapeShift.Yaml.Tests.csproj" />
   </Folder>
 </Solution>
