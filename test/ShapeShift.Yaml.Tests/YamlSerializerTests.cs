@@ -30,6 +30,16 @@ public partial class YamlSerializerTests : TestBase
         await Assert.That(this.lastSerializedYaml?.Trim()).IsEqualTo(original.ToString(CultureInfo.InvariantCulture));
     }
 
+    [Test]
+    public async Task SimpleRecordWithDefaultCtor()
+    {
+        Person person = new() { FirstName = "John", LastName = "Doe" };
+        await this.AssertRoundtripAsync(person);
+    }
+
+    protected ValueTask<T?> AssertRoundtripAsync<T>(T? value)
+        where T : IShapeable<T> => this.AssertRoundtripAsync<T, T>(value);
+
     protected async ValueTask<T?> AssertRoundtripAsync<T, TProvider>(T? value)
         where TProvider : IShapeable<T>
     {
@@ -39,12 +49,19 @@ public partial class YamlSerializerTests : TestBase
 
         Console.WriteLine("Serialized form:");
         Console.WriteLine(this.lastSerializedYaml);
-        Console.WriteLine();
 
         T? deserialized = serializer.Deserialize<T, TProvider>(this.lastSerializedYaml);
 
         await Assert.That(deserialized).IsEqualTo(value);
         return deserialized;
+    }
+
+    [GenerateShape]
+    internal partial record Person
+    {
+        public string? FirstName { get; set; }
+
+        public string? LastName { get; set; }
     }
 
     [GenerateShapeFor<string>]
