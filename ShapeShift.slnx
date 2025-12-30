@@ -21,6 +21,10 @@
     <File Path="test/Directory.Build.props" />
     <File Path="test/Directory.Build.targets" />
   </Folder>
-  <Project Path="src/Library/Library.csproj" />
-  <Project Path="test/Library.Tests/Library.Tests.csproj" />
+  <Folder Name="/src/">
+    <Project Path="src/ShapeShift/ShapeShift.csproj" />
+  </Folder>
+  <Folder Name="/test/">
+    <Project Path="test/ShapeShift.Tests/ShapeShift.Tests.csproj" />
+  </Folder>
 </Solution>
