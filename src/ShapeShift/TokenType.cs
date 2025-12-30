@@ -1,16 +1,23 @@
 // Copyright (c) Andrew Arnott. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-using ShapeShift;
+namespace ShapeShift;
 
-public class CalculatorTests
+public enum TokenType
 {
-    public CalculatorTests()
-    {
-    }
+    StartMap,
 
-    [Test]
-    public void AddOrSubtract()
-    {
-    }
+    EndMap,
+
+    StartVector,
+
+    EndVector,
+
+    PropertyName,
+
+    Null,
+
+    String,
+
+    Number,
 }

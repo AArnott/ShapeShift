@@ -1,16 +1,8 @@
 // Copyright (c) Andrew Arnott. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-using ShapeShift;
+namespace ShapeShift;
 
-public class CalculatorTests
+public struct SerializationContext
 {
-    public CalculatorTests()
-    {
-    }
-
-    [Test]
-    public void AddOrSubtract()
-    {
-    }
 }

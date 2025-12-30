@@ -22,6 +22,7 @@
     <File Path="test/Directory.Build.targets" />
   </Folder>
   <Folder Name="/src/">
+    <Project Path="src/ShapeShift.Yaml/ShapeShift.Yaml.csproj" />
     <Project Path="src/ShapeShift/ShapeShift.csproj" />
   </Folder>
   <Folder Name="/test/">
