@@ -3,6 +3,7 @@
 
 using System.Runtime.CompilerServices;
 using PolyType.Abstractions;
+using ShapeShift.Converters;
 
 namespace ShapeShift;
 
@@ -17,6 +18,11 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor
 {
     public override object? VisitObject<T>(IObjectTypeShape<T> objectShape, object? state = null)
     {
+        if (BuiltInConverters.TryGetBuiltInConverter<T, TEncoder, TDecoder>(out var builtin))
+        {
+            return builtin;
+        }
+
         Dictionary<string, PropertyConverter<T, TEncoder, TDecoder>> properties = new(objectShape.Properties.Count);
         foreach (var property in objectShape.Properties)
         {

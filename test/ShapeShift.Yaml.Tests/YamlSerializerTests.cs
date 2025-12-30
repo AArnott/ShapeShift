@@ -5,7 +5,7 @@ using ShapeShift.Tests;
 
 namespace ShapeShift.Yaml.Tests;
 
-public partial class YamlSerializerTests : SerializerBaseTests
+public partial class YamlSerializerTests : TestBase
 {
     [Test]
     public async Task SimpleString()

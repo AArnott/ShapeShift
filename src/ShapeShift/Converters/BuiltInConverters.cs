@@ -4,7 +4,29 @@
 #pragma warning disable SA1402 // File may only contain a single type
 #pragma warning disable SA1649 // File name should match first type name
 
+using System.Diagnostics.CodeAnalysis;
+
 namespace ShapeShift.Converters;
+
+internal static class BuiltInConverters
+{
+    internal static bool TryGetBuiltInConverter<T, TEncoder, TDecoder>([NotNullWhen(true)] out IConverter<T, TEncoder, TDecoder>? converter)
+        where TEncoder : IEncoder, allows ref struct
+        where TDecoder : IDecoder, allows ref struct
+    {
+        if (typeof(T) == typeof(string))
+        {
+            converter = (IConverter<T, TEncoder, TDecoder>)new StringConverter<TEncoder, TDecoder>();
+        }
+        else
+        {
+            converter = null;
+            return false;
+        }
+
+        return true;
+    }
+}
 
 internal class StringConverter<TEncoder, TDecoder> : IConverter<string, TEncoder, TDecoder>
     where TEncoder : IEncoder, allows ref struct
