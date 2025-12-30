@@ -1,16 +1,10 @@
 // Copyright (c) Andrew Arnott. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+using PolyType;
+
 namespace ShapeShift.Tests;
 
-public class CalculatorTests
+public abstract partial class SerializerBaseTests
 {
-    public CalculatorTests()
-    {
-    }
-
-    [Test]
-    public void AddOrSubtract()
-    {
-    }
 }

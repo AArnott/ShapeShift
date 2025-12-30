@@ -4,6 +4,7 @@
     <!-- <PackageValidationBaselineVersion>1.0.0</PackageValidationBaselineVersion> -->
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.VisualStudio.Validation" />
     <PackageReference Include="PolyType" />
   </ItemGroup>
 </Project>

@@ -13,12 +13,14 @@ public abstract class SerializerBase<TEncoder, TDecoder>
 
     public void Serialize<T>(ref TEncoder encoder, in T? value, ITypeShape<T> typeShape)
     {
+        Requires.NotNull(typeShape);
         SerializationContext context = default;
         this.GetConverter<T>(typeShape).Write(ref encoder, value, context);
     }
 
     public T? Deserialize<T>(ref TDecoder decoder, ITypeShape<T> typeShape)
     {
+        Requires.NotNull(typeShape);
         SerializationContext context = default;
         return this.GetConverter<T>(typeShape).Read(ref decoder, context);
     }
