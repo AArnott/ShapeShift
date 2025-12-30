@@ -18,6 +18,10 @@ internal static class BuiltInConverters
         {
             converter = (IConverter<T, TEncoder, TDecoder>)new StringConverter<TEncoder, TDecoder>();
         }
+        else if (typeof(T) == typeof(int))
+        {
+            converter = (IConverter<T, TEncoder, TDecoder>)new Int32Converter<TEncoder, TDecoder>();
+        }
         else
         {
             converter = null;
