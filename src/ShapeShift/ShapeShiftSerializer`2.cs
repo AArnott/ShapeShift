@@ -26,6 +26,13 @@ public abstract record ShapeShiftSerializer<TEncoder, TDecoder> : IShapeShiftSer
 		init => this.configuration = this.configuration with { InternStrings = value };
 	}
 
+	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.PropertyNamingPolicy"/>
+	public ShapeShiftNamingPolicy? PropertyNamingPolicy
+	{
+		get => this.configuration.PropertyNamingPolicy;
+		init => this.configuration = this.configuration with { PropertyNamingPolicy = value };
+	}
+
 	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.ConverterCache"/>
 	internal ConverterCache<TEncoder, TDecoder> ConverterCache => this.configuration.ConverterCache;
 

@@ -110,6 +110,18 @@ internal record SerializerConfiguration<TEncoder, TDecoder>
 	}
 
 	/// <summary>
+	/// Gets the transformation function to apply to property names before serializing them.
+	/// </summary>
+	/// <value>
+	/// The default value is null, indicating that property names should be persisted exactly as they are declared in .NET.
+	/// </value>
+	public ShapeShiftNamingPolicy? PropertyNamingPolicy
+	{
+		get => field;
+		init => this.ChangeSetting(ref field, value);
+	}
+
+	/// <summary>
 	/// Gets the <see cref="ConverterCache{TEncoder, TDecoder}"/> object based on this configuration.
 	/// </summary>
 	internal ConverterCache<TEncoder, TDecoder> ConverterCache => this.converterCache ??= new ConverterCache<TEncoder, TDecoder>(this);

@@ -1,6 +1,8 @@
 // Copyright (c) Andrew Arnott. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+using ShapeShift.Yaml;
+
 partial class IncludingExcludingMembers
 {
     #region IncludingExcludingMembers
@@ -39,21 +41,21 @@ partial class ChangingEnumValueNames
     #endregion
 }
 
-////partial class ApplyNamePolicy
-////{
-////    class MyType
-////    {
-////        void Example()
-////        {
-////            #region ApplyNamePolicy
-////            var serializer = new MessagePackSerializer
-////            {
-////                PropertyNamingPolicy = MessagePackNamingPolicy.CamelCase,
-////            };
-////            #endregion
-////        }
-////    }
-////}
+partial class ApplyNamePolicy
+{
+    class MyType
+    {
+        void Example()
+        {
+            #region ApplyNamePolicy
+            var serializer = new YamlSerializer
+            {
+                PropertyNamingPolicy = ShapeShiftNamingPolicy.CamelCase,
+            };
+            #endregion
+        }
+    }
+}
 
 namespace DeserializingConstructors
 {

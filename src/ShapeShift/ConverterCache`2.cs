@@ -41,6 +41,9 @@ internal class ConverterCache<TEncoder, TDecoder>(SerializerConfiguration<TEncod
 	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.InternStrings"/>
 	internal bool InternStrings => configuration.InternStrings;
 
+	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.PropertyNamingPolicy"/>
+	internal ShapeShiftNamingPolicy? PropertyNamingPolicy => configuration.PropertyNamingPolicy;
+
 	/// <summary>
 	/// Gets all the converters this instance knows about so far.
 	/// </summary>
@@ -186,5 +189,27 @@ internal class ConverterCache<TEncoder, TDecoder>(SerializerConfiguration<TEncod
 		}
 
 		return converter is not null;
+	}
+
+	/// <summary>
+	/// Gets the property name that should be used when serializing a property.
+	/// </summary>
+	/// <param name="name">The original property name as given by <see cref="IPropertyShape"/>.</param>
+	/// <param name="attributeProvider">The attribute provider for the property.</param>
+	/// <returns>The serialized property name to use.</returns>
+	internal string GetSerializedPropertyName(string name, IGenericCustomAttributeProvider? attributeProvider)
+	{
+		if (this.PropertyNamingPolicy is null)
+		{
+			return name;
+		}
+
+		// If the property was decorated with [PropertyShape(Name = "...")], do *not* meddle with the property name.
+		if (attributeProvider?.GetCustomAttributes<PropertyShapeAttribute>(inherit: false).FirstOrDefault() is PropertyShapeAttribute { Name: not null })
+		{
+			return name;
+		}
+
+		return this.PropertyNamingPolicy.ConvertName(name);
 	}
 }
