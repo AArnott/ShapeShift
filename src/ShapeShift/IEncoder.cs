@@ -13,7 +13,7 @@ public interface IEncoder
 
 	void WriteEndVector();
 
-	void WritePropertyName(ReadOnlySpan<char> name);
+	void WritePropertyName(scoped ReadOnlySpan<char> name);
 
 	void WriteNull();
 
@@ -30,4 +30,6 @@ public interface IEncoder
 	void Write(double value);
 
 	void Write(string? value);
+
+	void Write(scoped ReadOnlySpan<char> value);
 }

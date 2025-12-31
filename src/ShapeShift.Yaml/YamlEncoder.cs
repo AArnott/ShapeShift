@@ -51,7 +51,7 @@ public ref struct YamlEncoder(TextWriter writer) : IEncoder
 	}
 
 	/// <inheritdoc/>
-	public void WritePropertyName(ReadOnlySpan<char> name)
+	public void WritePropertyName(scoped ReadOnlySpan<char> name)
 	{
 		if (this.depth == 0 || this.containerKinds[this.depth - 1] != ContainerKind.Map)
 		{
@@ -141,6 +141,20 @@ public ref struct YamlEncoder(TextWriter writer) : IEncoder
 		}
 
 		this.WriteStringScalar(value, includeTrailingNewline: true);
+	}
+
+	/// <inheritdoc/>
+	public void Write(scoped ReadOnlySpan<char> value)
+	{
+		if (this.depth == 0 && !this.pendingPropertyValue)
+		{
+			// Top-level scalar should not include trailing newline.
+			this.WriteStringScalar(value.ToString(), includeTrailingNewline: false);
+			this.atLineStart = false;
+			return;
+		}
+
+		this.WriteStringScalar(value.ToString(), includeTrailingNewline: true);
 	}
 
 	private void WriteStartContainer(ContainerKind kind)

@@ -19,6 +19,7 @@ namespace ShapeShift.Converters;
 var convertersByType = new List<ConverterInfo>
 {
 	new ConverterInfo("bool", "BooleanConverter"),
+	new ConverterInfo("char", "CharConverter"),
 	new ConverterInfo("byte", "ByteConverter"),
 	new ConverterInfo("sbyte", "SByteConverter"),
 	new ConverterInfo("short", "Int16Converter"),

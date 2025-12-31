@@ -34,6 +34,7 @@ internal static class PrimitiveConverterLookup<TEncoder, TDecoder>
 	where TDecoder : IDecoder, allows ref struct
 {
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _BooleanConverter;
+	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _CharConverter;
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _ByteConverter;
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _SByteConverter;
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _Int16Converter;
@@ -60,6 +61,12 @@ internal static class PrimitiveConverterLookup<TEncoder, TDecoder>
 		if (typeof(T) == typeof(bool))
 		{
 			converter = (ShapeShiftConverter<T, TEncoder, TDecoder>)(_BooleanConverter ??= new BooleanConverter<TEncoder, TDecoder>());
+			return true;
+		}
+
+		if (typeof(T) == typeof(char))
+		{
+			converter = (ShapeShiftConverter<T, TEncoder, TDecoder>)(_CharConverter ??= new CharConverter<TEncoder, TDecoder>());
 			return true;
 		}
 

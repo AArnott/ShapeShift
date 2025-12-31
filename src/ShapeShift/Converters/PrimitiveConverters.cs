@@ -52,6 +52,20 @@ internal class DoubleConverter<TEncoder, TDecoder> : ShapeShiftConverter<double,
 	public override void Write(ref TEncoder encoder, in double value, SerializationContext<TEncoder, TDecoder> context) => encoder.Write(value);
 }
 
+internal class CharConverter<TEncoder, TDecoder> : ShapeShiftConverter<char, TEncoder, TDecoder>
+	where TEncoder : IEncoder, allows ref struct
+	where TDecoder : IDecoder, allows ref struct
+{
+	/// <inheritdoc/>
+	public override char Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context)
+	{
+		return decoder.ReadCharSpan() is [char c] ? c : throw new ShapeShiftSerializationException("Expected a single character.");
+	}
+
+	/// <inheritdoc/>
+	public override void Write(ref TEncoder encoder, in char value, SerializationContext<TEncoder, TDecoder> context) => encoder.Write([value]);
+}
+
 internal class StringConverter<TEncoder, TDecoder> : ShapeShiftConverter<string, TEncoder, TDecoder>
 	where TEncoder : IEncoder, allows ref struct
 	where TDecoder : IDecoder, allows ref struct
