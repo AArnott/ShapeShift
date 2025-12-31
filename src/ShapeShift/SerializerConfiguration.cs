@@ -26,9 +26,9 @@ internal record SerializerConfiguration<TEncoder, TDecoder>
 	/// <remarks>
 	/// Converters in this collection are searched first when creating a converter for a given type, before <see cref="ConverterTypes"/> and <see cref="ConverterFactories"/>.
 	/// </remarks>
-	public ConverterCollection Converters
+	public ConverterCollection<TEncoder, TDecoder> Converters
 	{
-		get => field;
+		get => field ??= [];
 		init => this.ChangeSetting(ref field, value);
 	}
 
@@ -40,7 +40,7 @@ internal record SerializerConfiguration<TEncoder, TDecoder>
 	/// </remarks>
 	public ConverterTypeCollection ConverterTypes
 	{
-		get => field;
+		get => field ??= [];
 		init => this.ChangeSetting(ref field, value);
 	}
 
@@ -52,7 +52,7 @@ internal record SerializerConfiguration<TEncoder, TDecoder>
 	/// </remarks>
 	public ImmutableArray<IShapeShiftConverterFactory<TEncoder, TDecoder>> ConverterFactories
 	{
-		get => field;
+		get => field.IsDefault ? (field = []) : field;
 		init => this.ChangeSetting(ref field, value);
 	}
 
