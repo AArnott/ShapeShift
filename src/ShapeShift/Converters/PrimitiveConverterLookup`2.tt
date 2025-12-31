@@ -33,6 +33,7 @@ var convertersByType = new List<ConverterInfo>
 	new ConverterInfo("double", "DoubleConverter"),
 	new ConverterInfo("decimal", "DecimalConverter"),
 	new ConverterInfo("DateTime", "DateTimeConverter"),
+	new ConverterInfo("DateTimeOffset", "DateTimeOffsetConverter"),
 	new ConverterInfo("string", "StringConverter", IsRefType: true),
 };
 #>

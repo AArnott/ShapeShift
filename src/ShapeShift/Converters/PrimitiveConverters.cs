@@ -74,6 +74,39 @@ internal class DateTimeConverter<TEncoder, TDecoder> : ShapeShiftConverter<DateT
 	public override void Write(ref TEncoder encoder, in DateTime value, SerializationContext<TEncoder, TDecoder> context) => encoder.WriteValue(value);
 }
 
+internal class DateTimeOffsetConverter<TEncoder, TDecoder> : ShapeShiftConverter<DateTimeOffset, TEncoder, TDecoder>
+	where TEncoder : IEncoder, allows ref struct
+	where TDecoder : IDecoder, allows ref struct
+{
+	/// <inheritdoc/>
+	public override DateTimeOffset Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context)
+	{
+		int? count = decoder.ReadStartVector();
+		if (count is not null and not 2)
+		{
+			throw new ShapeShiftSerializationException($"Expected a vector of length 2 to deserialize {nameof(DateTimeOffset)}.");
+		}
+
+		DateTime utcDateTime = decoder.ReadDateTime();
+		short offsetMinutes = decoder.ReadInt16();
+
+		// We construct the offset very carefully so that it knows it's being initialized with UTC time
+		// *and* that we want the time expressed in the offset specified.
+		// Passing the offset to the DateTimeOffset constructor would cause it to misinterpret the UTC time
+		// as if it had an offset.
+		return new DateTimeOffset(utcDateTime).ToOffset(TimeSpan.FromMinutes(offsetMinutes));
+	}
+
+	/// <inheritdoc/>
+	public override void Write(ref TEncoder encoder, in DateTimeOffset value, SerializationContext<TEncoder, TDecoder> context)
+	{
+		encoder.WriteStartVector(2);
+		encoder.WriteValue(value.UtcDateTime);
+		encoder.WriteValue(checked((short)value.Offset.TotalMinutes));
+		encoder.WriteEndVector();
+	}
+}
+
 internal class CharConverter<TEncoder, TDecoder> : ShapeShiftConverter<char, TEncoder, TDecoder>
 	where TEncoder : IEncoder, allows ref struct
 	where TDecoder : IDecoder, allows ref struct
