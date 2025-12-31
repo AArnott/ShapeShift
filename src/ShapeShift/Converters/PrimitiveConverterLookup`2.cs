@@ -33,11 +33,11 @@ internal static class PrimitiveConverterLookup<TEncoder, TDecoder>
 	where TEncoder : IEncoder, allows ref struct
 	where TDecoder : IDecoder, allows ref struct
 {
+	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _BooleanConverter;
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _Int32Converter;
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _StringConverter;
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _StringConverterReferencePreserving;
 
-#if NET
 	/// <summary>
 	/// Gets a built-in converter for the given type, if one is available.
 	/// </summary>
@@ -46,64 +46,32 @@ internal static class PrimitiveConverterLookup<TEncoder, TDecoder>
 	/// <param name="converter">Receives the converter, if one is available.</param>
 	/// <returns><see langword="true" /> if a converter was found; <see langword="false" /> otherwise.</returns>
 	internal static bool TryGetPrimitiveConverter<T>(ReferencePreservationMode referencePreserving, [NotNullWhen(true)] out ShapeShiftConverter<T, TEncoder, TDecoder>? converter)
-#else
-	/// <summary>
-	/// Gets a built-in converter for the given type, if one is available.
-	/// </summary>
-	/// <param name="type">The type to get a converter for.</param>
-	/// <param name="referencePreserving">Indicates whether a reference-preserving converter is requested.</param>
-	/// <param name="converter">Receives the converter, if one is available.</param>
-	/// <returns><see langword="true" /> if a converter was found; <see langword="false" /> otherwise.</returns>
-	internal static bool TryGetPrimitiveConverter(Type type, ReferencePreservationMode referencePreserving, [NotNullWhen(true)] out ShapeShiftConverter<TEncoder, TDecoder>? converter)
-#endif
 	{
-#if NET
-		if (typeof(T) == typeof(int))
-#else
-		if (type == typeof(int))
-#endif
+		if (typeof(T) == typeof(bool))
 		{
-#if NET
-			converter = (ShapeShiftConverter<T, TEncoder, TDecoder>)(_Int32Converter ??= new Int32Converter<TEncoder, TDecoder>());
-#else
-			converter = (MessagePackConverter)(_Int32Converter ??= new Int32Converter<TEncoder, TDecoder>());
-#endif
+			converter = (ShapeShiftConverter<T, TEncoder, TDecoder>)(_BooleanConverter ??= new BooleanConverter<TEncoder, TDecoder>());
 			return true;
 		}
 
-#if NET
+		if (typeof(T) == typeof(int))
+		{
+			converter = (ShapeShiftConverter<T, TEncoder, TDecoder>)(_Int32Converter ??= new Int32Converter<TEncoder, TDecoder>());
+			return true;
+		}
+
 		if (typeof(T) == typeof(string))
-#else
-		if (type == typeof(string))
-#endif
 		{
 			if (referencePreserving != ReferencePreservationMode.Off)
 			{
-#if NET
 				converter = (ShapeShiftConverter<T, TEncoder, TDecoder>)(_StringConverterReferencePreserving ??= new StringConverter<TEncoder, TDecoder>().WrapWithReferencePreservation());
-#else
-				converter = (MessagePackConverter)(_StringConverterReferencePreserving ??= new StringConverter<TEncoder, TDecoder>().WrapWithReferencePreservation());
-#endif
 			}
 			else
 			{
-#if NET
 				converter = (ShapeShiftConverter<T, TEncoder, TDecoder>)(_StringConverter ??= new StringConverter<TEncoder, TDecoder>());
-#else
-				converter = (MessagePackConverter)(_StringConverter ??= new StringConverter<TEncoder, TDecoder>());
-#endif
 			}
 
 			return true;
 		}
-
-
-#if NET
-		string primitiveTypeName = typeof(T).Name;
-#else
-		string primitiveTypeName = type.Name;
-#endif
-		string? primitiveTypeNamespace = null;
 
 		converter = null;
 		return false;

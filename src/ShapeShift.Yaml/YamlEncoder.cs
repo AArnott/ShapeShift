@@ -86,6 +86,12 @@ public ref struct YamlEncoder(TextWriter writer) : IEncoder
 	}
 
 	/// <inheritdoc/>
+	public void Write(bool value)
+	{
+		this.WriteScalar((value ? "true" : "false").AsSpan());
+	}
+
+	/// <inheritdoc/>
 	public void Write(int value)
 	{
 		this.WriteScalar(value.ToString().AsSpan());

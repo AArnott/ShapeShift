@@ -142,6 +142,18 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 	}
 
 	/// <inheritdoc/>
+	public bool ReadBoolean()
+	{
+		ReadOnlySpan<char> token = this.ReadToken(TokenType.String);
+		return token switch
+		{
+			"false" => false,
+			"true" => true,
+			_ => throw new DecoderException($"Invalid boolean value: {token.ToString()}."),
+		};
+	}
+
+	/// <inheritdoc/>
 	public int ReadInt32()
 	{
 		ReadOnlySpan<char> token = this.ReadToken(TokenType.Number);

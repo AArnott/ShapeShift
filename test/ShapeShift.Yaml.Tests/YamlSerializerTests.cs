@@ -20,6 +20,14 @@ public partial class YamlSerializerTests : TestBase
 		await Assert.That(this.lastSerializedYaml).IsEqualTo(original);
 	}
 
+	[Test, MatrixDataSource]
+	public async Task SimpleBoolean(bool original)
+	{
+		await this.AssertRoundtripAsync<bool, Witness>(original);
+
+		await Assert.That(this.lastSerializedYaml?.Trim()).IsEqualTo(original ? "true" : "false");
+	}
+
 	[Test]
 	public async Task SimpleInt32()
 	{
@@ -66,5 +74,6 @@ public partial class YamlSerializerTests : TestBase
 
 	[GenerateShapeFor<string>]
 	[GenerateShapeFor<int>]
+	[GenerateShapeFor<bool>]
 	private partial class Witness;
 }

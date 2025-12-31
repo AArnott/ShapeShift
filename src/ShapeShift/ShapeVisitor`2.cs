@@ -60,11 +60,6 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 			return customConverter;
 		}
 
-		if (BuiltInConverters.TryGetBuiltInConverter<T, TEncoder, TDecoder>(out var builtin))
-		{
-			return builtin;
-		}
-
 		Dictionary<string, PropertyConverter<T, TEncoder, TDecoder>> properties = new(objectShape.Properties.Count);
 		foreach (var property in objectShape.Properties)
 		{

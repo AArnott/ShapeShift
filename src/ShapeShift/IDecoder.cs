@@ -29,6 +29,8 @@ public interface IDecoder
 		}
 	}
 
+	public bool ReadBoolean();
+
 	public int ReadInt32();
 
 	public string ReadString();

@@ -18,6 +18,7 @@ namespace ShapeShift.Converters;
 <#
 var convertersByType = new List<ConverterInfo>
 {
+	new ConverterInfo("bool", "BooleanConverter"),
 	new ConverterInfo("int", "Int32Converter"),
 	new ConverterInfo("string", "StringConverter", IsRefType: true),
 };
@@ -25,8 +26,8 @@ var convertersByType = new List<ConverterInfo>
 /// <summary>
 /// Provides access to built-in converters for primitive types.
 /// </summary>
-/// <typeparam name="TEncoder"><inheritdoc cref="SerializerBase{TEncoder, TEncoder}" path="/typeparam[@name='TEncoder']"/></typeparam>
-/// <typeparam name="TDecoder"><inheritdoc cref="SerializerBase{TEncoder, TDecoder}" path="/typeparam[@name='TDecoder']"/></typeparam>
+/// <typeparam name="TEncoder"><inheritdoc cref="ShapeShiftSerializer{TEncoder, TEncoder}" path="/typeparam[@name='TEncoder']"/></typeparam>
+/// <typeparam name="TDecoder"><inheritdoc cref="ShapeShiftSerializer{TEncoder, TDecoder}" path="/typeparam[@name='TDecoder']"/></typeparam>
 /// <remarks>
 /// <para>This class is carefully crafted to avoid assembly loads by testing type names
 /// rather than types directly for types declared in assemblies that may not be loaded.</para>
@@ -58,7 +59,6 @@ internal static class PrimitiveConverterLookup<TEncoder, TDecoder>
 <#   }
 } #>
 
-#if NET
 	/// <summary>
 	/// Gets a built-in converter for the given type, if one is available.
 	/// </summary>
@@ -67,16 +67,6 @@ internal static class PrimitiveConverterLookup<TEncoder, TDecoder>
 	/// <param name="converter">Receives the converter, if one is available.</param>
 	/// <returns><see langword="true" /> if a converter was found; <see langword="false" /> otherwise.</returns>
 	internal static bool TryGetPrimitiveConverter<T>(ReferencePreservationMode referencePreserving, [NotNullWhen(true)] out ShapeShiftConverter<T, TEncoder, TDecoder>? converter)
-#else
-	/// <summary>
-	/// Gets a built-in converter for the given type, if one is available.
-	/// </summary>
-	/// <param name="type">The type to get a converter for.</param>
-	/// <param name="referencePreserving">Indicates whether a reference-preserving converter is requested.</param>
-	/// <param name="converter">Receives the converter, if one is available.</param>
-	/// <returns><see langword="true" /> if a converter was found; <see langword="false" /> otherwise.</returns>
-	internal static bool TryGetPrimitiveConverter(Type type, ReferencePreservationMode referencePreserving, [NotNullWhen(true)] out ShapeShiftConverter<TEncoder, TDecoder>? converter)
-#endif
 	{
 <# foreach (var converterGroup in convertersByType.Where(c => !c.LazyLoad).GroupBy(c => c.PreprocessorCondition)) {
 	 if (converterGroup.Key is not null) { #>
@@ -84,38 +74,22 @@ internal static class PrimitiveConverterLookup<TEncoder, TDecoder>
 <#   }
 	 foreach (var converter in converterGroup) {
 		string featureCondition = converter.Feature is not null ? $" && Features.{converter.Feature}" : string.Empty; #>
-#if NET
 		if (typeof(T) == typeof(<#=converter.TypeName#>)<#=featureCondition#>)
-#else
-		if (type == typeof(<#=converter.TypeName#>)<#=featureCondition#>)
-#endif
 		{
 <#
 	if (converter.IsRefType) {
 #>
 			if (referencePreserving != ReferencePreservationMode.Off)
 			{
-#if NET
 				converter = (ShapeShiftConverter<T, TEncoder, TDecoder>)(<#=converter.ReferencePreservingFieldName#> ??= new <#= converter.ConverterName #><TEncoder, TDecoder>().WrapWithReferencePreservation());
-#else
-				converter = (MessagePackConverter)(<#=converter.ReferencePreservingFieldName#> ??= new <#= converter.ConverterName #><TEncoder, TDecoder>().WrapWithReferencePreservation());
-#endif
 			}
 			else
 			{
-#if NET
 				converter = (ShapeShiftConverter<T, TEncoder, TDecoder>)(<#=converter.FieldName#> ??= new <#= converter.ConverterName #><TEncoder, TDecoder>());
-#else
-				converter = (MessagePackConverter)(<#=converter.FieldName#> ??= new <#= converter.ConverterName #><TEncoder, TDecoder>());
-#endif
 			}
 
 <# } else { #>
-#if NET
 			converter = (ShapeShiftConverter<T, TEncoder, TDecoder>)(<#=converter.FieldName#> ??= new <#= converter.ConverterName #><TEncoder, TDecoder>());
-#else
-			converter = (MessagePackConverter)(<#=converter.FieldName#> ??= new <#= converter.ConverterName #><TEncoder, TDecoder>());
-#endif
 <# } #>
 			return true;
 		}
@@ -125,15 +99,11 @@ internal static class PrimitiveConverterLookup<TEncoder, TDecoder>
 #endif
 <#   }
 } #>
-
-#if NET
+<# if (convertersByType.Any(c => c.LazyLoad && c.PreprocessorCondition is not null)) { #>
 		string primitiveTypeName = typeof(T).Name;
-#else
-		string primitiveTypeName = type.Name;
-#endif
 		string? primitiveTypeNamespace = null;
-
-<# foreach (var converterGroup in convertersByType.Where(c => c.LazyLoad).GroupBy(c => c.PreprocessorCondition)) {
+<# }
+foreach (var converterGroup in convertersByType.Where(c => c.LazyLoad).GroupBy(c => c.PreprocessorCondition)) {
 	 if (converterGroup.Key is not null) { #>
 #if <#=converterGroup.Key#>
 <#   }
@@ -145,38 +115,22 @@ internal static class PrimitiveConverterLookup<TEncoder, TDecoder>
 		string leafName = converter.TypeName.Substring(converter.TypeName.LastIndexOf('.') + 1);
 		string ns = converter.TypeName.Substring(0, converter.TypeName.LastIndexOf('.'));
 		string featureCondition = converter.Feature is not null ? $" && Features.{converter.Feature}" : string.Empty; #>
-#if NET
 		if (primitiveTypeName == "<#=leafName#>" && (primitiveTypeNamespace ??= typeof(T).Namespace) == "<#=ns#>"<#=featureCondition#>)
-#else
-		if (primitiveTypeName == "<#=leafName#>" && (primitiveTypeNamespace ??= type.Namespace) == "<#=ns#>"<#=featureCondition#>)
-#endif
 		{
 <#
 	if (converter.IsRefType) {
 #>
 			if (referencePreserving != ReferencePreservationMode.Off)
 			{
-#if NET
 				converter = (ShapeShiftConverter<T, TEncoder, TDecoder>?)(<#=converter.ReferencePreservingFieldName#> ??= Create<#=converter.ConverterName#><T>().WrapWithReferencePreservation());
-#else
-				converter = (MessagePackConverter?)(<#=converter.ReferencePreservingFieldName#> ??= Create<#=converter.ConverterName#><T>().WrapWithReferencePreservation());
-#endif
 			}
 			else
 			{
-#if NET
 				converter = (ShapeShiftConverter<T, TEncoder, TDecoder>?)(<#=converter.FieldName#> ??= Create<#=converter.ConverterName#><T>());
-#else
-				converter = (MessagePackConverter?)(<#=converter.FieldName#> ??= Create<#=converter.ConverterName#><T>());
-#endif
 			}
 
 <# } else { #>
-#if NET
 			converter = (ShapeShiftConverter<T, TEncoder, TDecoder>?)(<#=converter.FieldName#> ??= Create<#=converter.ConverterName#><T>());
-#else
-			converter = (MessagePackConverter?)(<#=converter.FieldName#> ??= Create<#=converter.ConverterName#>(type));
-#endif
 <# } #>
 			return converter is not null;
 		}
@@ -196,11 +150,7 @@ internal static class PrimitiveConverterLookup<TEncoder, TDecoder>
 #>
 
 	[MethodImpl(MethodImplOptions.NoInlining)]
-#if NET
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? Create<#=converter.ConverterName#><T>() => typeof(T) == typeof(<#=converter.TypeName#>) ? new <#=converter.ConverterName#>() : null;
-#else
-	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? Create<#=converter.ConverterName#>(Type type) => type == typeof(<#=converter.TypeName#>) ? new <#=converter.ConverterName#>() : null;
-#endif
 <# } #>
 }
 <#+
