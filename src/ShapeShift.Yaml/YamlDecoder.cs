@@ -14,7 +14,7 @@ namespace ShapeShift.Yaml;
 public ref struct YamlDecoder(TextReader reader) : IDecoder
 {
 	private const NumberStyles FloatingPointStyle = NumberStyles.Float | NumberStyles.AllowHexSpecifier;
-	private const NumberStyles IntegerPointStyle = NumberStyles.Integer | NumberStyles.AllowHexSpecifier;
+	private const NumberStyles IntegerPointStyle = NumberStyles.Integer; // | NumberStyles.AllowHexSpecifier (cannot be combined with allowing leading signs).
 
 	private readonly string text = reader.ReadToEnd();
 	private int scanOffset;

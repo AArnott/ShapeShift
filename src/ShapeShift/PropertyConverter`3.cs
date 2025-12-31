@@ -11,11 +11,11 @@ internal delegate void ReadProperty<TDeclaringType, TEncoder, TDecoder>(ref TDec
 	where TEncoder : IEncoder, allows ref struct
 	where TDecoder : IDecoder, allows ref struct;
 
-internal struct PropertyConverter<TDeclaringType, TEncoder, TDecoder>
+internal class PropertyConverter<TDeclaringType, TEncoder, TDecoder>
 	where TEncoder : IEncoder, allows ref struct
 	where TDecoder : IDecoder, allows ref struct
 {
-	internal required WriteProperty<TDeclaringType, TEncoder, TDecoder> Write { get; init; }
+	internal required WriteProperty<TDeclaringType, TEncoder, TDecoder>? Write { get; init; }
 
-	internal required ReadProperty<TDeclaringType, TEncoder, TDecoder> Read { get; init; }
+	internal required ReadProperty<TDeclaringType, TEncoder, TDecoder>? Read { get; init; }
 }

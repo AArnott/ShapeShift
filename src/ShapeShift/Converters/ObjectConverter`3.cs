@@ -3,45 +3,11 @@
 
 namespace ShapeShift;
 
-internal class ObjectConverter<T, TEncoder, TDecoder> : ShapeShiftConverter<T, TEncoder, TDecoder>
+internal abstract class ObjectConverter<T, TEncoder, TDecoder> : ShapeShiftConverter<T, TEncoder, TDecoder>
 	where TEncoder : IEncoder, allows ref struct
 	where TDecoder : IDecoder, allows ref struct
 {
-	private readonly Func<T> ctor;
-	private readonly IReadOnlyDictionary<string, PropertyConverter<T, TEncoder, TDecoder>> properties;
-
-	internal ObjectConverter(IObjectTypeShape<T> objectShape, IReadOnlyDictionary<string, PropertyConverter<T, TEncoder, TDecoder>> properties)
-	{
-		this.ctor = objectShape.GetDefaultConstructor() ?? throw new NotSupportedException();
-		this.properties = properties;
-	}
-
-	public override T? Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context)
-	{
-		if (decoder.TryReadNull())
-		{
-			return default;
-		}
-
-		T result = this.ctor();
-		int? remaining = decoder.ReadStartMap();
-		while (decoder.NextTokenType != TokenType.EndMap)
-		{
-			string propertyName = decoder.ReadPropertyName().ToString();
-			if (this.properties.TryGetValue(propertyName, out var propertyConverter))
-			{
-				propertyConverter.Read(ref decoder, ref result, context);
-			}
-			else
-			{
-				decoder.Skip();
-			}
-		}
-
-		decoder.ReadEndMap();
-
-		return result;
-	}
+	internal required IReadOnlyDictionary<string, WriteProperty<T, TEncoder, TDecoder>> PropertyWriters { get; init; }
 
 	public override void Write(ref TEncoder encoder, in T? value, SerializationContext<TEncoder, TDecoder> context)
 	{
@@ -51,13 +17,19 @@ internal class ObjectConverter<T, TEncoder, TDecoder> : ShapeShiftConverter<T, T
 			return;
 		}
 
-		encoder.WriteStartMap(this.properties.Count);
-		foreach (var property in this.properties)
+		var callbacks = value as IShapeShiftSerializationCallbacks;
+		callbacks?.OnBeforeSerialize();
+
+		context.DepthStep();
+
+		encoder.WriteStartMap(this.PropertyWriters.Count);
+		foreach ((string name, var propertyWriter) in this.PropertyWriters)
 		{
-			encoder.WritePropertyName(property.Key);
-			property.Value.Write(ref encoder, in value, context);
+			encoder.WritePropertyName(name);
+			propertyWriter(ref encoder, in value, context);
 		}
 
 		encoder.WriteEndMap();
+		callbacks?.OnAfterSerialize();
 	}
 }

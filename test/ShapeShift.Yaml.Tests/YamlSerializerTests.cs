@@ -46,6 +46,13 @@ public partial class YamlSerializerTests : TestBase
 	}
 
 	[Test]
+	public async Task SimpleRecordWithNonDefaultCtor()
+	{
+		PersonWithInit person = new("John", "Doe");
+		await this.AssertRoundtripAsync(person);
+	}
+
+	[Test]
 	public async Task ListOfRecords()
 	{
 		Family family = new()
@@ -86,6 +93,9 @@ public partial class YamlSerializerTests : TestBase
 
 		public string? LastName { get; set; }
 	}
+
+	[GenerateShape]
+	internal partial record PersonWithInit(string FirstName, string LastName);
 
 	[GenerateShape]
 	internal partial record Family

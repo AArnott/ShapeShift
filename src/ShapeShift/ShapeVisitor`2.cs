@@ -60,27 +60,85 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 			return customConverter;
 		}
 
-		Dictionary<string, PropertyConverter<T, TEncoder, TDecoder>> properties = new(objectShape.Properties.Count);
-		foreach (var property in objectShape.Properties)
+		return objectShape.Constructor?.Accept(this) ?? ConverterResult<TEncoder, TDecoder>.Err($"Unconstructable type: {typeof(T).FullName}");
+	}
+
+	public override object? VisitConstructor<TDeclaringType, TArgumentState>(IConstructorShape<TDeclaringType, TArgumentState> constructorShape, object? state = null)
+	{
+		IObjectTypeShape<TDeclaringType> objectShape = constructorShape.DeclaringType;
+		ObjectConverter<TDeclaringType, TEncoder, TDecoder> converter;
+		if (constructorShape.Parameters is [])
 		{
-			properties.Add(property.Name, (PropertyConverter<T, TEncoder, TDecoder>)property.Accept(this)!);
+			Dictionary<string, ReadProperty<TDeclaringType, TEncoder, TDecoder>> propertyReaders = new(objectShape.Properties.Count);
+			Dictionary<string, WriteProperty<TDeclaringType, TEncoder, TDecoder>> propertyWriters = new(objectShape.Properties.Count);
+			foreach (var property in objectShape.Properties)
+			{
+				var converters = (PropertyConverter<TDeclaringType, TEncoder, TDecoder>)property.Accept(this)!;
+				if (converters.Read is not null)
+				{
+					propertyReaders.Add(property.Name, converters.Read);
+				}
+
+				if (converters.Write is not null)
+				{
+					propertyWriters.Add(property.Name, converters.Write);
+				}
+			}
+
+			converter = new ObjectConverterWithDefaultCtor<TDeclaringType, TEncoder, TDecoder>(constructorShape.GetDefaultConstructor())
+			{
+				PropertyReaders = propertyReaders,
+				PropertyWriters = propertyWriters,
+			};
+		}
+		else
+		{
+			Dictionary<string, ReadProperty<TArgumentState, TEncoder, TDecoder>> propertyReaders = new(constructorShape.Parameters.Count);
+			Dictionary<string, WriteProperty<TDeclaringType, TEncoder, TDecoder>> propertyWriters = new(objectShape.Properties.Count);
+			foreach (var property in objectShape.Properties)
+			{
+				var converters = (PropertyConverter<TDeclaringType, TEncoder, TDecoder>)property.Accept(this)!;
+				if (converters.Write is not null)
+				{
+					propertyWriters.Add(property.Name, converters.Write);
+				}
+			}
+
+			foreach (var parameter in constructorShape.Parameters)
+			{
+				var propertyReader = (ReadProperty<TArgumentState, TEncoder, TDecoder>)parameter.Accept(this, parameter)!;
+				propertyReaders.Add(parameter.Name, propertyReader);
+			}
+
+			converter = new ObjectConverterWithNonDefaultCtor<TDeclaringType, TArgumentState, TEncoder, TDecoder>(constructorShape.GetArgumentStateConstructor(), constructorShape.GetParameterizedConstructor())
+			{
+				PropertyReaders = propertyReaders,
+				PropertyWriters = propertyWriters,
+			};
 		}
 
-		return ConverterResult.Ok(new ObjectConverter<T, TEncoder, TDecoder>(objectShape, properties));
+		return ConverterResult.Ok(converter);
+	}
+
+	public override object? VisitParameter<TArgumentState, TParameterType>(IParameterShape<TArgumentState, TParameterType> parameterShape, object? state = null)
+	{
+		ConverterResult<TEncoder, TDecoder> converter = this.GetConverterForMemberOrParameter(parameterShape.ParameterType, parameterShape.AttributeProvider);
+
+		Setter<TArgumentState, TParameterType> setter = parameterShape.GetSetter();
+
+		return new ReadProperty<TArgumentState, TEncoder, TDecoder>((ref decoder, ref argumentState, context) => setter(ref argumentState, ((ShapeShiftConverter<TParameterType, TEncoder, TDecoder>)converter.ValueOrThrow).Read(ref decoder, context)!));
 	}
 
 	public override object? VisitProperty<TDeclaringType, TPropertyType>(IPropertyShape<TDeclaringType, TPropertyType> propertyShape, object? state = null)
 	{
-		IParameterShape? constructorParameterShape = (IParameterShape?)state;
-
 		ConverterResult<TEncoder, TDecoder> converter = this.GetConverterForMemberOrParameter(propertyShape.PropertyType, propertyShape.AttributeProvider);
 
-		Getter<TDeclaringType, TPropertyType> getter = propertyShape.GetGetter();
-		Setter<TDeclaringType, TPropertyType> setter = propertyShape.GetSetter();
+		Getter<TDeclaringType, TPropertyType>? getter = propertyShape.HasGetter ? propertyShape.GetGetter() : null;
+		Setter<TDeclaringType, TPropertyType>? setter = propertyShape.HasSetter ? propertyShape.GetSetter() : null;
 		return new PropertyConverter<TDeclaringType, TEncoder, TDecoder>
 		{
-			Write = (ref encoder, in target, context) => ((ShapeShiftConverter<TPropertyType, TEncoder, TDecoder>)converter.ValueOrThrow).Write(ref encoder, getter(ref Unsafe.AsRef(in target)), context),
-			Read = (ref decoder, ref target, context) => setter(ref target, ((ShapeShiftConverter<TPropertyType, TEncoder, TDecoder>)converter.ValueOrThrow).Read(ref decoder, context)!),
+			Write = getter is null ? null : (ref encoder, in target, context) => ((ShapeShiftConverter<TPropertyType, TEncoder, TDecoder>)converter.ValueOrThrow).Write(ref encoder, getter(ref Unsafe.AsRef(in target)), context),
+			Read = setter is null ? null : (ref decoder, ref target, context) => setter(ref target, ((ShapeShiftConverter<TPropertyType, TEncoder, TDecoder>)converter.ValueOrThrow).Read(ref decoder, context)!),
 		};
 	}
 
