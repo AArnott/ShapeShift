@@ -16,7 +16,7 @@ internal class BooleanConverter<TEncoder, TDecoder> : ShapeShiftConverter<bool, 
 	public override bool Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => decoder.ReadBoolean();
 
 	/// <inheritdoc/>
-	public override void Write(ref TEncoder encoder, in bool value, SerializationContext<TEncoder, TDecoder> context) => encoder.Write(value);
+	public override void Write(ref TEncoder encoder, in bool value, SerializationContext<TEncoder, TDecoder> context) => encoder.WriteValue(value);
 }
 
 internal class HalfConverter<TEncoder, TDecoder> : ShapeShiftConverter<Half, TEncoder, TDecoder>
@@ -27,7 +27,7 @@ internal class HalfConverter<TEncoder, TDecoder> : ShapeShiftConverter<Half, TEn
 	public override Half Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => decoder.ReadHalf();
 
 	/// <inheritdoc/>
-	public override void Write(ref TEncoder encoder, in Half value, SerializationContext<TEncoder, TDecoder> context) => encoder.Write(value);
+	public override void Write(ref TEncoder encoder, in Half value, SerializationContext<TEncoder, TDecoder> context) => encoder.WriteValue(value);
 }
 
 internal class SingleConverter<TEncoder, TDecoder> : ShapeShiftConverter<float, TEncoder, TDecoder>
@@ -38,7 +38,7 @@ internal class SingleConverter<TEncoder, TDecoder> : ShapeShiftConverter<float, 
 	public override float Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => decoder.ReadSingle();
 
 	/// <inheritdoc/>
-	public override void Write(ref TEncoder encoder, in float value, SerializationContext<TEncoder, TDecoder> context) => encoder.Write(value);
+	public override void Write(ref TEncoder encoder, in float value, SerializationContext<TEncoder, TDecoder> context) => encoder.WriteValue(value);
 }
 
 internal class DoubleConverter<TEncoder, TDecoder> : ShapeShiftConverter<double, TEncoder, TDecoder>
@@ -49,7 +49,7 @@ internal class DoubleConverter<TEncoder, TDecoder> : ShapeShiftConverter<double,
 	public override double Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => decoder.ReadDouble();
 
 	/// <inheritdoc/>
-	public override void Write(ref TEncoder encoder, in double value, SerializationContext<TEncoder, TDecoder> context) => encoder.Write(value);
+	public override void Write(ref TEncoder encoder, in double value, SerializationContext<TEncoder, TDecoder> context) => encoder.WriteValue(value);
 }
 
 internal class CharConverter<TEncoder, TDecoder> : ShapeShiftConverter<char, TEncoder, TDecoder>
@@ -63,7 +63,7 @@ internal class CharConverter<TEncoder, TDecoder> : ShapeShiftConverter<char, TEn
 	}
 
 	/// <inheritdoc/>
-	public override void Write(ref TEncoder encoder, in char value, SerializationContext<TEncoder, TDecoder> context) => encoder.Write([value]);
+	public override void Write(ref TEncoder encoder, in char value, SerializationContext<TEncoder, TDecoder> context) => encoder.WriteValue([value]);
 }
 
 internal class StringConverter<TEncoder, TDecoder> : ShapeShiftConverter<string, TEncoder, TDecoder>
@@ -85,7 +85,14 @@ internal class StringConverter<TEncoder, TDecoder> : ShapeShiftConverter<string,
 	/// <inheritdoc/>
 	public override void Write(ref TEncoder encoder, in string? value, SerializationContext<TEncoder, TDecoder> context)
 	{
-		encoder.Write(value);
+		if (value is null)
+		{
+			encoder.WriteNull();
+		}
+		else
+		{
+			encoder.WriteValue(value);
+		}
 	}
 }
 
@@ -109,6 +116,13 @@ internal class InterningStringConverter<TEncoder, TDecoder> : ShapeShiftConverte
 	/// <inheritdoc/>
 	public override void Write(ref TEncoder encoder, in string? value, SerializationContext<TEncoder, TDecoder> context)
 	{
-		encoder.Write(value);
+		if (value is null)
+		{
+			encoder.WriteNull();
+		}
+		else
+		{
+			encoder.WriteValue(value);
+		}
 	}
 }

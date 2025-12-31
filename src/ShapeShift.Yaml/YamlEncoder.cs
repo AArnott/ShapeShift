@@ -88,43 +88,43 @@ public ref struct YamlEncoder(TextWriter writer) : IEncoder
 	}
 
 	/// <inheritdoc/>
-	public void Write(bool value)
+	public void WriteValue(bool value)
 	{
 		this.WriteScalar((value ? "true" : "false").AsSpan());
 	}
 
 	/// <inheritdoc/>
-	public void Write(long value)
+	public void WriteValue(long value)
 	{
 		this.WriteScalar(value.ToString(CultureInfo.InvariantCulture).AsSpan());
 	}
 
 	/// <inheritdoc/>
-	public void Write(ulong value)
+	public void WriteValue(ulong value)
 	{
 		this.WriteScalar(value.ToString(CultureInfo.InvariantCulture).AsSpan());
 	}
 
 	/// <inheritdoc/>
-	public void Write(Half value)
+	public void WriteValue(Half value)
 	{
 		this.WriteScalar(value.ToString(CultureInfo.InvariantCulture).AsSpan());
 	}
 
 	/// <inheritdoc/>
-	public void Write(float value)
+	public void WriteValue(float value)
 	{
 		this.WriteScalar(value.ToString(CultureInfo.InvariantCulture).AsSpan());
 	}
 
 	/// <inheritdoc/>
-	public void Write(double value)
+	public void WriteValue(double value)
 	{
 		this.WriteScalar(value.ToString(CultureInfo.InvariantCulture).AsSpan());
 	}
 
 	/// <inheritdoc/>
-	public void Write(string? value)
+	public void WriteValue(string? value)
 	{
 		if (value is null)
 		{
@@ -144,7 +144,7 @@ public ref struct YamlEncoder(TextWriter writer) : IEncoder
 	}
 
 	/// <inheritdoc/>
-	public void Write(scoped ReadOnlySpan<char> value)
+	public void WriteValue(scoped ReadOnlySpan<char> value)
 	{
 		if (this.depth == 0 && !this.pendingPropertyValue)
 		{

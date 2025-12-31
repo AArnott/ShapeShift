@@ -27,6 +27,6 @@ internal class <#=type#>Converter<TEncoder, TDecoder> : ShapeShiftConverter<<#=t
 	public override <#=type#> Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => checked((<#=type#>)decoder.Read<#=signed ? "Int64" : "UInt64"#>());
 
 	/// <inheritdoc/>
-	public override void Write(ref TEncoder encoder, in <#=type#> value, SerializationContext<TEncoder, TDecoder> context) => encoder.Write((<#=signed ? "long" : "ulong"#>)value);
+	public override void Write(ref TEncoder encoder, in <#=type#> value, SerializationContext<TEncoder, TDecoder> context) => encoder.WriteValue((<#=signed ? "long" : "ulong"#>)value);
 }
 <# } #>

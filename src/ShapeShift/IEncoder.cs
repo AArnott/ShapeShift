@@ -17,19 +17,19 @@ public interface IEncoder
 
 	void WriteNull();
 
-	void Write(bool value);
+	void WriteValue(bool value);
 
-	void Write(long value);
+	void WriteValue(long value);
 
-	void Write(ulong value);
+	void WriteValue(ulong value);
 
-	void Write(Half value);
+	void WriteValue(Half value);
 
-	void Write(float value);
+	void WriteValue(float value);
 
-	void Write(double value);
+	void WriteValue(double value);
 
-	void Write(string? value);
+	void WriteValue(string value);
 
-	void Write(scoped ReadOnlySpan<char> value);
+	void WriteValue(scoped ReadOnlySpan<char> value);
 }

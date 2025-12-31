@@ -21,7 +21,7 @@ internal class SByteConverter<TEncoder, TDecoder> : ShapeShiftConverter<SByte, T
 	public override SByte Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => checked((SByte)decoder.ReadInt64());
 
 	/// <inheritdoc/>
-	public override void Write(ref TEncoder encoder, in SByte value, SerializationContext<TEncoder, TDecoder> context) => encoder.Write((long)value);
+	public override void Write(ref TEncoder encoder, in SByte value, SerializationContext<TEncoder, TDecoder> context) => encoder.WriteValue((long)value);
 }
 
 /// <summary>Serializes the primitive integer type <see cref="Int16"/>.</summary>
@@ -35,7 +35,7 @@ internal class Int16Converter<TEncoder, TDecoder> : ShapeShiftConverter<Int16, T
 	public override Int16 Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => checked((Int16)decoder.ReadInt64());
 
 	/// <inheritdoc/>
-	public override void Write(ref TEncoder encoder, in Int16 value, SerializationContext<TEncoder, TDecoder> context) => encoder.Write((long)value);
+	public override void Write(ref TEncoder encoder, in Int16 value, SerializationContext<TEncoder, TDecoder> context) => encoder.WriteValue((long)value);
 }
 
 /// <summary>Serializes the primitive integer type <see cref="Int32"/>.</summary>
@@ -49,7 +49,7 @@ internal class Int32Converter<TEncoder, TDecoder> : ShapeShiftConverter<Int32, T
 	public override Int32 Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => checked((Int32)decoder.ReadInt64());
 
 	/// <inheritdoc/>
-	public override void Write(ref TEncoder encoder, in Int32 value, SerializationContext<TEncoder, TDecoder> context) => encoder.Write((long)value);
+	public override void Write(ref TEncoder encoder, in Int32 value, SerializationContext<TEncoder, TDecoder> context) => encoder.WriteValue((long)value);
 }
 
 /// <summary>Serializes the primitive integer type <see cref="Int64"/>.</summary>
@@ -63,7 +63,7 @@ internal class Int64Converter<TEncoder, TDecoder> : ShapeShiftConverter<Int64, T
 	public override Int64 Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => checked((Int64)decoder.ReadInt64());
 
 	/// <inheritdoc/>
-	public override void Write(ref TEncoder encoder, in Int64 value, SerializationContext<TEncoder, TDecoder> context) => encoder.Write((long)value);
+	public override void Write(ref TEncoder encoder, in Int64 value, SerializationContext<TEncoder, TDecoder> context) => encoder.WriteValue((long)value);
 }
 
 /// <summary>Serializes the primitive integer type <see cref="Byte"/>.</summary>
@@ -77,7 +77,7 @@ internal class ByteConverter<TEncoder, TDecoder> : ShapeShiftConverter<Byte, TEn
 	public override Byte Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => checked((Byte)decoder.ReadUInt64());
 
 	/// <inheritdoc/>
-	public override void Write(ref TEncoder encoder, in Byte value, SerializationContext<TEncoder, TDecoder> context) => encoder.Write((ulong)value);
+	public override void Write(ref TEncoder encoder, in Byte value, SerializationContext<TEncoder, TDecoder> context) => encoder.WriteValue((ulong)value);
 }
 
 /// <summary>Serializes the primitive integer type <see cref="UInt16"/>.</summary>
@@ -91,7 +91,7 @@ internal class UInt16Converter<TEncoder, TDecoder> : ShapeShiftConverter<UInt16,
 	public override UInt16 Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => checked((UInt16)decoder.ReadUInt64());
 
 	/// <inheritdoc/>
-	public override void Write(ref TEncoder encoder, in UInt16 value, SerializationContext<TEncoder, TDecoder> context) => encoder.Write((ulong)value);
+	public override void Write(ref TEncoder encoder, in UInt16 value, SerializationContext<TEncoder, TDecoder> context) => encoder.WriteValue((ulong)value);
 }
 
 /// <summary>Serializes the primitive integer type <see cref="UInt32"/>.</summary>
@@ -105,7 +105,7 @@ internal class UInt32Converter<TEncoder, TDecoder> : ShapeShiftConverter<UInt32,
 	public override UInt32 Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => checked((UInt32)decoder.ReadUInt64());
 
 	/// <inheritdoc/>
-	public override void Write(ref TEncoder encoder, in UInt32 value, SerializationContext<TEncoder, TDecoder> context) => encoder.Write((ulong)value);
+	public override void Write(ref TEncoder encoder, in UInt32 value, SerializationContext<TEncoder, TDecoder> context) => encoder.WriteValue((ulong)value);
 }
 
 /// <summary>Serializes the primitive integer type <see cref="UInt64"/>.</summary>
@@ -119,5 +119,5 @@ internal class UInt64Converter<TEncoder, TDecoder> : ShapeShiftConverter<UInt64,
 	public override UInt64 Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => checked((UInt64)decoder.ReadUInt64());
 
 	/// <inheritdoc/>
-	public override void Write(ref TEncoder encoder, in UInt64 value, SerializationContext<TEncoder, TDecoder> context) => encoder.Write((ulong)value);
+	public override void Write(ref TEncoder encoder, in UInt64 value, SerializationContext<TEncoder, TDecoder> context) => encoder.WriteValue((ulong)value);
 }
