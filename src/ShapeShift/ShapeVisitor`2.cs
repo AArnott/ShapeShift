@@ -115,19 +115,19 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 				throw new ArgumentException("Providing both attributes and state are not supported because we reuse the state parameter for attribute influence.");
 			}
 
-			////if (memberAttributes.GetCustomAttribute<UseComparerAttribute>() is { } attribute)
-			////{
-			////	MemberConverterInfluence memberInfluence = new()
-			////	{
-			////		ComparerSource = attribute.ComparerType,
-			////		ComparerSourceMemberName = attribute.MemberName,
-			////	};
+			if (memberAttributes.GetCustomAttribute<UseComparerAttribute>() is { } attribute)
+			{
+				MemberConverterInfluence memberInfluence = new()
+				{
+					ComparerSource = attribute.ComparerType,
+					ComparerSourceMemberName = attribute.MemberName,
+				};
 
-			////	// PERF: Ideally, we can store and retrieve member influenced converters
-			////	// just like we do for non-member influenced ones.
-			////	// We'd probably use a separate dictionary dedicated to member-influenced converters.
-			////	return (ConverterResult<TEncoder, TDecoder>)shape.Accept(this.OutwardVisitor, memberInfluence)!;
-			////}
+				// PERF: Ideally, we can store and retrieve member influenced converters
+				// just like we do for non-member influenced ones.
+				// We'd probably use a separate dictionary dedicated to member-influenced converters.
+				return (ConverterResult<TEncoder, TDecoder>)shape.Accept(this.OutwardVisitor, memberInfluence)!;
+			}
 		}
 
 		return (ConverterResult<TEncoder, TDecoder>)this.context.GetOrAdd(shape, state)!;
@@ -224,5 +224,72 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 
 		converter = ConverterResult.Ok((ShapeShiftConverter<TEncoder, TDecoder>)ctor.Invoke(Array.Empty<object?>()));
 		return true;
+	}
+
+	/// <summary>
+	/// Captures the influence of a member on a converter.
+	/// </summary>
+	/// <remarks>
+	/// This must be hashable/equatable so that we can cache converters based on this influence.
+	/// </remarks>
+	private record MemberConverterInfluence
+	{
+		/// <summary>
+		/// Gets the type that provides the comparer, if specified by the member.
+		/// </summary>
+		[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]
+		public Type? ComparerSource { get; init; }
+
+		/// <summary>
+		/// Gets the name of the property on <see cref="ComparerSource"/> that provides the comparer, if specified by the member.
+		/// </summary>
+		public string? ComparerSourceMemberName { get; init; }
+
+		/// <summary>
+		/// Gets the equality comparer for the specified type, if a comparer source is specified.
+		/// </summary>
+		/// <typeparam name="T">The type to be compared.</typeparam>
+		/// <returns>The equality comparer, if available.</returns>
+		public IEqualityComparer<T>? GetEqualityComparer<T>() => this.ComparerSource is null ? null : (IEqualityComparer<T>)this.ActivateComparer();
+
+		/// <summary>
+		/// Gets the comparer for the specified type, if a comparer source is specified.
+		/// </summary>
+		/// <typeparam name="T">The type to be compared.</typeparam>
+		/// <returns>The comparer, if available.</returns>
+		public IComparer<T>? GetComparer<T>() => this.ComparerSource is null ? null : (IComparer<T>)this.ActivateComparer();
+
+		/// <summary>
+		/// Gets the comparer from the specified type and member.
+		/// </summary>
+		/// <returns>The comparer.</returns>
+		/// <exception cref="InvalidOperationException">Thrown if something goes wrong in obtaining the comparer from the given type and member.</exception>
+		private object ActivateComparer()
+		{
+			Verify.Operation(this.ComparerSource is not null, "Comparer source is not specified.");
+
+			MethodInfo? propertyGetter = null;
+			if (this.ComparerSourceMemberName is not null)
+			{
+				PropertyInfo? property = this.ComparerSource.GetProperty(this.ComparerSourceMemberName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static);
+				if (property is not { GetMethod: { } getter })
+				{
+					throw new InvalidOperationException($"Unable to find public property '{this.ComparerSourceMemberName}' on type '{this.ComparerSource.FullName}' with getter.");
+				}
+
+				if (getter.IsStatic)
+				{
+					return getter.Invoke(null, null) ?? throw CreateNullPropertyValueError();
+				}
+
+				propertyGetter = getter;
+			}
+
+			object? instance = Activator.CreateInstance(this.ComparerSource) ?? throw new InvalidOperationException($"Unable to activate {this.ComparerSource}.");
+
+			return propertyGetter is null ? instance : propertyGetter.Invoke(instance, null) ?? CreateNullPropertyValueError();
+
+			InvalidOperationException CreateNullPropertyValueError() => new InvalidOperationException($"{this.ComparerSource.FullName}.{this.ComparerSourceMemberName} produced a null value.");
+		}
 	}
 }

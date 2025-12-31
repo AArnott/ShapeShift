@@ -7,7 +7,7 @@ using System.Runtime.CompilerServices;
 namespace ShapeShift;
 
 /// <summary>
-/// Context in which a <see cref="IMessagePackConverterFactory"/> is invoked.
+/// Context in which a <see cref="IShapeShiftConverterFactory{TEncoder, TDecoder}"/> is invoked.
 /// </summary>
 /// <typeparam name="TEncoder"><inheritdoc cref="SerializerBase{TEncoder, TEncoder}" path="/typeparam[@name='TEncoder']"/></typeparam>
 /// <typeparam name="TDecoder"><inheritdoc cref="SerializerBase{TEncoder, TDecoder}" path="/typeparam[@name='TDecoder']"/></typeparam>
@@ -73,7 +73,7 @@ public struct ConverterContext<TEncoder, TDecoder>
 	/// </summary>
 	/// <typeparam name="T">The type to be converted.</typeparam>
 	/// <param name="provider">
-	/// <inheritdoc cref="MessagePackSerializer.CreateSerializationContext(ITypeShapeProvider, CancellationToken)" path="/param[@name='provider']"/>
+	/// <inheritdoc cref="SerializerBase{TEncoder, TDecoder}.CreateSerializationContext(ITypeShapeProvider, CancellationToken)" path="/param[@name='provider']"/>
 	/// It can also come from <see cref="TypeShapeProvider"/>.
 	/// A <see langword="null" /> value will be filled in with <see cref="TypeShapeProvider"/>.
 	/// </param>
