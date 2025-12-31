@@ -3,3 +3,5 @@
 
 global using Microsoft;
 global using PolyType;
+global using PolyType.Abstractions;
+global using PolyType.Utilities;

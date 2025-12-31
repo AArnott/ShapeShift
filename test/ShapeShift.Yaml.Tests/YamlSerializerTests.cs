@@ -8,63 +8,63 @@ namespace ShapeShift.Yaml.Tests;
 
 public partial class YamlSerializerTests : TestBase
 {
-    private string? lastSerializedYaml;
+	private string? lastSerializedYaml;
 
-    [Test]
-    public async Task SimpleString()
-    {
-        string original = "Hello, World!";
-        await this.AssertRoundtripAsync<string, Witness>(original);
+	[Test]
+	public async Task SimpleString()
+	{
+		string original = "Hello, World!";
+		await this.AssertRoundtripAsync<string, Witness>(original);
 
-        // In the case of a simple string, the yaml representation is equal to the string itself.
-        await Assert.That(this.lastSerializedYaml).IsEqualTo(original);
-    }
+		// In the case of a simple string, the yaml representation is equal to the string itself.
+		await Assert.That(this.lastSerializedYaml).IsEqualTo(original);
+	}
 
-    [Test]
-    public async Task SimpleInt32()
-    {
-        int original = 42;
-        await this.AssertRoundtripAsync<int, Witness>(original);
+	[Test]
+	public async Task SimpleInt32()
+	{
+		int original = 42;
+		await this.AssertRoundtripAsync<int, Witness>(original);
 
-        // In the case of an integer, the yaml representation is equal the a simple ToString on the integer.
-        await Assert.That(this.lastSerializedYaml?.Trim()).IsEqualTo(original.ToString(CultureInfo.InvariantCulture));
-    }
+		// In the case of an integer, the yaml representation is equal the a simple ToString on the integer.
+		await Assert.That(this.lastSerializedYaml?.Trim()).IsEqualTo(original.ToString(CultureInfo.InvariantCulture));
+	}
 
-    [Test]
-    public async Task SimpleRecordWithDefaultCtor()
-    {
-        Person person = new() { FirstName = "John", LastName = "Doe" };
-        await this.AssertRoundtripAsync(person);
-    }
+	[Test]
+	public async Task SimpleRecordWithDefaultCtor()
+	{
+		Person person = new() { FirstName = "John", LastName = "Doe" };
+		await this.AssertRoundtripAsync(person);
+	}
 
-    protected ValueTask<T?> AssertRoundtripAsync<T>(T? value)
-        where T : IShapeable<T> => this.AssertRoundtripAsync<T, T>(value);
+	protected ValueTask<T?> AssertRoundtripAsync<T>(T? value)
+		where T : IShapeable<T> => this.AssertRoundtripAsync<T, T>(value);
 
-    protected async ValueTask<T?> AssertRoundtripAsync<T, TProvider>(T? value)
-        where TProvider : IShapeable<T>
-    {
-        YamlSerializer serializer = new();
+	protected async ValueTask<T?> AssertRoundtripAsync<T, TProvider>(T? value)
+		where TProvider : IShapeable<T>
+	{
+		YamlSerializer serializer = new();
 
-        this.lastSerializedYaml = serializer.Serialize<T, TProvider>(value);
+		this.lastSerializedYaml = serializer.Serialize<T, TProvider>(value);
 
-        Console.WriteLine("Serialized form:");
-        Console.WriteLine(this.lastSerializedYaml);
+		Console.WriteLine("Serialized form:");
+		Console.WriteLine(this.lastSerializedYaml);
 
-        T? deserialized = serializer.Deserialize<T, TProvider>(this.lastSerializedYaml);
+		T? deserialized = serializer.Deserialize<T, TProvider>(this.lastSerializedYaml);
 
-        await Assert.That(deserialized).IsEqualTo(value);
-        return deserialized;
-    }
+		await Assert.That(deserialized).IsEqualTo(value);
+		return deserialized;
+	}
 
-    [GenerateShape]
-    internal partial record Person
-    {
-        public string? FirstName { get; set; }
+	[GenerateShape]
+	internal partial record Person
+	{
+		public string? FirstName { get; set; }
 
-        public string? LastName { get; set; }
-    }
+		public string? LastName { get; set; }
+	}
 
-    [GenerateShapeFor<string>]
-    [GenerateShapeFor<int>]
-    private partial class Witness;
+	[GenerateShapeFor<string>]
+	[GenerateShapeFor<int>]
+	private partial class Witness;
 }

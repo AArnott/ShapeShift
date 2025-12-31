@@ -7,8 +7,8 @@ namespace ShapeShift.Tests;
 
 public partial class SerializerBaseTests : TestBase
 {
-    [Test]
-    public void EmptyTest()
-    {
-    }
+	[Test]
+	public void EmptyTest()
+	{
+	}
 }

@@ -5,8 +5,8 @@ namespace ShapeShift;
 
 public class DecoderException : Exception
 {
-    public DecoderException(string message)
-        : base(message)
-    {
-    }
+	public DecoderException(string message)
+		: base(message)
+	{
+	}
 }

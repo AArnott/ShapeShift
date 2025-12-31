@@ -3,17 +3,19 @@
 
 namespace ShapeShift;
 
-internal delegate void WriteProperty<TDeclaringType, TEncoder>(ref TEncoder encoder, in TDeclaringType value, SerializationContext context)
-    where TEncoder : IEncoder, allows ref struct;
+internal delegate void WriteProperty<TDeclaringType, TEncoder, TDecoder>(ref TEncoder encoder, in TDeclaringType value, SerializationContext<TEncoder, TDecoder> context)
+	where TEncoder : IEncoder, allows ref struct
+	where TDecoder : IDecoder, allows ref struct;
 
-internal delegate void ReadProperty<TDeclaringType, TDecoder>(ref TDecoder decoder, ref TDeclaringType value, SerializationContext context)
-    where TDecoder : IDecoder, allows ref struct;
+internal delegate void ReadProperty<TDeclaringType,	TEncoder, TDecoder>(ref TDecoder decoder, ref TDeclaringType value, SerializationContext<TEncoder, TDecoder> context)
+	where TEncoder : IEncoder, allows ref struct
+	where TDecoder : IDecoder, allows ref struct;
 
 internal struct PropertyConverter<TDeclaringType, TEncoder, TDecoder>
-    where TEncoder : IEncoder, allows ref struct
-    where TDecoder : IDecoder, allows ref struct
+	where TEncoder : IEncoder, allows ref struct
+	where TDecoder : IDecoder, allows ref struct
 {
-    internal required WriteProperty<TDeclaringType, TEncoder> Write { get; init; }
+	internal required WriteProperty<TDeclaringType, TEncoder, TDecoder> Write { get; init; }
 
-    internal required ReadProperty<TDeclaringType, TDecoder> Read { get; init; }
+	internal required ReadProperty<TDeclaringType, TEncoder, TDecoder> Read { get; init; }
 }

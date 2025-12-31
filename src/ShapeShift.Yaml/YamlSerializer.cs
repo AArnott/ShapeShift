@@ -5,26 +5,26 @@ namespace ShapeShift.Yaml;
 
 public class YamlSerializer : SerializerBase<YamlEncoder, YamlDecoder>
 {
-    public string Serialize<T>(in T? value)
-        where T : IShapeable<T> => this.Serialize<T, T>(value);
+	public string Serialize<T>(in T? value)
+		where T : IShapeable<T> => this.Serialize<T, T>(value);
 
-    public string Serialize<T, TProvider>(in T? value)
-        where TProvider : IShapeable<T>
-    {
-        StringWriter stringWriter = new();
-        YamlEncoder encoder = new(stringWriter);
-        this.Serialize(ref encoder, value, TProvider.GetTypeShape());
-        return stringWriter.ToString();
-    }
+	public string Serialize<T, TProvider>(in T? value)
+		where TProvider : IShapeable<T>
+	{
+		StringWriter stringWriter = new();
+		YamlEncoder encoder = new(stringWriter);
+		this.Serialize(ref encoder, value, TProvider.GetTypeShape());
+		return stringWriter.ToString();
+	}
 
-    public T? Deserialize<T>(string yaml)
-        where T : IShapeable<T> => this.Deserialize<T, T>(yaml);
+	public T? Deserialize<T>(string yaml)
+		where T : IShapeable<T> => this.Deserialize<T, T>(yaml);
 
-    public T? Deserialize<T, TProvider>(string yaml)
-        where TProvider : IShapeable<T>
-    {
-        StringReader stringReader = new(yaml);
-        YamlDecoder decoder = new(stringReader);
-        return this.Deserialize(ref decoder, TProvider.GetTypeShape());
-    }
+	public T? Deserialize<T, TProvider>(string yaml)
+		where TProvider : IShapeable<T>
+	{
+		StringReader stringReader = new(yaml);
+		YamlDecoder decoder = new(stringReader);
+		return this.Deserialize(ref decoder, TProvider.GetTypeShape());
+	}
 }

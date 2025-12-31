@@ -3,21 +3,8 @@
 
 namespace ShapeShift;
 
-public enum TokenType
+internal interface IShapeShiftSerializer
 {
-	StartMap,
-
-	EndMap,
-
-	StartVector,
-
-	EndVector,
-
-	PropertyName,
-
-	Null,
-
-	String,
-
-	Number,
+	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.InternStrings"/>
+	bool InternStrings { get; }
 }

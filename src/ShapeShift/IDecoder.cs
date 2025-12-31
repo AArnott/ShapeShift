@@ -5,31 +5,33 @@ namespace ShapeShift;
 
 public interface IDecoder
 {
-    public TokenType NextTokenType { get; }
+	public TokenType NextTokenType { get; }
 
-    public bool TryReadNull();
+	public bool TryReadNull();
 
-    public int? ReadStartMap();
+	public int? ReadStartMap();
 
-    public void ReadEndMap();
+	public void ReadEndMap();
 
-    public int? ReadStartVector();
+	public int? ReadStartVector();
 
-    public void ReadEndVector();
+	public void ReadEndVector();
 
-    public ReadOnlySpan<char> ReadPropertyName();
+	public ReadOnlySpan<char> ReadPropertyName();
 
-    public void Skip();
+	public void Skip();
 
-    public void ReadNull()
-    {
-        if (!this.TryReadNull())
-        {
-            throw new DecoderException($"Expected a null token but instead got {this.NextTokenType}.");
-        }
-    }
+	public void ReadNull()
+	{
+		if (!this.TryReadNull())
+		{
+			throw new DecoderException($"Expected a null token but instead got {this.NextTokenType}.");
+		}
+	}
 
-    public int ReadInt32();
+	public int ReadInt32();
 
-    public string ReadString();
+	public string ReadString();
+
+	public ReadOnlySpan<char> ReadCharSpan();
 }

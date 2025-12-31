@@ -5,19 +5,19 @@ namespace ShapeShift;
 
 public interface IEncoder
 {
-    void WriteStartMap(int? propertyCount);
+	void WriteStartMap(int? propertyCount);
 
-    void WriteEndMap();
+	void WriteEndMap();
 
-    void WriteStartVector(int? itemCount);
+	void WriteStartVector(int? itemCount);
 
-    void WriteEndVector();
+	void WriteEndVector();
 
-    void WritePropertyName(ReadOnlySpan<char> name);
+	void WritePropertyName(ReadOnlySpan<char> name);
 
-    void WriteNull();
+	void WriteNull();
 
-    void Write(int value);
+	void Write(int value);
 
-    void Write(string? value);
+	void Write(string? value);
 }
