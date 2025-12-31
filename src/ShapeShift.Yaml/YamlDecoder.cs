@@ -241,6 +241,18 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 	}
 
 	/// <inheritdoc/>
+	public TimeSpan ReadTimeSpan()
+	{
+		ReadOnlySpan<char> token = this.ReadToken(TokenType.String);
+		if (!TimeSpan.TryParse(token, CultureInfo.InvariantCulture, out TimeSpan value))
+		{
+			throw new DecoderException($"Invalid TimeSpan value: {token.ToString()}.");
+		}
+
+		return value;
+	}
+
+	/// <inheritdoc/>
 	public string ReadString()
 	{
 		ReadOnlySpan<char> token = this.ReadToken(TokenType.String);

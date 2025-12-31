@@ -33,6 +33,8 @@ public interface IEncoder
 
 	void WriteValue(DateTime value);
 
+	void WriteValue(TimeSpan value);
+
 	void WriteValue(string value);
 
 	void WriteValue(scoped ReadOnlySpan<char> value);

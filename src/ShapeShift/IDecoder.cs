@@ -45,6 +45,8 @@ public interface IDecoder
 
 	public DateTime ReadDateTime();
 
+	public TimeSpan ReadTimeSpan();
+
 	public string ReadString();
 
 	public ReadOnlySpan<char> ReadCharSpan();

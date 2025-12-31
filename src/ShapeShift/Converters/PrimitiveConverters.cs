@@ -107,6 +107,17 @@ internal class DateTimeOffsetConverter<TEncoder, TDecoder> : ShapeShiftConverter
 	}
 }
 
+internal class TimeSpanConverter<TEncoder, TDecoder> : ShapeShiftConverter<TimeSpan, TEncoder, TDecoder>
+	where TEncoder : IEncoder, allows ref struct
+	where TDecoder : IDecoder, allows ref struct
+{
+	/// <inheritdoc/>
+	public override TimeSpan Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => decoder.ReadTimeSpan();
+
+	/// <inheritdoc/>
+	public override void Write(ref TEncoder encoder, in TimeSpan value, SerializationContext<TEncoder, TDecoder> context) => encoder.WriteValue(value);
+}
+
 internal class CharConverter<TEncoder, TDecoder> : ShapeShiftConverter<char, TEncoder, TDecoder>
 	where TEncoder : IEncoder, allows ref struct
 	where TDecoder : IDecoder, allows ref struct
