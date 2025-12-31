@@ -42,6 +42,9 @@ internal static class PrimitiveConverterLookup<TEncoder, TDecoder>
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _UInt32Converter;
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _Int64Converter;
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _UInt64Converter;
+	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _HalfConverter;
+	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _SingleConverter;
+	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _DoubleConverter;
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _StringConverter;
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _StringConverterReferencePreserving;
 
@@ -105,6 +108,24 @@ internal static class PrimitiveConverterLookup<TEncoder, TDecoder>
 		if (typeof(T) == typeof(ulong))
 		{
 			converter = (ShapeShiftConverter<T, TEncoder, TDecoder>)(_UInt64Converter ??= new UInt64Converter<TEncoder, TDecoder>());
+			return true;
+		}
+
+		if (typeof(T) == typeof(Half))
+		{
+			converter = (ShapeShiftConverter<T, TEncoder, TDecoder>)(_HalfConverter ??= new HalfConverter<TEncoder, TDecoder>());
+			return true;
+		}
+
+		if (typeof(T) == typeof(float))
+		{
+			converter = (ShapeShiftConverter<T, TEncoder, TDecoder>)(_SingleConverter ??= new SingleConverter<TEncoder, TDecoder>());
+			return true;
+		}
+
+		if (typeof(T) == typeof(double))
+		{
+			converter = (ShapeShiftConverter<T, TEncoder, TDecoder>)(_DoubleConverter ??= new DoubleConverter<TEncoder, TDecoder>());
 			return true;
 		}
 

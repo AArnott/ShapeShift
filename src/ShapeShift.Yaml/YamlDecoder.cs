@@ -178,6 +178,42 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 	}
 
 	/// <inheritdoc/>
+	public Half ReadHalf()
+	{
+		ReadOnlySpan<char> token = this.ReadToken(TokenType.Number);
+		if (!Half.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out Half value))
+		{
+			throw new DecoderException($"Invalid floating point value: {token.ToString()}.");
+		}
+
+		return value;
+	}
+
+	/// <inheritdoc/>
+	public float ReadSingle()
+	{
+		ReadOnlySpan<char> token = this.ReadToken(TokenType.Number);
+		if (!float.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out float value))
+		{
+			throw new DecoderException($"Invalid floating point value: {token.ToString()}.");
+		}
+
+		return value;
+	}
+
+	/// <inheritdoc/>
+	public double ReadDouble()
+	{
+		ReadOnlySpan<char> token = this.ReadToken(TokenType.Number);
+		if (!double.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out double value))
+		{
+			throw new DecoderException($"Invalid floating point value: {token.ToString()}.");
+		}
+
+		return value;
+	}
+
+	/// <inheritdoc/>
 	public string ReadString()
 	{
 		ReadOnlySpan<char> token = this.ReadToken(TokenType.String);

@@ -23,5 +23,11 @@ public interface IEncoder
 
 	void Write(ulong value);
 
+	void Write(Half value);
+
+	void Write(float value);
+
+	void Write(double value);
+
 	void Write(string? value);
 }

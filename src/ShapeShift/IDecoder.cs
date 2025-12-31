@@ -35,6 +35,12 @@ public interface IDecoder
 
 	public ulong ReadUInt64();
 
+	public Half ReadHalf();
+
+	public float ReadSingle();
+
+	public double ReadDouble();
+
 	public string ReadString();
 
 	public ReadOnlySpan<char> ReadCharSpan();

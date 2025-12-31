@@ -19,6 +19,39 @@ internal class BooleanConverter<TEncoder, TDecoder> : ShapeShiftConverter<bool, 
 	public override void Write(ref TEncoder encoder, in bool value, SerializationContext<TEncoder, TDecoder> context) => encoder.Write(value);
 }
 
+internal class HalfConverter<TEncoder, TDecoder> : ShapeShiftConverter<Half, TEncoder, TDecoder>
+	where TEncoder : IEncoder, allows ref struct
+	where TDecoder : IDecoder, allows ref struct
+{
+	/// <inheritdoc/>
+	public override Half Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => decoder.ReadHalf();
+
+	/// <inheritdoc/>
+	public override void Write(ref TEncoder encoder, in Half value, SerializationContext<TEncoder, TDecoder> context) => encoder.Write(value);
+}
+
+internal class SingleConverter<TEncoder, TDecoder> : ShapeShiftConverter<float, TEncoder, TDecoder>
+	where TEncoder : IEncoder, allows ref struct
+	where TDecoder : IDecoder, allows ref struct
+{
+	/// <inheritdoc/>
+	public override float Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => decoder.ReadSingle();
+
+	/// <inheritdoc/>
+	public override void Write(ref TEncoder encoder, in float value, SerializationContext<TEncoder, TDecoder> context) => encoder.Write(value);
+}
+
+internal class DoubleConverter<TEncoder, TDecoder> : ShapeShiftConverter<double, TEncoder, TDecoder>
+	where TEncoder : IEncoder, allows ref struct
+	where TDecoder : IDecoder, allows ref struct
+{
+	/// <inheritdoc/>
+	public override double Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => decoder.ReadDouble();
+
+	/// <inheritdoc/>
+	public override void Write(ref TEncoder encoder, in double value, SerializationContext<TEncoder, TDecoder> context) => encoder.Write(value);
+}
+
 internal class StringConverter<TEncoder, TDecoder> : ShapeShiftConverter<string, TEncoder, TDecoder>
 	where TEncoder : IEncoder, allows ref struct
 	where TDecoder : IDecoder, allows ref struct
