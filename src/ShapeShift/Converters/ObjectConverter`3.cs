@@ -1,8 +1,6 @@
 // Copyright (c) Andrew Arnott. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-using PolyType.Abstractions;
-
 namespace ShapeShift;
 
 internal class ObjectConverter<T, TEncoder, TDecoder> : ShapeShiftConverter<T, TEncoder, TDecoder>
@@ -39,6 +37,8 @@ internal class ObjectConverter<T, TEncoder, TDecoder> : ShapeShiftConverter<T, T
 				decoder.Skip();
 			}
 		}
+
+		decoder.ReadEndMap();
 
 		return result;
 	}

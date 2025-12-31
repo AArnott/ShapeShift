@@ -362,7 +362,30 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 
 		if (itemLength > 0)
 		{
-			this.EnqueueScalarToken(itemStart, itemStart + itemLength);
+			// Check if the inline item content is a mapping entry (has a colon separator).
+			// We need to check from itemStart (where the actual content begins) to the end of the line.
+			int inlineIndent = itemStart - start;
+			if (this.TrySplitMappingLine(start, lineEndNoNewline2, inlineIndent, out int keyStart, out int keyLength, out int valueStart, out int valueLength))
+			{
+				// The inline content is a mapping entry. Enqueue StartMap, then the property.
+				this.EnqueueSyntheticStart(TokenType.StartMap, inlineIndent);
+				this.Enqueue(new Token { Type = TokenType.PropertyName, Start = keyStart, Length = keyLength, IsSynthetic = false });
+
+				if (valueLength > 0)
+				{
+					this.EnqueueScalarToken(valueStart, valueStart + valueLength);
+				}
+				else
+				{
+					// Property value is on following indented lines.
+					this.EnqueueNestedValueStartOrScalar(inlineIndent);
+				}
+			}
+			else
+			{
+				// Inline scalar value.
+				this.EnqueueScalarToken(itemStart, itemStart + itemLength);
+			}
 		}
 		else
 		{

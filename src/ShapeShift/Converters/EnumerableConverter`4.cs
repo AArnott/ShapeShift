@@ -38,6 +38,7 @@ internal class EnumerableConverter<TEnumerable, TElement, TEncoder, TDecoder> : 
 			this.appender(ref result, element);
 		}
 
+		decoder.ReadEndVector();
 		return result;
 	}
 
