@@ -7,7 +7,7 @@ internal delegate void WriteProperty<TDeclaringType, TEncoder, TDecoder>(ref TEn
 	where TEncoder : IEncoder, allows ref struct
 	where TDecoder : IDecoder, allows ref struct;
 
-internal delegate void ReadProperty<TDeclaringType,	TEncoder, TDecoder>(ref TDecoder decoder, ref TDeclaringType value, SerializationContext<TEncoder, TDecoder> context)
+internal delegate void ReadProperty<TDeclaringType, TEncoder, TDecoder>(ref TDecoder decoder, ref TDeclaringType value, SerializationContext<TEncoder, TDecoder> context)
 	where TEncoder : IEncoder, allows ref struct
 	where TDecoder : IDecoder, allows ref struct;
 

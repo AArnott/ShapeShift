@@ -1,8 +1,6 @@
 // Copyright (c) Andrew Arnott. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-using PolyType;
-
 namespace ShapeShift;
 
 public abstract class SerializerBase<TEncoder, TDecoder> : IShapeShiftSerializer
@@ -69,7 +67,6 @@ public abstract class SerializerBase<TEncoder, TDecoder> : IShapeShiftSerializer
 	}
 
 	private ShapeShiftConverter<T, TEncoder, TDecoder> GetConverter<T>(ITypeShape<T> typeShape) => (ShapeShiftConverter<T, TEncoder, TDecoder>)this.ConverterCache.GetOrAddConverter(typeShape).ValueOrThrow;
-
 
 	/// <summary>
 	/// A wrapper around <see cref="SerializationContext{TEncoder, TDecoder}"/> that makes disposal easier.

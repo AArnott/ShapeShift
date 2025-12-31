@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using PolyType.Abstractions;
 using ShapeShift.Converters;
 
 namespace ShapeShift;
@@ -102,7 +101,7 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 		}
 
 		// Check if the type has a built-in converter.
-		if (PrimitiveConverterLookup.TryGetPrimitiveConverter(this.owner.PreserveReferences, out ShapeShiftConverter<T, TEncoder, TDecoder>? primitiveConverter))
+		if (PrimitiveConverterLookup<TEncoder, TDecoder>.TryGetPrimitiveConverter(this.owner.PreserveReferences, out ShapeShiftConverter<T, TEncoder, TDecoder>? primitiveConverter))
 		{
 			converter = ConverterResult.Ok(primitiveConverter);
 			return true;
