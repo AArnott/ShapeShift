@@ -1,5 +1,7 @@
 <Project Sdk="Microsoft.Build.Traversal">
   <ItemGroup>
-    <ProjectReference Include="**\*.csproj" Publish="false" />
+    <MultiRIDProjectReference Include="ShapeShift.Tests\ShapeShift.Tests.csproj" TargetFramework="net10.0" />
+    <MultiRIDProjectReference Include="ShapeShift.Yaml.Tests\ShapeShift.Yaml.Tests.csproj" TargetFramework="net10.0" />
+    <MultiRIDProjectReference Include="ShapeShift.Taml.Tests\ShapeShift.Taml.Tests.csproj" TargetFramework="net10.0" />
   </ItemGroup>
 </Project>

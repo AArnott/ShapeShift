@@ -296,11 +296,14 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 	/// </remarks>
 	private record MemberConverterInfluence
 	{
+		[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]
+		private Type? comparerSource;
+
 		/// <summary>
 		/// Gets the type that provides the comparer, if specified by the member.
 		/// </summary>
 		[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]
-		public Type? ComparerSource { get; init; }
+		public Type? ComparerSource { get => this.comparerSource; init => this.comparerSource = value; }
 
 		/// <summary>
 		/// Gets the name of the property on <see cref="ComparerSource"/> that provides the comparer, if specified by the member.
