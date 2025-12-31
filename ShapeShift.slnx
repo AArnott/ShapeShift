@@ -22,10 +22,12 @@
     <File Path="test/Directory.Build.targets" />
   </Folder>
   <Folder Name="/src/">
+    <Project Path="src/ShapeShift.Taml/ShapeShift.Taml.csproj" Id="7f31bb72-652a-4705-905d-65a3728ac52f" />
     <Project Path="src/ShapeShift.Yaml/ShapeShift.Yaml.csproj" />
     <Project Path="src/ShapeShift/ShapeShift.csproj" />
   </Folder>
   <Folder Name="/test/">
+    <Project Path="test/ShapeShift.Taml.Tests/ShapeShift.Taml.Tests.csproj" Id="f9c4086c-1418-40b9-9987-f10aa4c2a5b8" />
     <Project Path="test/ShapeShift.Tests/ShapeShift.Tests.csproj" />
     <Project Path="test/ShapeShift.Yaml.Tests/ShapeShift.Yaml.Tests.csproj" />
   </Folder>

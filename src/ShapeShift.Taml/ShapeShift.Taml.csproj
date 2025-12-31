@@ -1,0 +1,9 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <!-- <PackageValidationBaselineVersion>1.0.0</PackageValidationBaselineVersion> -->
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ShapeShift\ShapeShift.csproj" />
+  </ItemGroup>
+</Project>
