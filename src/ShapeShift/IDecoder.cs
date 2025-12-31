@@ -43,6 +43,8 @@ public interface IDecoder
 
 	public decimal ReadDecimal();
 
+	public DateTime ReadDateTime();
+
 	public string ReadString();
 
 	public ReadOnlySpan<char> ReadCharSpan();

@@ -46,6 +46,8 @@ internal static class PrimitiveConverterLookup<TEncoder, TDecoder>
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _HalfConverter;
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _SingleConverter;
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _DoubleConverter;
+	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _DecimalConverter;
+	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _DateTimeConverter;
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _StringConverter;
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _StringConverterReferencePreserving;
 
@@ -133,6 +135,18 @@ internal static class PrimitiveConverterLookup<TEncoder, TDecoder>
 		if (typeof(T) == typeof(double))
 		{
 			converter = (ShapeShiftConverter<T, TEncoder, TDecoder>)(_DoubleConverter ??= new DoubleConverter<TEncoder, TDecoder>());
+			return true;
+		}
+
+		if (typeof(T) == typeof(decimal))
+		{
+			converter = (ShapeShiftConverter<T, TEncoder, TDecoder>)(_DecimalConverter ??= new DecimalConverter<TEncoder, TDecoder>());
+			return true;
+		}
+
+		if (typeof(T) == typeof(DateTime))
+		{
+			converter = (ShapeShiftConverter<T, TEncoder, TDecoder>)(_DateTimeConverter ??= new DateTimeConverter<TEncoder, TDecoder>());
 			return true;
 		}
 

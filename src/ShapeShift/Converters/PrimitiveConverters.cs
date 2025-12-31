@@ -63,6 +63,17 @@ internal class DecimalConverter<TEncoder, TDecoder> : ShapeShiftConverter<decima
 	public override void Write(ref TEncoder encoder, in decimal value, SerializationContext<TEncoder, TDecoder> context) => encoder.WriteValue(value);
 }
 
+internal class DateTimeConverter<TEncoder, TDecoder> : ShapeShiftConverter<DateTime, TEncoder, TDecoder>
+	where TEncoder : IEncoder, allows ref struct
+	where TDecoder : IDecoder, allows ref struct
+{
+	/// <inheritdoc/>
+	public override DateTime Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => decoder.ReadDateTime();
+
+	/// <inheritdoc/>
+	public override void Write(ref TEncoder encoder, in DateTime value, SerializationContext<TEncoder, TDecoder> context) => encoder.WriteValue(value);
+}
+
 internal class CharConverter<TEncoder, TDecoder> : ShapeShiftConverter<char, TEncoder, TDecoder>
 	where TEncoder : IEncoder, allows ref struct
 	where TDecoder : IDecoder, allows ref struct

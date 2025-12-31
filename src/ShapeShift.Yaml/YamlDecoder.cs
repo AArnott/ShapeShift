@@ -229,6 +229,18 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 	}
 
 	/// <inheritdoc/>
+	public DateTime ReadDateTime()
+	{
+		ReadOnlySpan<char> token = this.ReadToken(TokenType.Number);
+		if (!DateTime.TryParse(token, CultureInfo.InvariantCulture, out DateTime value))
+		{
+			throw new DecoderException($"Invalid DateTime value: {token.ToString()}.");
+		}
+
+		return value;
+	}
+
+	/// <inheritdoc/>
 	public string ReadString()
 	{
 		ReadOnlySpan<char> token = this.ReadToken(TokenType.String);

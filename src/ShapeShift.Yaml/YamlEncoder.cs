@@ -130,6 +130,12 @@ public ref struct YamlEncoder(TextWriter writer) : IEncoder
 	}
 
 	/// <inheritdoc/>
+	public void WriteValue(DateTime value)
+	{
+		this.WriteScalar(value.ToString("o", CultureInfo.InvariantCulture).AsSpan());
+	}
+
+	/// <inheritdoc/>
 	public void WriteValue(string? value)
 	{
 		if (value is null)
