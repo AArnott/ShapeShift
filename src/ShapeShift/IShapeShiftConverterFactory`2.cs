@@ -47,33 +47,9 @@ public interface IShapeShiftConverterFactory<TEncoder, TDecoder>
 	/// method that creates the converter.
 	/// The implementation of <em>this</em> method should perform any type checks necessary
 	/// to determine whether this factory applies to the given shape, and if so,
-	/// call <see cref="ShapeShiftConverterFactoryExtensions.Invoke{T, TEncoder, TDecoder}(T, ITypeShape, object?)"/>
+	/// call <see cref="ITypeShapeFunc.Invoke"/> on the <paramref name="shape"/>, passing in <c>this</c>
 	/// to forward the call to the generic <see cref="ITypeShapeFunc.Invoke{T}(ITypeShape{T}, object?)"/> method
 	/// defined on that same class.
 	/// </remarks>
 	ShapeShiftConverter<TEncoder, TDecoder>? CreateConverter(Type type, ITypeShape? shape, in ConverterContext<TEncoder, TDecoder> context);
-}
-
-/// <summary>
-/// Extension methods for the <see cref="IShapeShiftConverterFactory{TEncoder, TDecoder}"/> interface.
-/// </summary>
-public static class ShapeShiftConverterFactoryExtensions
-{
-	/// <summary>
-	/// Calls the <see cref="ITypeShapeFunc.Invoke{T}(ITypeShape{T}, object?)"/> method on the given factory.
-	/// </summary>
-	/// <typeparam name="T">The concrete <see cref="IShapeShiftConverterFactory{TEncoder, TDecoder}"/> type.</typeparam>
-	/// <typeparam name="TEncoder"><inheritdoc cref="ShapeShiftSerializer{TEncoder, TEncoder}" path="/typeparam[@name='TEncoder']"/></typeparam>
-	/// <typeparam name="TDecoder"><inheritdoc cref="ShapeShiftSerializer{TEncoder, TDecoder}" path="/typeparam[@name='TDecoder']"/></typeparam>
-	/// <param name="self">The instance of the factory.</param>
-	/// <param name="shape">The shape to create a converter for.</param>
-	/// <param name="state">Optional state to pass onto the inner method.</param>
-	/// <returns>The converter.</returns>
-	public static ShapeShiftConverter<TEncoder, TDecoder>? Invoke<T, TEncoder, TDecoder>(this T self, ITypeShape shape, object? state = null)
-		where T : IShapeShiftConverterFactory<TEncoder, TDecoder>, ITypeShapeFunc
-		where TEncoder : IEncoder, allows ref struct
-		where TDecoder : IDecoder, allows ref struct
-	{
-		return (ShapeShiftConverter<TEncoder, TDecoder>?)Requires.NotNull(shape).Invoke(self, state);
-	}
 }

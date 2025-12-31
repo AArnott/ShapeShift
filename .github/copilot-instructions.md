@@ -21,3 +21,10 @@
 * Honor StyleCop rules and fix any reported build warnings *after* getting tests to pass.
 * In C# files, use namespace *statements* instead of namespace *blocks* for all new files.
 * Add API doc comments to all new public and internal members.
+
+
+## Build documentation** (takes ~19 seconds)
+
+```bash
+DocFx=true dotnet docfx docfx/docfx.json --warningsAsErrors --disableGitFeatures
+```

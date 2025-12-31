@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <EmitCompilerGeneratedFiles>false</EmitCompilerGeneratedFiles>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ShapeShift\ShapeShift.csproj" />
+    <ProjectReference Include="..\..\src\ShapeShift.Yaml\ShapeShift.Yaml.csproj" />
+  </ItemGroup>
+
+  <!-- <ItemGroup>
+    <PackageReference Include="Microsoft.CSharp" />
+    <PackageReference Include="Nerdbank.Streams" />
+    <PackageReference Include="OneOf" />
+    <PackageReference Include="System.Memory.Data" />
+  </ItemGroup> -->
+
+</Project>

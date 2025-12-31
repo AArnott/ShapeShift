@@ -3,7 +3,7 @@
 
 namespace ShapeShift.Taml;
 
-public class TamlSerializer : ShapeShiftSerializer<TamlEncoder, TamlDecoder>
+public record TamlSerializer : ShapeShiftSerializer<TamlEncoder, TamlDecoder>
 {
 	public string Serialize<T>(in T? value)
 		where T : IShapeable<T> => this.Serialize<T, T>(value);

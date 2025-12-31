@@ -10,6 +10,7 @@ namespace ShapeShift;
 /// </summary>
 public static class DecoderExtensions
 {
+#if !DOCFX
 	extension<TDecoder>(TDecoder decoder)
 		where TDecoder : IDecoder, allows ref struct
 	{
@@ -21,4 +22,5 @@ public static class DecoderExtensions
 		public short ReadInt16() => checked((short)decoder.ReadInt64());
 		public int ReadInt32() => checked((int)decoder.ReadInt64());
 	}
+#endif
 }
