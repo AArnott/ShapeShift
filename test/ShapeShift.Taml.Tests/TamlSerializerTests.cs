@@ -52,7 +52,7 @@ public partial class TamlSerializerTests : TestBase
 		await this.AssertRoundtripAsync(person);
 	}
 
-	[Test]
+	[Test, Skip("https://github.com/csharpfritz/Taml/issues/34")]
 	public async Task ListOfRecords()
 	{
 		Family family = new()
