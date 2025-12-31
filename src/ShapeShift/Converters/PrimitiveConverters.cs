@@ -65,14 +65,3 @@ internal class InterningStringConverter<TEncoder, TDecoder> : ShapeShiftConverte
 		encoder.Write(value);
 	}
 }
-
-internal class Int32Converter<TEncoder, TDecoder> : ShapeShiftConverter<int, TEncoder, TDecoder>
-	where TEncoder : IEncoder, allows ref struct
-	where TDecoder : IDecoder, allows ref struct
-{
-	/// <inheritdoc/>
-	public override int Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => decoder.ReadInt32();
-
-	/// <inheritdoc/>
-	public override void Write(ref TEncoder encoder, in int value, SerializationContext<TEncoder, TDecoder> context) => encoder.Write(value);
-}

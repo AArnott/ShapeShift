@@ -34,7 +34,14 @@ internal static class PrimitiveConverterLookup<TEncoder, TDecoder>
 	where TDecoder : IDecoder, allows ref struct
 {
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _BooleanConverter;
+	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _ByteConverter;
+	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _SByteConverter;
+	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _Int16Converter;
+	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _UInt16Converter;
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _Int32Converter;
+	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _UInt32Converter;
+	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _Int64Converter;
+	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _UInt64Converter;
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _StringConverter;
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _StringConverterReferencePreserving;
 
@@ -53,9 +60,51 @@ internal static class PrimitiveConverterLookup<TEncoder, TDecoder>
 			return true;
 		}
 
+		if (typeof(T) == typeof(byte))
+		{
+			converter = (ShapeShiftConverter<T, TEncoder, TDecoder>)(_ByteConverter ??= new ByteConverter<TEncoder, TDecoder>());
+			return true;
+		}
+
+		if (typeof(T) == typeof(sbyte))
+		{
+			converter = (ShapeShiftConverter<T, TEncoder, TDecoder>)(_SByteConverter ??= new SByteConverter<TEncoder, TDecoder>());
+			return true;
+		}
+
+		if (typeof(T) == typeof(short))
+		{
+			converter = (ShapeShiftConverter<T, TEncoder, TDecoder>)(_Int16Converter ??= new Int16Converter<TEncoder, TDecoder>());
+			return true;
+		}
+
+		if (typeof(T) == typeof(ushort))
+		{
+			converter = (ShapeShiftConverter<T, TEncoder, TDecoder>)(_UInt16Converter ??= new UInt16Converter<TEncoder, TDecoder>());
+			return true;
+		}
+
 		if (typeof(T) == typeof(int))
 		{
 			converter = (ShapeShiftConverter<T, TEncoder, TDecoder>)(_Int32Converter ??= new Int32Converter<TEncoder, TDecoder>());
+			return true;
+		}
+
+		if (typeof(T) == typeof(uint))
+		{
+			converter = (ShapeShiftConverter<T, TEncoder, TDecoder>)(_UInt32Converter ??= new UInt32Converter<TEncoder, TDecoder>());
+			return true;
+		}
+
+		if (typeof(T) == typeof(long))
+		{
+			converter = (ShapeShiftConverter<T, TEncoder, TDecoder>)(_Int64Converter ??= new Int64Converter<TEncoder, TDecoder>());
+			return true;
+		}
+
+		if (typeof(T) == typeof(ulong))
+		{
+			converter = (ShapeShiftConverter<T, TEncoder, TDecoder>)(_UInt64Converter ??= new UInt64Converter<TEncoder, TDecoder>());
 			return true;
 		}
 

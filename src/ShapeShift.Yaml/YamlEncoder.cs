@@ -1,6 +1,8 @@
 // Copyright (c) Andrew Arnott. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+using System.Globalization;
+
 namespace ShapeShift.Yaml;
 
 /// <summary>
@@ -92,9 +94,15 @@ public ref struct YamlEncoder(TextWriter writer) : IEncoder
 	}
 
 	/// <inheritdoc/>
-	public void Write(int value)
+	public void Write(long value)
 	{
-		this.WriteScalar(value.ToString().AsSpan());
+		this.WriteScalar(value.ToString(CultureInfo.InvariantCulture).AsSpan());
+	}
+
+	/// <inheritdoc/>
+	public void Write(ulong value)
+	{
+		this.WriteScalar(value.ToString(CultureInfo.InvariantCulture).AsSpan());
 	}
 
 	/// <inheritdoc/>

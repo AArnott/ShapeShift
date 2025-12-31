@@ -154,10 +154,22 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 	}
 
 	/// <inheritdoc/>
-	public int ReadInt32()
+	public long ReadInt64()
 	{
 		ReadOnlySpan<char> token = this.ReadToken(TokenType.Number);
-		if (!int.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value))
+		if (!long.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out long value))
+		{
+			throw new DecoderException($"Invalid integer value: {token.ToString()}.");
+		}
+
+		return value;
+	}
+
+	/// <inheritdoc/>
+	public ulong ReadUInt64()
+	{
+		ReadOnlySpan<char> token = this.ReadToken(TokenType.Number);
+		if (!ulong.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out ulong value))
 		{
 			throw new DecoderException($"Invalid integer value: {token.ToString()}.");
 		}

@@ -31,7 +31,9 @@ public interface IDecoder
 
 	public bool ReadBoolean();
 
-	public int ReadInt32();
+	public long ReadInt64();
+
+	public ulong ReadUInt64();
 
 	public string ReadString();
 

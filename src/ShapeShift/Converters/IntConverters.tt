@@ -1,0 +1,32 @@
+<#@ assembly name="System.Core" #>
+<#@ Import Namespace="System.Linq" #>
+// Copyright (c) Andrew Arnott. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+
+/* THIS (.cs) FILE IS GENERATED. DO NOT CHANGE IT.
+ * CHANGE THE .tt FILE INSTEAD. */
+
+#pragma warning disable SA1121 // Simplify type syntax
+#pragma warning disable SA1649 // File name should match first type name
+#pragma warning disable SA1402 // File may only contain a single class
+
+namespace ShapeShift.Converters;
+<#
+var signedTypes = new Type[] { typeof(sbyte), typeof(short), typeof(int), typeof(long) }.Select(t => (t.Name, true));
+var unsignedTypes = new Type[] { typeof(byte), typeof(ushort), typeof(uint), typeof(ulong) }.Select(t => (t.Name, false));
+foreach ((string type, bool signed) in signedTypes.Concat(unsignedTypes)) { #>
+
+/// <summary>Serializes the primitive integer type <see cref="<#=type#>"/>.</summary>
+/// <typeparam name="TEncoder"><inheritdoc cref="ShapeShiftSerializer{TEncoder, TEncoder}" path="/typeparam[@name='TEncoder']"/></typeparam>
+/// <typeparam name="TDecoder"><inheritdoc cref="ShapeShiftSerializer{TEncoder, TDecoder}" path="/typeparam[@name='TDecoder']"/></typeparam>
+internal class <#=type#>Converter<TEncoder, TDecoder> : ShapeShiftConverter<<#=type#>, TEncoder, TDecoder>
+	where TEncoder : IEncoder, allows ref struct
+	where TDecoder : IDecoder, allows ref struct
+{
+	/// <inheritdoc/>
+	public override <#=type#> Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => checked((<#=type#>)decoder.Read<#=signed ? "Int64" : "UInt64"#>());
+
+	/// <inheritdoc/>
+	public override void Write(ref TEncoder encoder, in <#=type#> value, SerializationContext<TEncoder, TDecoder> context) => encoder.Write((<#=signed ? "long" : "ulong"#>)value);
+}
+<# } #>

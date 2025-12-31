@@ -19,7 +19,9 @@ public interface IEncoder
 
 	void Write(bool value);
 
-	void Write(int value);
+	void Write(long value);
+
+	void Write(ulong value);
 
 	void Write(string? value);
 }
