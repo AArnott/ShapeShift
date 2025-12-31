@@ -124,6 +124,12 @@ public ref struct YamlEncoder(TextWriter writer) : IEncoder
 	}
 
 	/// <inheritdoc/>
+	public void WriteValue(decimal value)
+	{
+		this.WriteScalar(value.ToString(CultureInfo.InvariantCulture).AsSpan());
+	}
+
+	/// <inheritdoc/>
 	public void WriteValue(string? value)
 	{
 		if (value is null)

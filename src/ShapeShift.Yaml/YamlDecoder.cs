@@ -12,6 +12,9 @@ namespace ShapeShift.Yaml;
 /// <param name="reader">The underlying text reader from which to get the YAML.</param>
 public ref struct YamlDecoder(TextReader reader) : IDecoder
 {
+	private const NumberStyles FloatingPointStyle = NumberStyles.Float | NumberStyles.AllowHexSpecifier;
+	private const NumberStyles IntegerPointStyle = NumberStyles.Integer | NumberStyles.AllowHexSpecifier;
+
 	private readonly string text = reader.ReadToEnd();
 	private int scanOffset;
 
@@ -157,7 +160,7 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 	public long ReadInt64()
 	{
 		ReadOnlySpan<char> token = this.ReadToken(TokenType.Number);
-		if (!long.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out long value))
+		if (!long.TryParse(token, IntegerPointStyle, CultureInfo.InvariantCulture, out long value))
 		{
 			throw new DecoderException($"Invalid integer value: {token.ToString()}.");
 		}
@@ -169,7 +172,7 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 	public ulong ReadUInt64()
 	{
 		ReadOnlySpan<char> token = this.ReadToken(TokenType.Number);
-		if (!ulong.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out ulong value))
+		if (!ulong.TryParse(token, IntegerPointStyle, CultureInfo.InvariantCulture, out ulong value))
 		{
 			throw new DecoderException($"Invalid integer value: {token.ToString()}.");
 		}
@@ -181,7 +184,7 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 	public Half ReadHalf()
 	{
 		ReadOnlySpan<char> token = this.ReadToken(TokenType.Number);
-		if (!Half.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out Half value))
+		if (!Half.TryParse(token, FloatingPointStyle, CultureInfo.InvariantCulture, out Half value))
 		{
 			throw new DecoderException($"Invalid floating point value: {token.ToString()}.");
 		}
@@ -193,7 +196,7 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 	public float ReadSingle()
 	{
 		ReadOnlySpan<char> token = this.ReadToken(TokenType.Number);
-		if (!float.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out float value))
+		if (!float.TryParse(token, FloatingPointStyle, CultureInfo.InvariantCulture, out float value))
 		{
 			throw new DecoderException($"Invalid floating point value: {token.ToString()}.");
 		}
@@ -205,7 +208,19 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 	public double ReadDouble()
 	{
 		ReadOnlySpan<char> token = this.ReadToken(TokenType.Number);
-		if (!double.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out double value))
+		if (!double.TryParse(token, FloatingPointStyle, CultureInfo.InvariantCulture, out double value))
+		{
+			throw new DecoderException($"Invalid floating point value: {token.ToString()}.");
+		}
+
+		return value;
+	}
+
+	/// <inheritdoc/>
+	public decimal ReadDecimal()
+	{
+		ReadOnlySpan<char> token = this.ReadToken(TokenType.Number);
+		if (!decimal.TryParse(token, FloatingPointStyle, CultureInfo.InvariantCulture, out decimal value))
 		{
 			throw new DecoderException($"Invalid floating point value: {token.ToString()}.");
 		}

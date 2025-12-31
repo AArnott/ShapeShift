@@ -41,6 +41,8 @@ public interface IDecoder
 
 	public double ReadDouble();
 
+	public decimal ReadDecimal();
+
 	public string ReadString();
 
 	public ReadOnlySpan<char> ReadCharSpan();

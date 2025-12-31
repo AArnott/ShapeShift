@@ -52,6 +52,17 @@ internal class DoubleConverter<TEncoder, TDecoder> : ShapeShiftConverter<double,
 	public override void Write(ref TEncoder encoder, in double value, SerializationContext<TEncoder, TDecoder> context) => encoder.WriteValue(value);
 }
 
+internal class DecimalConverter<TEncoder, TDecoder> : ShapeShiftConverter<decimal, TEncoder, TDecoder>
+	where TEncoder : IEncoder, allows ref struct
+	where TDecoder : IDecoder, allows ref struct
+{
+	/// <inheritdoc/>
+	public override decimal Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => decoder.ReadDecimal();
+
+	/// <inheritdoc/>
+	public override void Write(ref TEncoder encoder, in decimal value, SerializationContext<TEncoder, TDecoder> context) => encoder.WriteValue(value);
+}
+
 internal class CharConverter<TEncoder, TDecoder> : ShapeShiftConverter<char, TEncoder, TDecoder>
 	where TEncoder : IEncoder, allows ref struct
 	where TDecoder : IDecoder, allows ref struct

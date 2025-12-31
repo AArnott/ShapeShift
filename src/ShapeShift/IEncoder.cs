@@ -29,6 +29,8 @@ public interface IEncoder
 
 	void WriteValue(double value);
 
+	void WriteValue(decimal value);
+
 	void WriteValue(string value);
 
 	void WriteValue(scoped ReadOnlySpan<char> value);
