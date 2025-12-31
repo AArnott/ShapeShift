@@ -1,10 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <OutputType>Exe</OutputType>
-    <RootNamespace />
+    <TargetFrameworks>net10.0</TargetFrameworks>
   </PropertyGroup>
+  <Import Project="../AOT.props" />
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\ShapeShift\ShapeShift.csproj" />
