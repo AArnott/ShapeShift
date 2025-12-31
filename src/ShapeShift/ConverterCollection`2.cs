@@ -12,8 +12,8 @@ namespace ShapeShift;
 /// <summary>
 /// An immutable collection of converters.
 /// </summary>
-/// <typeparam name="TEncoder"><inheritdoc cref="SerializerBase{TEncoder, TEncoder}" path="/typeparam[@name='TEncoder']"/></typeparam>
-/// <typeparam name="TDecoder"><inheritdoc cref="SerializerBase{TEncoder, TDecoder}" path="/typeparam[@name='TDecoder']"/></typeparam>
+/// <typeparam name="TEncoder"><inheritdoc cref="ShapeShiftSerializer{TEncoder, TEncoder}" path="/typeparam[@name='TEncoder']"/></typeparam>
+/// <typeparam name="TDecoder"><inheritdoc cref="ShapeShiftSerializer{TEncoder, TDecoder}" path="/typeparam[@name='TDecoder']"/></typeparam>
 [CollectionBuilder(typeof(ConverterCollection), nameof(ConverterCollection.Create))]
 public class ConverterCollection<TEncoder, TDecoder> : IReadOnlyCollection<ShapeShiftConverter<TEncoder, TDecoder>>
 	where TEncoder : IEncoder, allows ref struct

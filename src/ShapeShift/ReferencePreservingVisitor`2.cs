@@ -6,8 +6,8 @@ namespace ShapeShift;
 /// <summary>
 /// A visitor that wraps the result of another visitor with a reference-preserving converter.
 /// </summary>
-/// <typeparam name="TEncoder"><inheritdoc cref="SerializerBase{TEncoder, TEncoder}" path="/typeparam[@name='TEncoder']"/></typeparam>
-/// <typeparam name="TDecoder"><inheritdoc cref="SerializerBase{TEncoder, TDecoder}" path="/typeparam[@name='TDecoder']"/></typeparam>
+/// <typeparam name="TEncoder"><inheritdoc cref="ShapeShiftSerializer{TEncoder, TEncoder}" path="/typeparam[@name='TEncoder']"/></typeparam>
+/// <typeparam name="TDecoder"><inheritdoc cref="ShapeShiftSerializer{TEncoder, TDecoder}" path="/typeparam[@name='TDecoder']"/></typeparam>
 /// <param name="inner">The inner visitor.</param>
 internal class ReferencePreservingVisitor<TEncoder, TDecoder>(TypeShapeVisitor inner) : TypeShapeVisitor
 	where TEncoder : IEncoder, allows ref struct

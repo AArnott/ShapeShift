@@ -12,8 +12,8 @@ internal static class ConverterResult
 	/// <summary>
 	/// Wraps a converter as a successful result.
 	/// </summary>
-	/// <typeparam name="TEncoder"><inheritdoc cref="SerializerBase{TEncoder, TEncoder}" path="/typeparam[@name='TEncoder']"/></typeparam>
-	/// <typeparam name="TDecoder"><inheritdoc cref="SerializerBase{TEncoder, TDecoder}" path="/typeparam[@name='TDecoder']"/></typeparam>
+	/// <typeparam name="TEncoder"><inheritdoc cref="ShapeShiftSerializer{TEncoder, TEncoder}" path="/typeparam[@name='TEncoder']"/></typeparam>
+	/// <typeparam name="TDecoder"><inheritdoc cref="ShapeShiftSerializer{TEncoder, TDecoder}" path="/typeparam[@name='TDecoder']"/></typeparam>
 	/// <param name="value">The converter.</param>
 	/// <returns>A successful result.</returns>
 	internal static ConverterResult<TEncoder, TDecoder> Ok<TEncoder, TDecoder>(ShapeShiftConverter<TEncoder, TDecoder> value)

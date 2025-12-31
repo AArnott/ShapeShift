@@ -8,7 +8,7 @@ namespace ShapeShift;
 /// </summary>
 /// <typeparam name="TEncoder">The type of encoder to use.</typeparam>
 /// <typeparam name="TDecoder">The type of decoder to use.</typeparam>
-public abstract class SerializerBase<TEncoder, TDecoder> : IShapeShiftSerializer
+public abstract class ShapeShiftSerializer<TEncoder, TDecoder> : IShapeShiftSerializer
 	where TEncoder : IEncoder, allows ref struct
 	where TDecoder : IDecoder, allows ref struct
 {

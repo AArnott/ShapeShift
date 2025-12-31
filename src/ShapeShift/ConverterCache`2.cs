@@ -10,8 +10,8 @@ namespace ShapeShift;
 /// <summary>
 /// Tracks all inputs to converter construction and caches the results of construction itself.
 /// </summary>
-/// <typeparam name="TEncoder"><inheritdoc cref="SerializerBase{TEncoder, TEncoder}" path="/typeparam[@name='TEncoder']"/></typeparam>
-/// <typeparam name="TDecoder"><inheritdoc cref="SerializerBase{TEncoder, TDecoder}" path="/typeparam[@name='TDecoder']"/></typeparam>
+/// <typeparam name="TEncoder"><inheritdoc cref="ShapeShiftSerializer{TEncoder, TEncoder}" path="/typeparam[@name='TEncoder']"/></typeparam>
+/// <typeparam name="TDecoder"><inheritdoc cref="ShapeShiftSerializer{TEncoder, TDecoder}" path="/typeparam[@name='TDecoder']"/></typeparam>
 /// <param name="configuration">An immutable configuration that this cache builds upon.</param>
 /// <remarks>
 /// <para>
@@ -20,8 +20,8 @@ namespace ShapeShift;
 /// <para>
 /// This type offers something of an information barrier to converter construction.
 /// The <see cref="ShapeVisitor{TEncoder, TDecoder}"/> only gets a reference to this object,
-/// and this object does <em>not</em> have a reference to <see cref="SerializerBase{TEncoder, TDecoder}"/>.
-/// This ensures that properties on <see cref="SerializerBase{TEncoder, TDecoder}"/> cannot serve as inputs to the converters.
+/// and this object does <em>not</em> have a reference to <see cref="ShapeShiftSerializer{TEncoder, TDecoder}"/>.
+/// This ensures that properties on <see cref="ShapeShiftSerializer{TEncoder, TDecoder}"/> cannot serve as inputs to the converters.
 /// Thus, the only properties that should reset the <see cref="CachedConverters"/> are those declared on this type.
 /// </para>
 /// </remarks>

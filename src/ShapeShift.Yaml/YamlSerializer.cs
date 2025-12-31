@@ -3,7 +3,7 @@
 
 namespace ShapeShift.Yaml;
 
-public class YamlSerializer : SerializerBase<YamlEncoder, YamlDecoder>
+public class YamlSerializer : ShapeShiftSerializer<YamlEncoder, YamlDecoder>
 {
 	public string Serialize<T>(in T? value)
 		where T : IShapeable<T> => this.Serialize<T, T>(value);

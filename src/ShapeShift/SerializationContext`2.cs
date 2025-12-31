@@ -46,7 +46,7 @@ public struct SerializationContext<TEncoder, TDecoder>
 	public ITypeShapeProvider? TypeShapeProvider { get; internal init; }
 
 	/// <summary>
-	/// Gets the <see cref="SerializerBase{TEncoder, TDecoder}"/> that owns this context.
+	/// Gets the <see cref="ShapeShiftSerializer{TEncoder, TDecoder}"/> that owns this context.
 	/// </summary>
 	internal ConverterCache<TEncoder, TDecoder>? Cache { get; private init; }
 
@@ -74,7 +74,7 @@ public struct SerializationContext<TEncoder, TDecoder>
 	/// </para>
 	/// </remarks>
 	/// <example>
-	/// To add, modify or remove a key in this state as applied to a <see cref="SerializerBase{TEncoder, TDecoder}.StartingContext"/>,
+	/// To add, modify or remove a key in this state as applied to a <see cref="ShapeShiftSerializer{TEncoder, TDecoder}.StartingContext"/>,
 	/// capture and change the <see cref="SerializationContext{TEncoder, TDecoder}"/> as a local variable, then reassign it to the serializer.
 	/// <code source="../../samples/cs/ApplyingSerializationContext.cs" region="ModifyingStartingContextState" lang="C#" />
 	/// </example>
@@ -133,7 +133,7 @@ public struct SerializationContext<TEncoder, TDecoder>
 	/// </summary>
 	/// <typeparam name="T">The type to be converted.</typeparam>
 	/// <param name="provider">
-	/// <inheritdoc cref="SerializerBase{TEncoder, TDecoder}.CreateSerializationContext(ITypeShapeProvider, CancellationToken)" path="/param[@name='provider']"/>
+	/// <inheritdoc cref="ShapeShiftSerializer{TEncoder, TDecoder}.CreateSerializationContext(ITypeShapeProvider, CancellationToken)" path="/param[@name='provider']"/>
 	/// It can also come from <see cref="TypeShapeProvider"/>.
 	/// A <see langword="null" /> value will be filled in with <see cref="TypeShapeProvider"/>.
 	/// </param>
@@ -208,10 +208,10 @@ public struct SerializationContext<TEncoder, TDecoder>
 	/// </summary>
 	/// <param name="owner">The owning serializer.</param>
 	/// <param name="cache">The converter cache.</param>
-	/// <param name="provider"><inheritdoc cref="SerializerBase{TEncoder, TDecoder}.CreateSerializationContext(ITypeShapeProvider, CancellationToken)" path="/param[@name='provider']"/></param>
+	/// <param name="provider"><inheritdoc cref="ShapeShiftSerializer{TEncoder, TDecoder}.CreateSerializationContext(ITypeShapeProvider, CancellationToken)" path="/param[@name='provider']"/></param>
 	/// <param name="cancellationToken">A cancellation token to associate with this serialization operation.</param>
 	/// <returns>The new context for the operation.</returns>
-	internal SerializationContext<TEncoder, TDecoder> Start(SerializerBase<TEncoder, TDecoder> owner, ConverterCache<TEncoder, TDecoder> cache, ITypeShapeProvider provider, CancellationToken cancellationToken)
+	internal SerializationContext<TEncoder, TDecoder> Start(ShapeShiftSerializer<TEncoder, TDecoder> owner, ConverterCache<TEncoder, TDecoder> cache, ITypeShapeProvider provider, CancellationToken cancellationToken)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 		return this with

@@ -6,8 +6,8 @@ namespace ShapeShift;
 /// <summary>
 /// A factory for <see cref="ShapeShiftConverter{TEncoder, TDecoder}"/> objects of arbitrary types.
 /// </summary>
-/// <typeparam name="TEncoder"><inheritdoc cref="SerializerBase{TEncoder, TEncoder}" path="/typeparam[@name='TEncoder']"/></typeparam>
-/// <typeparam name="TDecoder"><inheritdoc cref="SerializerBase{TEncoder, TDecoder}" path="/typeparam[@name='TDecoder']"/></typeparam>
+/// <typeparam name="TEncoder"><inheritdoc cref="ShapeShiftSerializer{TEncoder, TEncoder}" path="/typeparam[@name='TEncoder']"/></typeparam>
+/// <typeparam name="TDecoder"><inheritdoc cref="ShapeShiftSerializer{TEncoder, TDecoder}" path="/typeparam[@name='TDecoder']"/></typeparam>
 /// <example>
 /// <para>
 /// A non-generic implementation of this interface is preferred when possible.
@@ -63,8 +63,8 @@ public static class ShapeShiftConverterFactoryExtensions
 	/// Calls the <see cref="ITypeShapeFunc.Invoke{T}(ITypeShape{T}, object?)"/> method on the given factory.
 	/// </summary>
 	/// <typeparam name="T">The concrete <see cref="IShapeShiftConverterFactory{TEncoder, TDecoder}"/> type.</typeparam>
-	/// <typeparam name="TEncoder"><inheritdoc cref="SerializerBase{TEncoder, TEncoder}" path="/typeparam[@name='TEncoder']"/></typeparam>
-	/// <typeparam name="TDecoder"><inheritdoc cref="SerializerBase{TEncoder, TDecoder}" path="/typeparam[@name='TDecoder']"/></typeparam>
+	/// <typeparam name="TEncoder"><inheritdoc cref="ShapeShiftSerializer{TEncoder, TEncoder}" path="/typeparam[@name='TEncoder']"/></typeparam>
+	/// <typeparam name="TDecoder"><inheritdoc cref="ShapeShiftSerializer{TEncoder, TDecoder}" path="/typeparam[@name='TDecoder']"/></typeparam>
 	/// <param name="self">The instance of the factory.</param>
 	/// <param name="shape">The shape to create a converter for.</param>
 	/// <param name="state">Optional state to pass onto the inner method.</param>

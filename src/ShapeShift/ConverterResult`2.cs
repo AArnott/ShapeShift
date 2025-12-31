@@ -10,8 +10,8 @@ namespace ShapeShift;
 /// <summary>
 /// The result of an operation that was to produce a <see cref="ShapeShiftConverter{T, TEncoder, TDecoder}"/>.
 /// </summary>
-/// <typeparam name="TEncoder"><inheritdoc cref="SerializerBase{TEncoder, TEncoder}" path="/typeparam[@name='TEncoder']"/></typeparam>
-/// <typeparam name="TDecoder"><inheritdoc cref="SerializerBase{TEncoder, TDecoder}" path="/typeparam[@name='TDecoder']"/></typeparam>
+/// <typeparam name="TEncoder"><inheritdoc cref="ShapeShiftSerializer{TEncoder, TEncoder}" path="/typeparam[@name='TEncoder']"/></typeparam>
+/// <typeparam name="TDecoder"><inheritdoc cref="ShapeShiftSerializer{TEncoder, TDecoder}" path="/typeparam[@name='TDecoder']"/></typeparam>
 [DebuggerDisplay($"{{{nameof(DebuggerDisplay)},nq}}")]
 internal class ConverterResult<TEncoder, TDecoder>
 	where TEncoder : IEncoder, allows ref struct
