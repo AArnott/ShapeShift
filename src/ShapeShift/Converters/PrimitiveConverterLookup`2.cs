@@ -50,6 +50,7 @@ internal static class PrimitiveConverterLookup<TEncoder, TDecoder>
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _DateTimeConverter;
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _DateTimeOffsetConverter;
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _TimeSpanConverter;
+	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _BigIntegerConverter;
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _StringConverter;
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _StringConverterReferencePreserving;
 
@@ -178,7 +179,18 @@ internal static class PrimitiveConverterLookup<TEncoder, TDecoder>
 			return true;
 		}
 
+		string primitiveTypeName = typeof(T).Name;
+		string? primitiveTypeNamespace = null;
+		if (primitiveTypeName == "BigInteger" && (primitiveTypeNamespace ??= typeof(T).Namespace) == "System.Numerics")
+		{
+			converter = (ShapeShiftConverter<T, TEncoder, TDecoder>?)(_BigIntegerConverter ??= CreateBigIntegerConverter<T>());
+			return converter is not null;
+		}
+
 		converter = null;
 		return false;
 	}
+
+	[MethodImpl(MethodImplOptions.NoInlining)]
+	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? CreateBigIntegerConverter<T>() => typeof(T) == typeof(System.Numerics.BigInteger) ? new BigIntegerConverter<TEncoder, TDecoder>() : null;
 }

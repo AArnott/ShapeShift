@@ -4,6 +4,7 @@
 #pragma warning disable SA1402 // File may only contain a single type
 #pragma warning disable SA1649 // File name should match first type name
 
+using System.Numerics;
 using Microsoft.NET.StringTools;
 
 namespace ShapeShift.Converters;
@@ -116,6 +117,17 @@ internal class TimeSpanConverter<TEncoder, TDecoder> : ShapeShiftConverter<TimeS
 
 	/// <inheritdoc/>
 	public override void Write(ref TEncoder encoder, in TimeSpan value, SerializationContext<TEncoder, TDecoder> context) => encoder.WriteValue(value);
+}
+
+internal class BigIntegerConverter<TEncoder, TDecoder> : ShapeShiftConverter<BigInteger, TEncoder, TDecoder>
+	where TEncoder : IEncoder, allows ref struct
+	where TDecoder : IDecoder, allows ref struct
+{
+	/// <inheritdoc/>
+	public override BigInteger Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => decoder.ReadBigInteger();
+
+	/// <inheritdoc/>
+	public override void Write(ref TEncoder encoder, in BigInteger value, SerializationContext<TEncoder, TDecoder> context) => encoder.WriteValue(value);
 }
 
 internal class CharConverter<TEncoder, TDecoder> : ShapeShiftConverter<char, TEncoder, TDecoder>

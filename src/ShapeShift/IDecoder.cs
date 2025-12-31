@@ -1,6 +1,8 @@
 // Copyright (c) Andrew Arnott. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+using System.Numerics;
+
 namespace ShapeShift;
 
 public interface IDecoder
@@ -46,6 +48,8 @@ public interface IDecoder
 	public DateTime ReadDateTime();
 
 	public TimeSpan ReadTimeSpan();
+
+	public BigInteger ReadBigInteger();
 
 	public string ReadString();
 

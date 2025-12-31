@@ -1,6 +1,8 @@
 // Copyright (c) Andrew Arnott. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+using System.Numerics;
+
 namespace ShapeShift;
 
 public interface IEncoder
@@ -34,6 +36,8 @@ public interface IEncoder
 	void WriteValue(DateTime value);
 
 	void WriteValue(TimeSpan value);
+
+	void WriteValue(BigInteger value);
 
 	void WriteValue(string value);
 

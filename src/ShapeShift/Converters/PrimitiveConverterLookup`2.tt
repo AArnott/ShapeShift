@@ -35,6 +35,7 @@ var convertersByType = new List<ConverterInfo>
 	new ConverterInfo("DateTime", "DateTimeConverter"),
 	new ConverterInfo("DateTimeOffset", "DateTimeOffsetConverter"),
 	new ConverterInfo("TimeSpan", "TimeSpanConverter"),
+	new ConverterInfo("System.Numerics.BigInteger", "BigIntegerConverter") { LazyLoad = true },
 	new ConverterInfo("string", "StringConverter", IsRefType: true),
 };
 #>
@@ -114,11 +115,9 @@ internal static class PrimitiveConverterLookup<TEncoder, TDecoder>
 #endif
 <#   }
 } #>
-<# if (convertersByType.Any(c => c.LazyLoad && c.PreprocessorCondition is not null)) { #>
 		string primitiveTypeName = typeof(T).Name;
 		string? primitiveTypeNamespace = null;
-<# }
-foreach (var converterGroup in convertersByType.Where(c => c.LazyLoad).GroupBy(c => c.PreprocessorCondition)) {
+<# foreach (var converterGroup in convertersByType.Where(c => c.LazyLoad).GroupBy(c => c.PreprocessorCondition)) {
 	 if (converterGroup.Key is not null) { #>
 #if <#=converterGroup.Key#>
 <#   }
@@ -165,7 +164,7 @@ foreach (var converterGroup in convertersByType.Where(c => c.LazyLoad).GroupBy(c
 #>
 
 	[MethodImpl(MethodImplOptions.NoInlining)]
-	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? Create<#=converter.ConverterName#><T>() => typeof(T) == typeof(<#=converter.TypeName#>) ? new <#=converter.ConverterName#>() : null;
+	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? Create<#=converter.ConverterName#><T>() => typeof(T) == typeof(<#=converter.TypeName#>) ? new <#=converter.ConverterName#><TEncoder, TDecoder>() : null;
 <# } #>
 }
 <#+

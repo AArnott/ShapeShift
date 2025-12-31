@@ -2,6 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System.Globalization;
+using System.Numerics;
 using System.Text;
 
 namespace ShapeShift.Yaml;
@@ -175,6 +176,18 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 		if (!ulong.TryParse(token, IntegerPointStyle, CultureInfo.InvariantCulture, out ulong value))
 		{
 			throw new DecoderException($"Invalid integer value: {token.ToString()}.");
+		}
+
+		return value;
+	}
+
+	/// <inheritdoc/>
+	public BigInteger ReadBigInteger()
+	{
+		ReadOnlySpan<char> token = this.ReadToken(TokenType.Number);
+		if (!BigInteger.TryParse(token, IntegerPointStyle, CultureInfo.InvariantCulture, out BigInteger value))
+		{
+			throw new DecoderException($"Invalid BigInteger value: {token.ToString()}.");
 		}
 
 		return value;
