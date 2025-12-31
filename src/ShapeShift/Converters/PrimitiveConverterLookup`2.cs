@@ -51,6 +51,7 @@ internal static class PrimitiveConverterLookup<TEncoder, TDecoder>
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _DateTimeOffsetConverter;
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _TimeSpanConverter;
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _BigIntegerConverter;
+	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _RuneConverter;
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _StringConverter;
 	private static IShapeShiftConverterInternal<TEncoder, TDecoder>? _StringConverterReferencePreserving;
 
@@ -162,6 +163,12 @@ internal static class PrimitiveConverterLookup<TEncoder, TDecoder>
 		if (typeof(T) == typeof(TimeSpan))
 		{
 			converter = (ShapeShiftConverter<T, TEncoder, TDecoder>)(_TimeSpanConverter ??= new TimeSpanConverter<TEncoder, TDecoder>());
+			return true;
+		}
+
+		if (typeof(T) == typeof(System.Text.Rune))
+		{
+			converter = (ShapeShiftConverter<T, TEncoder, TDecoder>)(_RuneConverter ??= new RuneConverter<TEncoder, TDecoder>());
 			return true;
 		}
 

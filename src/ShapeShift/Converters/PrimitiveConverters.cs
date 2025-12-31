@@ -5,6 +5,7 @@
 #pragma warning disable SA1649 // File name should match first type name
 
 using System.Numerics;
+using System.Text;
 using Microsoft.NET.StringTools;
 
 namespace ShapeShift.Converters;
@@ -128,6 +129,17 @@ internal class BigIntegerConverter<TEncoder, TDecoder> : ShapeShiftConverter<Big
 
 	/// <inheritdoc/>
 	public override void Write(ref TEncoder encoder, in BigInteger value, SerializationContext<TEncoder, TDecoder> context) => encoder.WriteValue(value);
+}
+
+internal class RuneConverter<TEncoder, TDecoder> : ShapeShiftConverter<Rune, TEncoder, TDecoder>
+	where TEncoder : IEncoder, allows ref struct
+	where TDecoder : IDecoder, allows ref struct
+{
+	/// <inheritdoc/>
+	public override Rune Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => new Rune(decoder.ReadInt32());
+
+	/// <inheritdoc/>
+	public override void Write(ref TEncoder encoder, in Rune value, SerializationContext<TEncoder, TDecoder> context) => encoder.WriteValue(value.Value);
 }
 
 internal class CharConverter<TEncoder, TDecoder> : ShapeShiftConverter<char, TEncoder, TDecoder>

@@ -36,6 +36,7 @@ var convertersByType = new List<ConverterInfo>
 	new ConverterInfo("DateTimeOffset", "DateTimeOffsetConverter"),
 	new ConverterInfo("TimeSpan", "TimeSpanConverter"),
 	new ConverterInfo("System.Numerics.BigInteger", "BigIntegerConverter") { LazyLoad = true },
+	new ConverterInfo("System.Text.Rune", "RuneConverter"),
 	new ConverterInfo("string", "StringConverter", IsRefType: true),
 };
 #>
