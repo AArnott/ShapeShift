@@ -37,6 +37,10 @@ public interface IDecoder
 
 	public ulong ReadUInt64();
 
+	public Int128 ReadInt128();
+
+	public UInt128 ReadUInt128();
+
 	public Half ReadHalf();
 
 	public float ReadSingle();

@@ -107,6 +107,18 @@ public ref struct YamlEncoder(TextWriter writer) : IEncoder
 	}
 
 	/// <inheritdoc/>
+	public void WriteValue(Int128 value)
+	{
+		this.WriteScalar(value.ToString(CultureInfo.InvariantCulture).AsSpan());
+	}
+
+	/// <inheritdoc/>
+	public void WriteValue(UInt128 value)
+	{
+		this.WriteScalar(value.ToString(CultureInfo.InvariantCulture).AsSpan());
+	}
+
+	/// <inheritdoc/>
 	public void WriteValue(BigInteger value)
 	{
 		this.WriteScalar(value.ToString(CultureInfo.InvariantCulture).AsSpan());

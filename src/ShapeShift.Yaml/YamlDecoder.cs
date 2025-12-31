@@ -182,6 +182,30 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 	}
 
 	/// <inheritdoc/>
+	public Int128 ReadInt128()
+	{
+		ReadOnlySpan<char> token = this.ReadToken(TokenType.Number);
+		if (!Int128.TryParse(token, IntegerPointStyle, CultureInfo.InvariantCulture, out Int128 value))
+		{
+			throw new DecoderException($"Invalid integer value: {token.ToString()}.");
+		}
+
+		return value;
+	}
+
+	/// <inheritdoc/>
+	public UInt128 ReadUInt128()
+	{
+		ReadOnlySpan<char> token = this.ReadToken(TokenType.Number);
+		if (!UInt128.TryParse(token, IntegerPointStyle, CultureInfo.InvariantCulture, out UInt128 value))
+		{
+			throw new DecoderException($"Invalid integer value: {token.ToString()}.");
+		}
+
+		return value;
+	}
+
+	/// <inheritdoc/>
 	public BigInteger ReadBigInteger()
 	{
 		ReadOnlySpan<char> token = this.ReadToken(TokenType.Number);

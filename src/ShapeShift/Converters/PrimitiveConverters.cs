@@ -21,6 +21,28 @@ internal class BooleanConverter<TEncoder, TDecoder> : ShapeShiftConverter<bool, 
 	public override void Write(ref TEncoder encoder, in bool value, SerializationContext<TEncoder, TDecoder> context) => encoder.WriteValue(value);
 }
 
+internal class Int128Converter<TEncoder, TDecoder> : ShapeShiftConverter<Int128, TEncoder, TDecoder>
+	where TEncoder : IEncoder, allows ref struct
+	where TDecoder : IDecoder, allows ref struct
+{
+	/// <inheritdoc/>
+	public override Int128 Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => decoder.ReadInt128();
+
+	/// <inheritdoc/>
+	public override void Write(ref TEncoder encoder, in Int128 value, SerializationContext<TEncoder, TDecoder> context) => encoder.WriteValue(value);
+}
+
+internal class UInt128Converter<TEncoder, TDecoder> : ShapeShiftConverter<UInt128, TEncoder, TDecoder>
+	where TEncoder : IEncoder, allows ref struct
+	where TDecoder : IDecoder, allows ref struct
+{
+	/// <inheritdoc/>
+	public override UInt128 Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => decoder.ReadUInt128();
+
+	/// <inheritdoc/>
+	public override void Write(ref TEncoder encoder, in UInt128 value, SerializationContext<TEncoder, TDecoder> context) => encoder.WriteValue(value);
+}
+
 internal class HalfConverter<TEncoder, TDecoder> : ShapeShiftConverter<Half, TEncoder, TDecoder>
 	where TEncoder : IEncoder, allows ref struct
 	where TDecoder : IDecoder, allows ref struct

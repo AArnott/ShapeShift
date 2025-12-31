@@ -25,6 +25,10 @@ public interface IEncoder
 
 	void WriteValue(ulong value);
 
+	void WriteValue(Int128 value);
+
+	void WriteValue(UInt128 value);
+
 	void WriteValue(Half value);
 
 	void WriteValue(float value);

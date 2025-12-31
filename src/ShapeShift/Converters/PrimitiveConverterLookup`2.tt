@@ -28,6 +28,8 @@ var convertersByType = new List<ConverterInfo>
 	new ConverterInfo("uint", "UInt32Converter"),
 	new ConverterInfo("long", "Int64Converter"),
 	new ConverterInfo("ulong", "UInt64Converter"),
+	new ConverterInfo("Int128", "Int128Converter"),
+	new ConverterInfo("UInt128", "UInt128Converter"),
 	new ConverterInfo("Half", "HalfConverter"),
 	new ConverterInfo("float", "SingleConverter"),
 	new ConverterInfo("double", "DoubleConverter"),
