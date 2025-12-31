@@ -45,6 +45,21 @@ public partial class YamlSerializerTests : TestBase
 		await this.AssertRoundtripAsync(person);
 	}
 
+	[Test]
+	public async Task ListOfRecords()
+	{
+		Family family = new()
+		{
+			Members =
+			[
+				new Person { FirstName = "John", LastName = "Doe" },
+				new Person { FirstName = "Jane", LastName = "Doe" },
+			],
+		};
+
+		await this.AssertRoundtripAsync(family);
+	}
+
 	protected ValueTask<T?> AssertRoundtripAsync<T>(T? value)
 		where T : IShapeable<T> => this.AssertRoundtripAsync<T, T>(value);
 
@@ -70,6 +85,28 @@ public partial class YamlSerializerTests : TestBase
 		public string? FirstName { get; set; }
 
 		public string? LastName { get; set; }
+	}
+
+	[GenerateShape]
+	internal partial record Family
+	{
+		public List<Person> Members { get; set; } = [];
+
+		public virtual bool Equals(Family? other)
+		{
+			return other is not null && this.Members.SequenceEqual(other.Members);
+		}
+
+		public override int GetHashCode()
+		{
+			HashCode hash = default;
+			foreach (Person member in this.Members)
+			{
+				hash.Add(member);
+			}
+
+			return hash.ToHashCode();
+		}
 	}
 
 	[GenerateShapeFor<string>]

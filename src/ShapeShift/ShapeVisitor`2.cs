@@ -84,6 +84,12 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 		};
 	}
 
+	public override object? VisitEnumerable<TEnumerable, TElement>(IEnumerableTypeShape<TEnumerable, TElement> enumerableShape, object? state = null)
+	{
+		var elementConverter = this.GetConverter(enumerableShape.ElementType);
+		return ConverterResult.Ok(new EnumerableConverter<TEnumerable, TElement, TEncoder, TDecoder>(enumerableShape, (ShapeShiftConverter<TElement, TEncoder, TDecoder>)elementConverter.ValueOrThrow));
+	}
+
 	/// <summary>
 	/// Gets or creates a converter for the given type shape.
 	/// </summary>
