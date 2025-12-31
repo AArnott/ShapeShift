@@ -73,15 +73,16 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 			Dictionary<string, WriteProperty<TDeclaringType, TEncoder, TDecoder>> propertyWriters = new(objectShape.Properties.Count);
 			foreach (var property in objectShape.Properties)
 			{
+				string name = this.owner.GetSerializedPropertyName(property.Name, property.AttributeProvider);
 				var converters = (PropertyConverter<TDeclaringType, TEncoder, TDecoder>)property.Accept(this)!;
 				if (converters.Read is not null)
 				{
-					propertyReaders.Add(property.Name, converters.Read);
+					propertyReaders.Add(name, converters.Read);
 				}
 
 				if (converters.Write is not null)
 				{
-					propertyWriters.Add(property.Name, converters.Write);
+					propertyWriters.Add(name, converters.Write);
 				}
 			}
 
@@ -97,17 +98,19 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 			Dictionary<string, WriteProperty<TDeclaringType, TEncoder, TDecoder>> propertyWriters = new(objectShape.Properties.Count);
 			foreach (var property in objectShape.Properties)
 			{
+				string name = this.owner.GetSerializedPropertyName(property.Name, property.AttributeProvider);
 				var converters = (PropertyConverter<TDeclaringType, TEncoder, TDecoder>)property.Accept(this)!;
 				if (converters.Write is not null)
 				{
-					propertyWriters.Add(property.Name, converters.Write);
+					propertyWriters.Add(name, converters.Write);
 				}
 			}
 
 			foreach (var parameter in constructorShape.Parameters)
 			{
+				string name = this.owner.GetSerializedPropertyName(parameter.Name, parameter.AttributeProvider);
 				var propertyReader = (ReadProperty<TArgumentState, TEncoder, TDecoder>)parameter.Accept(this, parameter)!;
-				propertyReaders.Add(parameter.Name, propertyReader);
+				propertyReaders.Add(name, propertyReader);
 			}
 
 			converter = new ObjectConverterWithNonDefaultCtor<TDeclaringType, TArgumentState, TEncoder, TDecoder>(constructorShape.GetArgumentStateConstructor(), constructorShape.GetParameterizedConstructor())
