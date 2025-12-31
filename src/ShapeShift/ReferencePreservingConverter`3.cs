@@ -4,15 +4,14 @@
 #pragma warning disable NBMsgPack031 // NotExactlyOneStructure -- we're doing advanced stuff.
 #pragma warning disable NBMsgPack032 // Reference preservation isn't supported when producing a schema at this point.
 
-using System.Diagnostics.CodeAnalysis;
-using Microsoft;
-
 namespace ShapeShift;
 
 /// <summary>
 /// A converter that wraps another converter and ensures that references are preserved during serialization.
 /// </summary>
 /// <typeparam name="T">The type of value to be serialized.</typeparam>
+/// <typeparam name="TEncoder"><inheritdoc cref="SerializerBase{TEncoder, TEncoder}" path="/typeparam[@name='TEncoder']"/></typeparam>
+/// <typeparam name="TDecoder"><inheritdoc cref="SerializerBase{TEncoder, TDecoder}" path="/typeparam[@name='TDecoder']"/></typeparam>
 /// <param name="inner">The actual converter to use when a value is serialized or deserialized for the first time in a stream.</param>
 internal class ReferencePreservingConverter<T, TEncoder, TDecoder>(ShapeShiftConverter<T, TEncoder, TDecoder> inner) : ShapeShiftConverter<T, TEncoder, TDecoder>
 	where TEncoder : IEncoder, allows ref struct

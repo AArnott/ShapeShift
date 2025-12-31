@@ -15,6 +15,8 @@ namespace ShapeShift.Converters;
 /// <summary>
 /// Provides access to built-in converters for primitive types.
 /// </summary>
+/// <typeparam name="TEncoder"><inheritdoc cref="SerializerBase{TEncoder, TEncoder}" path="/typeparam[@name='TEncoder']"/></typeparam>
+/// <typeparam name="TDecoder"><inheritdoc cref="SerializerBase{TEncoder, TDecoder}" path="/typeparam[@name='TDecoder']"/></typeparam>
 /// <remarks>
 /// <para>This class is carefully crafted to avoid assembly loads by testing type names
 /// rather than types directly for types declared in assemblies that may not be loaded.</para>

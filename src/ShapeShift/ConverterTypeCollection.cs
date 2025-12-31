@@ -6,13 +6,12 @@ using System.Collections.Frozen;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using Microsoft;
 using static ShapeShift.ConverterTypeCollection;
 
 namespace ShapeShift;
 
 /// <summary>
-/// An immutable collection of <see cref="MessagePackConverter{T}"/> types.
+/// An immutable collection of <see cref="ShapeShiftConverter{T, TEncoder, TDecoder}"/> types.
 /// </summary>
 [CollectionBuilder(typeof(ConverterTypeCollection), nameof(Create))]
 public class ConverterTypeCollection : IReadOnlyCollection<ConverterType>
@@ -34,7 +33,7 @@ public class ConverterTypeCollection : IReadOnlyCollection<ConverterType>
 	/// Initializes a new instance of the <see cref="ConverterTypeCollection"/> class
 	/// populated with a collection of <see cref="Type"/>s.
 	/// </summary>
-	/// <param name="converterTypes">The <see cref="MessagePackConverter{T}"/> types that should be elements in the collection.</param>
+	/// <param name="converterTypes">The <see cref="ShapeShiftConverter{T, TEncoder, TDecoder}"/> types that should be elements in the collection.</param>
 	/// <returns>The newly initialized collection type.</returns>
 	public static ConverterTypeCollection Create(ReadOnlySpan<ConverterType> converterTypes)
 	{

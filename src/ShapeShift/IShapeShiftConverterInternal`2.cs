@@ -6,6 +6,8 @@ namespace ShapeShift;
 /// <summary>
 /// Non-generic access to internal methods of <see cref="ShapeShiftConverter{T, TEncoder, TDecoder}"/>.
 /// </summary>
+/// <typeparam name="TEncoder"><inheritdoc cref="SerializerBase{TEncoder, TEncoder}" path="/typeparam[@name='TEncoder']"/></typeparam>
+/// <typeparam name="TDecoder"><inheritdoc cref="SerializerBase{TEncoder, TDecoder}" path="/typeparam[@name='TDecoder']"/></typeparam>
 internal interface IShapeShiftConverterInternal<TEncoder, TDecoder>
 	where TEncoder : IEncoder, allows ref struct
 	where TDecoder : IDecoder, allows ref struct

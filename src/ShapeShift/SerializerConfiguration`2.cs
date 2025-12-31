@@ -110,7 +110,7 @@ internal record SerializerConfiguration<TEncoder, TDecoder>
 	}
 
 	/// <summary>
-	/// Gets the <see cref="ShapeShift.ConverterCache"/> object based on this configuration.
+	/// Gets the <see cref="ConverterCache{TEncoder, TDecoder}"/> object based on this configuration.
 	/// </summary>
 	internal ConverterCache<TEncoder, TDecoder> ConverterCache => this.converterCache ??= new ConverterCache<TEncoder, TDecoder>(this);
 

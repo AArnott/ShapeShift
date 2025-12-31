@@ -3,11 +3,21 @@
 
 namespace ShapeShift;
 
+/// <summary>
+/// A format-agnostic base class for serializers that use specific encoders and decoders.
+/// </summary>
+/// <typeparam name="TEncoder">The type of encoder to use.</typeparam>
+/// <typeparam name="TDecoder">The type of decoder to use.</typeparam>
 public abstract class SerializerBase<TEncoder, TDecoder> : IShapeShiftSerializer
 	where TEncoder : IEncoder, allows ref struct
 	where TDecoder : IDecoder, allows ref struct
 {
 	private SerializerConfiguration<TEncoder, TDecoder> configuration = SerializerConfiguration<TEncoder, TDecoder>.Default;
+
+	/// <summary>
+	/// Gets the starting context to begin (de)serializations with.
+	/// </summary>
+	public SerializationContext<TEncoder, TDecoder> StartingContext { get; init; } = new();
 
 	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.InternStrings"/>
 	public bool InternStrings
@@ -16,20 +26,15 @@ public abstract class SerializerBase<TEncoder, TDecoder> : IShapeShiftSerializer
 		init => this.configuration = this.configuration with { InternStrings = value };
 	}
 
+	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.ConverterCache"/>
+	internal ConverterCache<TEncoder, TDecoder> ConverterCache => this.configuration.ConverterCache;
+
 	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.PreserveReferences"/>
 	protected ReferencePreservationMode PreserveReferences
 	{
 		get => this.configuration.PreserveReferences;
 		init => this.configuration = this.configuration with { PreserveReferences = value };
 	}
-
-	/// <summary>
-	/// Gets the starting context to begin (de)serializations with.
-	/// </summary>
-	public SerializationContext<TEncoder, TDecoder> StartingContext { get; init; } = new();
-
-	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.ConverterCache"/>
-	internal ConverterCache<TEncoder, TDecoder> ConverterCache => this.configuration.ConverterCache;
 
 	public void Serialize<T>(ref TEncoder encoder, in T? value, ITypeShape<T> typeShape, CancellationToken cancellationToken = default)
 	{

@@ -12,8 +12,8 @@ namespace ShapeShift;
 /// <summary>
 /// A visitor that prepares type converters.
 /// </summary>
-/// <typeparam name="TEncoder">The type of encoder to use.</typeparam>
-/// <typeparam name="TDecoder">The type of decoder to use.</typeparam>
+/// <typeparam name="TEncoder"><inheritdoc cref="SerializerBase{TEncoder, TEncoder}" path="/typeparam[@name='TEncoder']"/></typeparam>
+/// <typeparam name="TDecoder"><inheritdoc cref="SerializerBase{TEncoder, TDecoder}" path="/typeparam[@name='TDecoder']"/></typeparam>
 internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFunc
 	where TEncoder : IEncoder, allows ref struct
 	where TDecoder : IDecoder, allows ref struct
@@ -59,6 +59,7 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 		{
 			return customConverter;
 		}
+
 		if (BuiltInConverters.TryGetBuiltInConverter<T, TEncoder, TDecoder>(out var builtin))
 		{
 			return builtin;
@@ -71,6 +72,65 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 		}
 
 		return ConverterResult.Ok(new ObjectConverter<T, TEncoder, TDecoder>(objectShape, properties));
+	}
+
+	public override object? VisitProperty<TDeclaringType, TPropertyType>(IPropertyShape<TDeclaringType, TPropertyType> propertyShape, object? state = null)
+	{
+		IParameterShape? constructorParameterShape = (IParameterShape?)state;
+
+		ConverterResult<TEncoder, TDecoder> converter = this.GetConverterForMemberOrParameter(propertyShape.PropertyType, propertyShape.AttributeProvider);
+
+		Getter<TDeclaringType, TPropertyType> getter = propertyShape.GetGetter();
+		Setter<TDeclaringType, TPropertyType> setter = propertyShape.GetSetter();
+		return new PropertyConverter<TDeclaringType, TEncoder, TDecoder>
+		{
+			Write = (ref encoder, in target, context) => ((ShapeShiftConverter<TPropertyType, TEncoder, TDecoder>)converter.ValueOrThrow).Write(ref encoder, getter(ref Unsafe.AsRef(in target)), context),
+			Read = (ref decoder, ref target, context) => setter(ref target, ((ShapeShiftConverter<TPropertyType, TEncoder, TDecoder>)converter.ValueOrThrow).Read(ref decoder, context)!),
+		};
+	}
+
+	/// <summary>
+	/// Gets or creates a converter for the given type shape.
+	/// </summary>
+	/// <param name="shape">The type shape.</param>
+	/// <param name="memberAttributes">
+	/// The attribute provider on the member that requires this converter.
+	/// This is used to look for <see cref="UseComparerAttribute"/> which may customize the converter we return.
+	/// </param>
+	/// <param name="state">An optional state object to pass to the converter.</param>
+	/// <returns>The converter.</returns>
+	/// <remarks>
+	/// This is the main entry point for getting converters on behalf of other functions,
+	/// e.g. converting the key or value in a dictionary.
+	/// It does <em>not</em> take <see cref="ShapeShiftConverterAttribute"/> into account
+	/// if it were to appear in <paramref name="memberAttributes"/>.
+	/// Callers that want to respect that attribute must call <see cref="TryGetConverterFromAttribute"/> first.
+	/// </remarks>
+	protected ConverterResult<TEncoder, TDecoder> GetConverter(ITypeShape shape, IGenericCustomAttributeProvider? memberAttributes = null, object? state = null)
+	{
+		if (memberAttributes is not null)
+		{
+			if (state is not null)
+			{
+				throw new ArgumentException("Providing both attributes and state are not supported because we reuse the state parameter for attribute influence.");
+			}
+
+			////if (memberAttributes.GetCustomAttribute<UseComparerAttribute>() is { } attribute)
+			////{
+			////	MemberConverterInfluence memberInfluence = new()
+			////	{
+			////		ComparerSource = attribute.ComparerType,
+			////		ComparerSourceMemberName = attribute.MemberName,
+			////	};
+
+			////	// PERF: Ideally, we can store and retrieve member influenced converters
+			////	// just like we do for non-member influenced ones.
+			////	// We'd probably use a separate dictionary dedicated to member-influenced converters.
+			////	return (ConverterResult<TEncoder, TDecoder>)shape.Accept(this.OutwardVisitor, memberInfluence)!;
+			////}
+		}
+
+		return (ConverterResult<TEncoder, TDecoder>)this.context.GetOrAdd(shape, state)!;
 	}
 
 	private bool TryGetCustomOrPrimitiveConverter<T>(ITypeShape<T> typeShape, IGenericCustomAttributeProvider attributeProvider, [NotNullWhen(true)] out ConverterResult<TEncoder, TDecoder>? converter)
@@ -108,50 +168,6 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 		}
 
 		return this.TryGetConverterFromAttribute(type, typeShape, attributeProvider, out converter);
-	}
-
-	/// <summary>
-	/// Gets or creates a converter for the given type shape.
-	/// </summary>
-	/// <param name="shape">The type shape.</param>
-	/// <param name="memberAttributes">
-	/// The attribute provider on the member that requires this converter.
-	/// This is used to look for <see cref="UseComparerAttribute"/> which may customize the converter we return.
-	/// </param>
-	/// <param name="state">An optional state object to pass to the converter.</param>
-	/// <returns>The converter.</returns>
-	/// <remarks>
-	/// This is the main entry point for getting converters on behalf of other functions,
-	/// e.g. converting the key or value in a dictionary.
-	/// It does <em>not</em> take <see cref="MessagePackConverterAttribute"/> into account
-	/// if it were to appear in <paramref name="memberAttributes"/>.
-	/// Callers that want to respect that attribute must call <see cref="TryGetConverterFromAttribute"/> first.
-	/// </remarks>
-	protected ConverterResult<TEncoder, TDecoder> GetConverter(ITypeShape shape, IGenericCustomAttributeProvider? memberAttributes = null, object? state = null)
-	{
-		if (memberAttributes is not null)
-		{
-			if (state is not null)
-			{
-				throw new ArgumentException("Providing both attributes and state are not supported because we reuse the state parameter for attribute influence.");
-			}
-
-			////if (memberAttributes.GetCustomAttribute<UseComparerAttribute>() is { } attribute)
-			////{
-			////	MemberConverterInfluence memberInfluence = new()
-			////	{
-			////		ComparerSource = attribute.ComparerType,
-			////		ComparerSourceMemberName = attribute.MemberName,
-			////	};
-
-			////	// PERF: Ideally, we can store and retrieve member influenced converters
-			////	// just like we do for non-member influenced ones.
-			////	// We'd probably use a separate dictionary dedicated to member-influenced converters.
-			////	return (ConverterResult<TEncoder, TDecoder>)shape.Accept(this.OutwardVisitor, memberInfluence)!;
-			////}
-		}
-
-		return (ConverterResult<TEncoder, TDecoder>)this.context.GetOrAdd(shape, state)!;
 	}
 
 	private ConverterResult<TEncoder, TDecoder> GetConverterForMemberOrParameter(ITypeShape typeShape, IGenericCustomAttributeProvider attributeProvider)
@@ -208,20 +224,5 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 
 		converter = ConverterResult.Ok((ShapeShiftConverter<TEncoder, TDecoder>)ctor.Invoke(Array.Empty<object?>()));
 		return true;
-	}
-
-	public override object? VisitProperty<TDeclaringType, TPropertyType>(IPropertyShape<TDeclaringType, TPropertyType> propertyShape, object? state = null)
-	{
-		IParameterShape? constructorParameterShape = (IParameterShape?)state;
-
-		ConverterResult<TEncoder, TDecoder> converter = this.GetConverterForMemberOrParameter(propertyShape.PropertyType, propertyShape.AttributeProvider);
-
-		Getter<TDeclaringType, TPropertyType> getter = propertyShape.GetGetter();
-		Setter<TDeclaringType, TPropertyType> setter = propertyShape.GetSetter();
-		return new PropertyConverter<TDeclaringType, TEncoder, TDecoder>
-		{
-			Write = (ref encoder, in target, context) => ((ShapeShiftConverter<TPropertyType, TEncoder, TDecoder>)converter.ValueOrThrow).Write(ref encoder, getter(ref Unsafe.AsRef(in target)), context),
-			Read = (ref decoder, ref target, context) => setter(ref target, ((ShapeShiftConverter<TPropertyType, TEncoder, TDecoder>)converter.ValueOrThrow).Read(ref decoder, context)!),
-		};
 	}
 }

@@ -7,8 +7,24 @@ using ShapeShift.Converters;
 
 namespace ShapeShift;
 
+/// <summary>
+/// Tracks all inputs to converter construction and caches the results of construction itself.
+/// </summary>
 /// <typeparam name="TEncoder"><inheritdoc cref="SerializerBase{TEncoder, TEncoder}" path="/typeparam[@name='TEncoder']"/></typeparam>
 /// <typeparam name="TDecoder"><inheritdoc cref="SerializerBase{TEncoder, TDecoder}" path="/typeparam[@name='TDecoder']"/></typeparam>
+/// <param name="configuration">An immutable configuration that this cache builds upon.</param>
+/// <remarks>
+/// <para>
+/// This type is observably immutable and thread-safe.
+/// </para>
+/// <para>
+/// This type offers something of an information barrier to converter construction.
+/// The <see cref="ShapeVisitor{TEncoder, TDecoder}"/> only gets a reference to this object,
+/// and this object does <em>not</em> have a reference to <see cref="SerializerBase{TEncoder, TDecoder}"/>.
+/// This ensures that properties on <see cref="SerializerBase{TEncoder, TDecoder}"/> cannot serve as inputs to the converters.
+/// Thus, the only properties that should reset the <see cref="CachedConverters"/> are those declared on this type.
+/// </para>
+/// </remarks>
 internal class ConverterCache<TEncoder, TDecoder>(SerializerConfiguration<TEncoder, TDecoder> configuration)
 	where TEncoder : IEncoder, allows ref struct
 	where TDecoder : IDecoder, allows ref struct
@@ -110,10 +126,10 @@ internal class ConverterCache<TEncoder, TDecoder>(SerializerConfiguration<TEncod
 	/// <returns>A value indicating whether a customer converter exists.</returns>
 	/// <remarks>
 	/// <para>
-	/// This method only searches <see cref="SerializerConfiguration.Converters"/>,
-	/// <see cref="SerializerConfiguration.ConverterTypes"/> and <see cref="SerializerConfiguration.ConverterFactories"/>
+	/// This method only searches <see cref="SerializerConfiguration{TEncoder, TDecoder}.Converters"/>,
+	/// <see cref="SerializerConfiguration{TEncoder, TDecoder}.ConverterTypes"/> and <see cref="SerializerConfiguration{TEncoder, TDecoder}.ConverterFactories"/>
 	/// for matches.
-	/// <see cref="MessagePackConverterAttribute"/> is <em>not</em> considered.
+	/// <see cref="ShapeShiftConverterAttribute"/> is <em>not</em> considered.
 	/// </para>
 	/// <para>
 	/// A converter returned from this method will be wrapped with reference-preservation logic when appropriate.

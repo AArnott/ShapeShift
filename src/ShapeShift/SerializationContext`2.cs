@@ -3,7 +3,6 @@
 
 using System.Collections.Immutable;
 using System.Diagnostics;
-using System.Formats.Tar;
 using System.Runtime.CompilerServices;
 
 namespace ShapeShift;
@@ -47,6 +46,21 @@ public struct SerializationContext<TEncoder, TDecoder>
 	public ITypeShapeProvider? TypeShapeProvider { get; internal init; }
 
 	/// <summary>
+	/// Gets the <see cref="SerializerBase{TEncoder, TDecoder}"/> that owns this context.
+	/// </summary>
+	internal ConverterCache<TEncoder, TDecoder>? Cache { get; private init; }
+
+	/// <summary>
+	/// Gets or sets the index of the object being deserialized in the reference equality tracker.
+	/// </summary>
+	internal int ReferenceIndex { get; set; } = -1;
+
+	/// <summary>
+	/// Gets the reference equality tracker for this serialization operation.
+	/// </summary>
+	internal ReferenceEqualityTracker<TEncoder, TDecoder>? ReferenceEqualityTracker { get; private init; }
+
+	/// <summary>
 	/// Gets or sets special state to be exposed to converters during serialization.
 	/// </summary>
 	/// <param name="key">Any object that can act as a key in a dictionary.</param>
@@ -61,7 +75,7 @@ public struct SerializationContext<TEncoder, TDecoder>
 	/// </remarks>
 	/// <example>
 	/// To add, modify or remove a key in this state as applied to a <see cref="SerializerBase{TEncoder, TDecoder}.StartingContext"/>,
-	/// capture and change the <see cref="SerializationContext"/> as a local variable, then reassign it to the serializer.
+	/// capture and change the <see cref="SerializationContext{TEncoder, TDecoder}"/> as a local variable, then reassign it to the serializer.
 	/// <code source="../../samples/cs/ApplyingSerializationContext.cs" region="ModifyingStartingContextState" lang="C#" />
 	/// </example>
 	public object? this[object key]
@@ -69,21 +83,6 @@ public struct SerializationContext<TEncoder, TDecoder>
 		get => this.specialState.TryGetValue(key, out object? value) ? value : null;
 		set => this.specialState = value is not null ? this.specialState.SetItem(key, value) : this.specialState.Remove(key);
 	}
-
-	/// <summary>
-	/// Gets the <see cref="MessagePackSerializer"/> that owns this context.
-	/// </summary>
-	internal ConverterCache<TEncoder, TDecoder>? Cache { get; private init; }
-
-	/// <summary>
-	/// Gets or sets the index of the object being deserialized in the reference equality tracker.
-	/// </summary>
-	internal int ReferenceIndex { get; set; } = -1;
-
-	/// <summary>
-	/// Gets the reference equality tracker for this serialization operation.
-	/// </summary>
-	internal ReferenceEqualityTracker<TEncoder, TDecoder>? ReferenceEqualityTracker { get; private init; }
 
 	/// <summary>
 	/// Decrements the depth remaining and checks the cancellation token.
@@ -134,7 +133,7 @@ public struct SerializationContext<TEncoder, TDecoder>
 	/// </summary>
 	/// <typeparam name="T">The type to be converted.</typeparam>
 	/// <param name="provider">
-	/// <inheritdoc cref="MessagePackSerializer.CreateSerializationContext(ITypeShapeProvider, CancellationToken)" path="/param[@name='provider']"/>
+	/// <inheritdoc cref="SerializerBase{TEncoder, TDecoder}.CreateSerializationContext(ITypeShapeProvider, CancellationToken)" path="/param[@name='provider']"/>
 	/// It can also come from <see cref="TypeShapeProvider"/>.
 	/// A <see langword="null" /> value will be filled in with <see cref="TypeShapeProvider"/>.
 	/// </param>

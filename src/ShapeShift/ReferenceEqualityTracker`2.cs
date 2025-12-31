@@ -3,7 +3,6 @@
 
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using Microsoft;
 using Microsoft.NET.StringTools;
 
 namespace ShapeShift;
@@ -11,6 +10,8 @@ namespace ShapeShift;
 /// <summary>
 /// Tracks the state for a particular serialization/deserialization operation to preserve object references.
 /// </summary>
+/// <typeparam name="TEncoder"><inheritdoc cref="SerializerBase{TEncoder, TEncoder}" path="/typeparam[@name='TEncoder']"/></typeparam>
+/// <typeparam name="TDecoder"><inheritdoc cref="SerializerBase{TEncoder, TDecoder}" path="/typeparam[@name='TDecoder']"/></typeparam>
 internal class ReferenceEqualityTracker<TEncoder, TDecoder> : IPoolableObject
 	where TEncoder : IEncoder, allows ref struct
 	where TDecoder : IDecoder, allows ref struct
@@ -83,7 +84,6 @@ internal class ReferenceEqualityTracker<TEncoder, TDecoder> : IPoolableObject
 	internal T ReadObject<T>(ref TDecoder reader, ShapeShiftConverter<T, TEncoder, TDecoder> inner, SerializationContext<TEncoder, TDecoder> context)
 	{
 		Verify.Operation(this.Owner is not null, $"{nameof(this.Owner)} must be set before use.");
-
 
 		if (((IReferencePreservingSerializer<TEncoder, TDecoder>)this.Owner).TryReadObjectReference(ref reader, out int referenceId, context))
 		{
