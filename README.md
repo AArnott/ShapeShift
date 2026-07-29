@@ -6,6 +6,9 @@
 [![ShapeShift.Yaml NuGet package](https://img.shields.io/nuget/v/ShapeShift.Yaml.svg?label=ShapeShift.Yaml)](https://www.nuget.org/packages/ShapeShift.Yaml)<br />
 [![ShapeShift.Taml NuGet package](https://img.shields.io/nuget/v/ShapeShift.Taml.svg?label=ShapeShift.Taml)](https://www.nuget.org/packages/ShapeShift.Taml)<br />
 
+[![🏭 Build](https://github.com/AArnott/ShapeShift/actions/workflows/build.yml/badge.svg)](https://github.com/AArnott/ShapeShift/actions/workflows/build.yml)
+[![codecov](https://codecov.io/gh/aarnott/ShapeShift/branch/main/graph/badge.svg)](https://codecov.io/gh/aarnott/ShapeShift)
+
 ## Features
 
 * PolyType-based serialization means a shared set of attributes for your data models regardless of the use case.
