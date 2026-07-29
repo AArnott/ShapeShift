@@ -7,7 +7,6 @@
     <MicrosoftTestingPlatformVersion>2.3.3</MicrosoftTestingPlatformVersion>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="Microsoft.NET.StringTools" Version="18.0.2" />
     <PackageVersion Include="Microsoft.VisualStudio.Validation" Version="17.13.22" />
     <PackageVersion Include="PolyType" Version="1.0.0" />
     <PackageVersion Include="TUnit" Version="1.7.7" />

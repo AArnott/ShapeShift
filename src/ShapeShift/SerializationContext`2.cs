@@ -61,6 +61,11 @@ public struct SerializationContext<TEncoder, TDecoder>
 	internal ReferenceEqualityTracker<TEncoder, TDecoder>? ReferenceEqualityTracker { get; private init; }
 
 	/// <summary>
+	/// Gets the string interning cache for this serialization operation.
+	/// </summary>
+	internal StringInterning? StringInterning { get; private init; }
+
+	/// <summary>
 	/// Gets or sets special state to be exposed to converters during serialization.
 	/// </summary>
 	/// <param name="key">Any object that can act as a key in a dictionary.</param>
@@ -245,6 +250,7 @@ public struct SerializationContext<TEncoder, TDecoder>
 		{
 			Cache = cache,
 			ReferenceEqualityTracker = cache.PreserveReferences != ReferencePreservationMode.Off ? ReusableObjectPool<ReferenceEqualityTracker<TEncoder, TDecoder>>.Take(owner) : null,
+			StringInterning = cache.InternStrings ? ReusableObjectPool<StringInterning>.Take(owner) : null,
 			TypeShapeProvider = provider,
 			CancellationToken = cancellationToken,
 		};
@@ -258,6 +264,11 @@ public struct SerializationContext<TEncoder, TDecoder>
 		if (this.ReferenceEqualityTracker is not null)
 		{
 			ReusableObjectPool<ReferenceEqualityTracker<TEncoder, TDecoder>>.Return(this.ReferenceEqualityTracker);
+		}
+
+		if (this.StringInterning is not null)
+		{
+			ReusableObjectPool<StringInterning>.Return(this.StringInterning);
 		}
 	}
 }

@@ -6,7 +6,6 @@
 
 using System.Numerics;
 using System.Text;
-using Microsoft.NET.StringTools;
 
 namespace ShapeShift.Converters;
 
@@ -222,7 +221,7 @@ internal class InterningStringConverter<TEncoder, TDecoder> : ShapeShiftConverte
 		}
 
 		ReadOnlySpan<char> span = decoder.ReadCharSpan();
-		return Strings.WeakIntern(span);
+		return context.StringInterning?.Intern(span) ?? span.ToString();
 	}
 
 	/// <inheritdoc/>
