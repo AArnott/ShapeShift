@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" />
+    <PackageReference Include="BenchmarkDotNet.Diagnostics.Windows" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\ShapeShift.Taml\ShapeShift.Taml.csproj" />

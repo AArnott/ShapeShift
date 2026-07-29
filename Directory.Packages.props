@@ -8,6 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
+    <PackageVersion Include="BenchmarkDotNet.Diagnostics.Windows" Version="0.15.8" />
     <PackageVersion Include="Microsoft.VisualStudio.Validation" Version="17.13.22" />
     <PackageVersion Include="PolyType" Version="1.0.0" />
     <PackageVersion Include="TUnit" Version="1.7.7" />

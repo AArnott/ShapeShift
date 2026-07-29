@@ -46,6 +46,13 @@ internal class StringInterning : IPoolableObject
 	/// <returns>The interned string.</returns>
 	internal string Intern(ReadOnlySpan<char> value) => this.GetOrAdd(value, candidateValue: null);
 
+	/// <summary>
+	/// Returns an interned string, reusing the supplied string when it is first added.
+	/// </summary>
+	/// <param name="value">The string for which an interned string is required.</param>
+	/// <returns>The interned string.</returns>
+	internal string Intern(string value) => this.GetOrAdd(value.AsSpan(), value);
+
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private static uint CalculateHashCode(ReadOnlySpan<char> value, bool secureHash)
 	{
