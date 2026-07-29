@@ -92,6 +92,18 @@ dotnet run --no-build -c Release --framework net9.0 -- --list-tests
 DocFx=true dotnet docfx docfx/docfx.json --warningsAsErrors --disableGitFeatures
 ```
 
+## Performance optimization
+
+- Establish a BenchmarkDotNet baseline before changing a hot path. For string interning, run:
+  ```bash
+  dotnet run --project test/Benchmarks/Benchmarks.csproj -c Release -f net10.0 -- --filter "*StringInterning*" --job short
+  ```
+- Keep benchmark input distributions explicit and reproducible. `Duplicated` and `Unique` string datasets exercise distinct cache lookup and allocation behavior; do not replace them with a single representative input.
+- For branch-sensitive work, use sufficiently large randomized datasets so a branch predictor cannot learn a short repeating sequence. Preserve the fixed random seed unless intentionally changing the workload.
+- Review allocation, generated assembly, branch instructions, and branch mispredictions alongside elapsed time. Hardware counters require an elevated Windows process; an unavailable counter is not evidence of zero misses.
+- Benchmark changes measure behavior; they do not prove correctness. Verify all serialization boundaries and error behavior with the relevant tests before accepting an optimization.
+- Prefer narrowly targeted candidates and retain a simple, verified baseline until benchmark results and generated assembly demonstrate a repeatable improvement for the intended distributions.
+
 ## Coding style
 
 - Honor StyleCop rules and fix any reported build warnings _after_ getting tests to pass.
