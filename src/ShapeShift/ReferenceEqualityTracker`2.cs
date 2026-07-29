@@ -54,7 +54,7 @@ internal class ReferenceEqualityTracker<TEncoder, TDecoder> : IPoolableObject
 
 		if (context.StringInterning is { } interning && value is string)
 		{
-			value = (T)(object)interning.Intern(((string)(object)value).AsSpan());
+			value = (T)(object)interning.Intern((string)(object)value);
 		}
 
 		if (this.TryGetSerializedObject(value, out int referenceId))

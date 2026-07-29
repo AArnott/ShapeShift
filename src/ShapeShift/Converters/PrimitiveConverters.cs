@@ -220,8 +220,15 @@ internal class InterningStringConverter<TEncoder, TDecoder> : ShapeShiftConverte
 			return null;
 		}
 
-		string value = decoder.ReadString();
-		return context.StringInterning?.Intern(value) ?? value;
+		Span<char> buffer = stackalloc char[256];
+		ReadOnlySpan<char> value = decoder.ReadCharSpan(buffer, out int charactersWritten);
+		if (charactersWritten >= 0)
+		{
+			ReadOnlySpan<char> bufferedValue = buffer.Slice(0, charactersWritten);
+			return context.StringInterning?.Intern(bufferedValue) ?? bufferedValue.ToString();
+		}
+
+		return context.StringInterning?.Intern(value) ?? value.ToString();
 	}
 
 	/// <inheritdoc/>

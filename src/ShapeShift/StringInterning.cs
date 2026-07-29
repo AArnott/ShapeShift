@@ -44,7 +44,7 @@ internal class StringInterning : IPoolableObject
 	/// </summary>
 	/// <param name="value">The characters for which an interned string is required.</param>
 	/// <returns>The interned string.</returns>
-	internal string Intern(ReadOnlySpan<char> value) => this.GetOrAdd(value, candidateValue: null);
+	internal string Intern(scoped ReadOnlySpan<char> value) => this.GetOrAdd(value, candidateValue: null);
 
 	/// <summary>
 	/// Returns an interned string, reusing the supplied string when it is first added.
@@ -54,12 +54,12 @@ internal class StringInterning : IPoolableObject
 	internal string Intern(string value) => this.GetOrAdd(value.AsSpan(), value);
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	private static uint CalculateHashCode(ReadOnlySpan<char> value, bool secureHash)
+	private static uint CalculateHashCode(scoped ReadOnlySpan<char> value, bool secureHash)
 	{
 		return unchecked((uint)string.GetHashCode(value, StringComparison.Ordinal));
 	}
 
-	private string GetOrAdd(ReadOnlySpan<char> value, string? candidateValue)
+	private string GetOrAdd(scoped ReadOnlySpan<char> value, string? candidateValue)
 	{
 		if (this.buckets is null)
 		{

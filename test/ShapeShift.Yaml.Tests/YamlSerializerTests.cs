@@ -20,6 +20,19 @@ public partial class YamlSerializerTests : TestBase
 		await Assert.That(this.lastSerializedYaml).IsEqualTo(original);
 	}
 
+	[Test]
+	public async Task InternEscapedStrings()
+	{
+		YamlSerializer serializer = new() { InternStrings = true };
+		Person original = new() { FirstName = "First line\nSecond line", LastName = "First line\nSecond line" };
+		string serialized = serializer.Serialize<Person, Person>(original);
+
+		Person? deserialized = serializer.Deserialize<Person, Person>(serialized);
+
+		await Assert.That(deserialized).IsNotNull();
+		await Assert.That(ReferenceEquals(deserialized!.FirstName, deserialized.LastName)).IsTrue();
+	}
+
 	[Test, MatrixDataSource]
 	public async Task SimpleBoolean(bool original)
 	{

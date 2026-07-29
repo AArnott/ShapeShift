@@ -34,10 +34,20 @@ public partial class StringInterning
 		Fourth = "Fourth unique string value",
 	};
 
+	private static readonly StringProperties EscapedDuplicated = new()
+	{
+		First = "First line\nSecond line",
+		Second = "First line\nSecond line",
+		Third = "First line\nSecond line",
+		Fourth = "First line\nSecond line",
+	};
+
 	private static readonly string DuplicatedTaml = TamlNonInterning.Serialize(Duplicated);
 	private static readonly string UniqueTaml = TamlNonInterning.Serialize(Unique);
+	private static readonly string EscapedDuplicatedTaml = TamlNonInterning.Serialize(EscapedDuplicated);
 	private static readonly string DuplicatedYaml = YamlNonInterning.Serialize(Duplicated);
 	private static readonly string UniqueYaml = YamlNonInterning.Serialize(Unique);
+	private static readonly string EscapedDuplicatedYaml = YamlNonInterning.Serialize(EscapedDuplicated);
 
 	[Benchmark(Baseline = true)]
 	[BenchmarkCategory("TAML", "Duplicated")]
@@ -56,12 +66,28 @@ public partial class StringInterning
 	public void DeserializeUniqueTamlWithInterning() => TamlInterning.Deserialize<StringProperties>(UniqueTaml);
 
 	[Benchmark(Baseline = true)]
+	[BenchmarkCategory("TAML", "Escaped")]
+	public void DeserializeEscapedDuplicatedTamlWithoutInterning() => TamlNonInterning.Deserialize<StringProperties>(EscapedDuplicatedTaml);
+
+	[Benchmark]
+	[BenchmarkCategory("TAML", "Escaped")]
+	public void DeserializeEscapedDuplicatedTamlWithInterning() => TamlInterning.Deserialize<StringProperties>(EscapedDuplicatedTaml);
+
+	[Benchmark(Baseline = true)]
 	[BenchmarkCategory("YAML", "Duplicated")]
 	public void DeserializeDuplicatedYamlWithoutInterning() => YamlNonInterning.Deserialize<StringProperties>(DuplicatedYaml);
 
 	[Benchmark]
 	[BenchmarkCategory("YAML", "Duplicated")]
 	public void DeserializeDuplicatedYamlWithInterning() => YamlInterning.Deserialize<StringProperties>(DuplicatedYaml);
+
+	[Benchmark(Baseline = true)]
+	[BenchmarkCategory("YAML", "Escaped")]
+	public void DeserializeEscapedDuplicatedYamlWithoutInterning() => YamlNonInterning.Deserialize<StringProperties>(EscapedDuplicatedYaml);
+
+	[Benchmark]
+	[BenchmarkCategory("YAML", "Escaped")]
+	public void DeserializeEscapedDuplicatedYamlWithInterning() => YamlInterning.Deserialize<StringProperties>(EscapedDuplicatedYaml);
 
 	[GenerateShape]
 	public partial record StringProperties
