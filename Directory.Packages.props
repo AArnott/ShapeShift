@@ -7,19 +7,17 @@
     <MicrosoftTestingPlatformVersion>2.3.3</MicrosoftTestingPlatformVersion>
   </PropertyGroup>
   <ItemGroup>
-    <!-- Put repo-specific PackageVersion items in this group. -->
+    <PackageVersion Include="Microsoft.NET.StringTools" Version="18.0.2" />
+    <PackageVersion Include="Microsoft.VisualStudio.Validation" Version="17.13.22" />
+    <PackageVersion Include="PolyType" Version="1.0.0" />
+    <PackageVersion Include="TUnit" Version="1.7.7" />
   </ItemGroup>
   <ItemGroup Label="Library.Template">
-    <PackageVersion Include="Microsoft.NET.StringTools" Version="18.0.2" />
     <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.9.0" />
     <PackageVersion Include="Microsoft.Testing.Extensions.CrashDump" Version="$(MicrosoftTestingPlatformVersion)" />
     <PackageVersion Include="Microsoft.Testing.Extensions.HangDump" Version="$(MicrosoftTestingPlatformVersion)" />
     <PackageVersion Include="Microsoft.Testing.Extensions.Telemetry" Version="$(MicrosoftTestingPlatformVersion)" />
     <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="$(MicrosoftTestingPlatformVersion)" />
-    <PackageVersion Include="Microsoft.VisualStudio.Validation" Version="17.13.22" />
-    <PackageVersion Include="PolyType" Version="1.0.0" />
-    <PackageVersion Include="TUnit" Version="1.7.7" />
-    <PackageVersion Include="xunit.v3.mtp-v2" Version="3.2.2" />
   </ItemGroup>
   <ItemGroup>
     <!-- Put repo-specific GlobalPackageReference items in this group. -->

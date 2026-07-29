@@ -9,9 +9,6 @@
                 <ModulePath>\.dll$</ModulePath>
                 <ModulePath>\.exe$</ModulePath>
               </Include>
-              <Exclude>
-                <ModulePath>xunit\..*</ModulePath>
-              </Exclude>
             </ModulePaths>
             <Attributes>
               <Exclude>
