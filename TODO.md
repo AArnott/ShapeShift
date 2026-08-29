@@ -80,7 +80,7 @@ work can build on earlier abstractions.
   buffer individual scalar tokens; they should not have to buffer the entire
   document.
 
-- [ ] **Async I/O without sync-over-async.** Define format-package APIs that
+- [x] **Async I/O without sync-over-async.** Define format-package APIs that
   serialize to and deserialize from `Stream`, `PipeReader`/`PipeWriter`, and
   `IBufferWriter<byte>` where appropriate. The synchronous ref-struct
   encoder/decoder interfaces cannot cross `await`, so async adapters should

@@ -14,7 +14,8 @@ PolyType's `GenerateShapeAttribute`:
 - UTF-8 input and output.
 - JSON strings.
 - Caller-owned `IBufferWriter<byte>` destinations.
-- Asynchronous `Stream` convenience methods.
+- Incremental, non-buffering asynchronous I/O for `Stream`, `PipeWriter`, and
+  `PipeReader`.
 - Optional indentation.
 - Configurable comment and trailing-comma handling.
 - Explicit opt-in support for `"NaN"`, `"Infinity"`, and `"-Infinity"`.
@@ -73,7 +74,28 @@ past one top-level value into genuine further content, so a single
 any other buffer of concatenated top-level values, without the caller
 reconstructing anything itself.
 
-The stream convenience methods on `JsonSerializer` still buffer one complete
-value per call. Incremental, non-buffering `Stream`/`PipeReader` APIs that
-avoid holding an entire payload in memory are tracked as a separate
-milestone.
+## Async I/O without sync-over-async
+
+`JsonSerializer` exposes `SerializeAsync`/`DeserializeAsync` overloads for
+`Stream`, `PipeWriter`, and `PipeReader`, plus `DeserializeAllAsync` for a
+sequence of concatenated top-level values (such as NDJSON), all without ever
+calling `.Wait()`, `.Result`, or `GetAwaiter().GetResult()` on synchronous
+work, and without a fake-async `TextReader.ReadToEnd` equivalent:
+
+[!code-csharp[JsonAsyncStreaming](../../samples/cs/JsonAsyncStreaming.cs#JsonAsyncStreaming)]
+
+Serialization writes the value once (via the existing synchronous
+`Serialize(IBufferWriter<byte>, ...)` conversion) and then flushes the
+`PipeWriter`/`Stream` asynchronously. Deserialization instead reads a
+`PipeReader`/`Stream` incrementally: a `JsonValueBoundaryScanner` drives
+`Utf8JsonReader`'s own incremental-parsing support (`JsonReaderState`
+resumption and `TrySkip()`) to recognize, without fully decoding, when one
+complete top-level value has been buffered, releasing insignificant
+whitespace between values back to the pipe as soon as it is confirmed safe to
+discard. Only then does the existing synchronous `JsonDecoder` run once, over
+that value's bytes. `maxBufferedSize` bounds how large a single value's
+buffered span may grow while still unresolved, guarding against a value that
+never completes (for example, a truncated payload or a hostile, unbounded
+input) without capping the size of the whitespace that may separate
+well-formed values in a long-running NDJSON-style sequence. All overloads
+accept a `CancellationToken` and use `ConfigureAwait(false)` throughout.

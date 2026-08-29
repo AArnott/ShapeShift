@@ -9,8 +9,9 @@ source-generated shapes.
 
 `MsgPackSerializer` supports contiguous UTF-8-independent binary input,
 potentially segmented `ReadOnlySequence<byte>` input, caller-owned
-`IBufferWriter<byte>` output, and `Stream` convenience methods. `MsgPackEncoder`
-and `MsgPackDecoder` expose their underlying output and unread input for custom
+`IBufferWriter<byte>` output, and incremental, non-buffering asynchronous I/O
+for `Stream`, `PipeWriter`, and `PipeReader`. `MsgPackEncoder` and
+`MsgPackDecoder` expose their underlying output and unread input for custom
 converters.
 
 ## Contracts
@@ -47,12 +48,6 @@ Readers validate the extension type and fixed payload lengths. These encodings
 are deterministic but require ShapeShift-aware readers; they are not part of
 the core MessagePack specification.
 
-## Current stream behavior
-
-The stream convenience methods buffer one complete value. Incremental
-`PipeReader`/`PipeWriter`, framing, and endless top-level streaming APIs are
-tracked as a separate milestone.
-
 ## Targeted and streaming deserialization
 
 See [Targeted and streaming deserialization](features.md#targeted-and-streaming-deserialization)
@@ -64,3 +59,29 @@ containing several concatenated top-level values is already a valid stream
 with no special handling required, so `ShapeShiftDocumentReader<T>` simply
 reads values from wherever `MsgPackDecoder`'s current position (`Remaining`)
 leaves off after each one.
+
+## Async I/O without sync-over-async
+
+`MsgPackSerializer` exposes `SerializeAsync`/`DeserializeAsync` overloads for
+`Stream`, `PipeWriter`, and `PipeReader`, plus `DeserializeAllAsync` for a
+sequence of concatenated top-level values, all without ever calling
+`.Wait()`, `.Result`, or `GetAwaiter().GetResult()` on synchronous work, and
+without a fake-async `Stream.ReadAsync`-into-a-single-buffer equivalent:
+
+[!code-csharp[MsgPackAsyncStreaming](../../samples/cs/MsgPackAsyncStreaming.cs#MsgPackAsyncStreaming)]
+
+Serialization writes the value once (via the existing synchronous
+`Serialize(IBufferWriter<byte>, ...)` conversion) and then flushes the
+`PipeWriter`/`Stream` asynchronously. Deserialization instead reads a
+`PipeReader`/`Stream` incrementally: a `MsgPackValueBoundaryScanner` walks the
+MessagePack type-tag/length framing well enough to recognize, without fully
+decoding, when one complete top-level value has been buffered. Because
+MessagePack has no whitespace or separator between values, every byte the
+scanner examines is unconditionally part of the value in progress, so no
+bytes are ever released back to the pipe before the value is complete. Only
+then does the existing synchronous `MsgPackDecoder` run once, over that
+value's bytes. `maxBufferedSize` bounds how large a single value's buffered
+span may grow while still unresolved, guarding against a value that never
+completes (for example, a truncated payload, or a hostile, unbounded nested
+container or binary/string length prefix). All overloads accept a
+`CancellationToken` and use `ConfigureAwait(false)` throughout.
