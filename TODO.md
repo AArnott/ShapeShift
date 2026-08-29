@@ -123,11 +123,11 @@ work can build on earlier abstractions.
 
 ## `ShapeShift.MsgPack`
 
-- [ ] Add a `ShapeShift.MsgPack` package with span/sequence-based
+- [x] Add a `ShapeShift.MsgPack` package with span/sequence-based
   `MsgPackEncoder`, `MsgPackDecoder`, and `MsgPackSerializer`. Implement the
   MessagePack primitives directly or depend only on a NativeAOT-safe primitive
   package; do not route object mapping through another serializer.
-- [ ] Preserve numeric widths where practical, support binary values and
+- [x] Preserve numeric widths where practical, support binary values and
   timestamp extensions, and expose low-level reader/writer access for custom
   converters. Decimal, `Int128`, `UInt128`, `BigInteger`, and `TimeSpan` need
   documented interoperable encodings because MessagePack has no universal

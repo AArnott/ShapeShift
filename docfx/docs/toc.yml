@@ -5,3 +5,5 @@ items:
   href: getting-started.md
 - name: JSON
   href: json.md
+- name: MessagePack
+  href: msgpack.md
