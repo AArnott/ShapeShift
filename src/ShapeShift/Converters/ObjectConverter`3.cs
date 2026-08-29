@@ -9,6 +9,8 @@ internal abstract class ObjectConverter<T, TEncoder, TDecoder> : ShapeShiftConve
 {
 	internal required IReadOnlyDictionary<string, ObjectPropertyWriter<T, TEncoder, TDecoder>> PropertyWriters { get; init; }
 
+	internal ExtensionDataProperty<T, TEncoder, TDecoder>? ExtensionData { get; init; }
+
 	public override void Write(ref TEncoder encoder, in T? value, SerializationContext<TEncoder, TDecoder> context)
 	{
 		if (value is null)
@@ -31,6 +33,20 @@ internal abstract class ObjectConverter<T, TEncoder, TDecoder> : ShapeShiftConve
 			}
 		}
 
+		IReadOnlyDictionary<string, ShapeShiftValue>? extensionData = this.ExtensionData?.GetValues(value);
+		if (extensionData is not null)
+		{
+			foreach (string name in extensionData.Keys)
+			{
+				if (this.PropertyWriters.ContainsKey(name))
+				{
+					throw new ShapeShiftSerializationException($"Extension property '{name}' conflicts with a declared property on {typeof(T).FullName}.");
+				}
+			}
+
+			count = checked(count + extensionData.Count);
+		}
+
 		encoder.WriteStartMap(count);
 		foreach ((string name, ObjectPropertyWriter<T, TEncoder, TDecoder> property) in this.PropertyWriters)
 		{
@@ -41,6 +57,16 @@ internal abstract class ObjectConverter<T, TEncoder, TDecoder> : ShapeShiftConve
 
 			encoder.WritePropertyName(name);
 			property.Write(ref encoder, in value, context);
+		}
+
+		if (extensionData is not null)
+		{
+			ShapeShiftConverter<ShapeShiftValue, TEncoder, TDecoder> valueConverter = context.GetConverter<ShapeShiftValue>();
+			foreach ((string name, ShapeShiftValue extensionValue) in extensionData)
+			{
+				encoder.WritePropertyName(name);
+				valueConverter.Write(ref encoder, extensionValue, context);
+			}
 		}
 
 		encoder.WriteEndMap();

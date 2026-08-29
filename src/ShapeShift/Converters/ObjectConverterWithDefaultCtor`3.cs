@@ -43,7 +43,14 @@ internal class ObjectConverterWithDefaultCtor<T, TEncoder, TDecoder>(Func<T> cto
 			}
 			else
 			{
-				decoder.Skip();
+				if (this.ExtensionData is { } extensionData)
+				{
+					extensionData.Read(ref decoder, ref value, propertyName, context);
+				}
+				else
+				{
+					decoder.Skip();
+				}
 			}
 		}
 

@@ -20,6 +20,11 @@ readability in diagnostic tools. Dictionaries with string keys are also maps;
 dictionaries with other key types use arrays of two-element `[key, value]`
 arrays.
 
+Unknown map entries can be retained with `ShapeShiftExtensionDataAttribute` as
+described in [Unknown-property retention](features.md#unknown-property-retention).
+Values are captured as `ShapeShiftValue`, preserving MessagePack binary and
+numeric token distinctions for forward-compatible round trips.
+
 Byte arrays use the MessagePack binary family. Signed and unsigned integers use
 the smallest standard integer representation that preserves their value.
 `float` and `double` use MessagePack float32 and float64 respectively.

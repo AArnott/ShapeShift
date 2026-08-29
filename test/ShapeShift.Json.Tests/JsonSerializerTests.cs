@@ -229,6 +229,64 @@ public partial class JsonSerializerTests : TestBase
 		await Assert.That(actual?.Grid[1, 2]).IsEqualTo(6);
 	}
 
+	[Test]
+	public async Task ExtensionData_RetainsUnknownProperties()
+	{
+		const string Input = """{"Known":"value","future":{"enabled":true}}""";
+
+		Extensible? actual = this.serializer.Deserialize<Extensible>(Input);
+		string roundTrip = this.serializer.Serialize(actual);
+
+		await Assert.That(actual?.Known).IsEqualTo("value");
+		await Assert.That(actual?.ExtensionData["future"]).IsTypeOf<ShapeShiftMap>();
+		await Assert.That(roundTrip).IsEqualTo(Input);
+	}
+
+	[Test]
+	public async Task ExtensionData_DeclaredPropertyCollision_IsRejected()
+	{
+		Extensible value = new() { Known = "value" };
+		value.ExtensionData.Add("Known", "other");
+
+		Func<string> serialize = () => this.serializer.Serialize(value);
+
+		await Assert.That(serialize).Throws<ShapeShiftSerializationException>();
+	}
+
+	[Test]
+	public async Task ExtensionData_MultipleMembers_AreRejected()
+	{
+		Func<MultipleExtensionData?> deserialize = () => this.serializer.Deserialize<MultipleExtensionData>("{}");
+
+		await Assert.That(deserialize).Throws<ShapeShiftSerializationException>();
+	}
+
+	[Test]
+	public async Task ExtensionData_InvalidMemberType_IsRejected()
+	{
+		Func<InvalidExtensionData?> deserialize = () => this.serializer.Deserialize<InvalidExtensionData>("{}");
+
+		await Assert.That(deserialize).Throws<ShapeShiftSerializationException>();
+	}
+
+	[Test]
+	public async Task ExtensionData_NullMemberWithSetter_IsInitialized()
+	{
+		ExtensibleWithSetter? actual = this.serializer.Deserialize<ExtensibleWithSetter>("""{"future":42}""");
+
+		await Assert.That(actual?.ExtensionData is not null).IsTrue();
+		Dictionary<string, ShapeShiftValue> extensionData = actual?.ExtensionData ?? throw new InvalidOperationException("Expected extension data.");
+		await Assert.That(extensionData["future"]).IsEqualTo((ShapeShiftValue)42L);
+	}
+
+	[Test]
+	public async Task ExtensionData_NullMemberWithoutSetter_IsRejected()
+	{
+		Func<ExtensibleWithoutSetter?> deserialize = () => this.serializer.Deserialize<ExtensibleWithoutSetter>("""{"future":42}""");
+
+		await Assert.That(deserialize).Throws<ShapeShiftSerializationException>();
+	}
+
 	private T? RoundTrip<T, TProvider>(T? value)
 		where TProvider : IShapeable<T>
 		=> this.serializer.Deserialize<T, TProvider>(this.serializer.Serialize<T, TProvider>(value));
@@ -295,6 +353,46 @@ public partial class JsonSerializerTests : TestBase
 
 	[GenerateShape]
 	internal partial record GridContainer(int[,] Grid);
+
+	[GenerateShape]
+	internal partial class Extensible
+	{
+		public string? Known { get; set; }
+
+		[ShapeShiftExtensionData]
+		public Dictionary<string, ShapeShiftValue> ExtensionData { get; } = new(StringComparer.Ordinal);
+	}
+
+	[GenerateShape]
+	internal partial class MultipleExtensionData
+	{
+		[ShapeShiftExtensionData]
+		public Dictionary<string, ShapeShiftValue> First { get; } = new(StringComparer.Ordinal);
+
+		[ShapeShiftExtensionData]
+		public Dictionary<string, ShapeShiftValue> Second { get; } = new(StringComparer.Ordinal);
+	}
+
+	[GenerateShape]
+	internal partial class InvalidExtensionData
+	{
+		[ShapeShiftExtensionData]
+		public Dictionary<string, string> ExtensionData { get; } = new(StringComparer.Ordinal);
+	}
+
+	[GenerateShape]
+	internal partial class ExtensibleWithSetter
+	{
+		[ShapeShiftExtensionData]
+		public Dictionary<string, ShapeShiftValue>? ExtensionData { get; set; }
+	}
+
+	[GenerateShape]
+	internal partial class ExtensibleWithoutSetter
+	{
+		[ShapeShiftExtensionData]
+		public Dictionary<string, ShapeShiftValue>? ExtensionData => null;
+	}
 
 	[GenerateShapeFor<string>]
 	[GenerateShapeFor<int>]

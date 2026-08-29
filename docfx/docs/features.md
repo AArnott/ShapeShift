@@ -35,6 +35,25 @@ Dynamic values do not load CLR types from payload metadata. This makes them
 suitable for inspecting untyped input without introducing typeless
 deserialization risks.
 
+## Unknown-property retention
+
+Apply `ShapeShiftExtensionDataAttribute` to one
+`Dictionary<string, ShapeShiftValue>` member to capture properties that are not
+declared by the generated contract and write them back as peer properties:
+
+[!code-csharp[UnknownDataRetention](../../samples/cs/UnknownDataRetention.cs#UnknownDataRetention)]
+
+The extension-data member is excluded from the ordinary object contract, so its
+dictionary is flattened rather than nested under the CLR member name. Extension
+keys that collide with declared wire property names are rejected. A type may
+declare only one extension-data member. The member must have a getter; when it
+returns `null`, it must also have a setter so ShapeShift can assign a dictionary.
+
+Extension-data deserialization currently requires a parameterless constructor.
+This avoids retaining untrusted data in constructor argument state and keeps
+construction deterministic. Maps are string-keyed because ShapeShift object
+contracts expose property names as strings.
+
 Formats may not be able to preserve every distinction. For example, JSON has no
 native binary token, so a `ShapeShiftBinary` writes as base64 text but untyped
 JSON text is read as `ShapeShiftString`.

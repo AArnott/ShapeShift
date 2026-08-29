@@ -73,6 +73,32 @@ public partial class MsgPackSerializerTests : TestBase
 	}
 
 	[Test]
+	public async Task ExtensionData_RetainsUnknownProperties()
+	{
+		ShapeShiftMap future = new(new Dictionary<string, ShapeShiftValue>
+		{
+			["enabled"] = true,
+		});
+		ShapeShiftMap input = new(new Dictionary<string, ShapeShiftValue>
+		{
+			["Known"] = "value",
+			["future"] = future,
+		});
+		byte[] encoded = this.serializer.Serialize<ShapeShiftValue>(input);
+
+		Extensible? actual = this.serializer.Deserialize<Extensible>(encoded);
+		byte[] roundTrip = this.serializer.Serialize(actual);
+		ShapeShiftValue? roundTripValue = this.serializer.Deserialize<ShapeShiftValue>(roundTrip);
+
+		await Assert.That(actual?.Known).IsEqualTo("value");
+		await Assert.That(actual?.ExtensionData["future"]).IsTypeOf<ShapeShiftMap>();
+		await Assert.That(roundTripValue).IsTypeOf<ShapeShiftMap>();
+		ShapeShiftMap roundTripMap = roundTripValue as ShapeShiftMap ?? throw new InvalidOperationException("Expected a map.");
+		await Assert.That(roundTripMap.Properties["Known"]).IsEqualTo((ShapeShiftValue)"value");
+		await Assert.That(roundTripMap.Properties["future"]).IsTypeOf<ShapeShiftMap>();
+	}
+
+	[Test]
 	public async Task TruncatedPayload_IsRejected()
 	{
 		Func<string?> deserialize = () => this.serializer.Deserialize<string, Witness>([0xd9, 0x05, (byte)'a']);
@@ -113,6 +139,15 @@ public partial class MsgPackSerializerTests : TestBase
 
 	[GenerateShape]
 	internal partial record Person(string Name, List<int> Values);
+
+	[GenerateShape]
+	internal partial class Extensible
+	{
+		public string? Known { get; set; }
+
+		[ShapeShiftExtensionData]
+		public Dictionary<string, ShapeShiftValue> ExtensionData { get; } = new(StringComparer.Ordinal);
+	}
 
 	[GenerateShape]
 	internal partial record Scalars(

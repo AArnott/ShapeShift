@@ -15,6 +15,14 @@ internal delegate void ReadProperty<TDeclaringType, TEncoder, TDecoder>(ref TDec
 
 internal delegate bool ShouldWriteProperty<TDeclaringType>(in TDeclaringType value);
 
+internal delegate void ReadExtensionData<TDeclaringType, TEncoder, TDecoder>(
+	ref TDecoder decoder,
+	ref TDeclaringType value,
+	string propertyName,
+	SerializationContext<TEncoder, TDecoder> context)
+	where TEncoder : IEncoder, allows ref struct
+	where TDecoder : IDecoder, allows ref struct;
+
 internal class PropertyConverter<TDeclaringType, TEncoder, TDecoder>
 	where TEncoder : IEncoder, allows ref struct
 	where TDecoder : IDecoder, allows ref struct
@@ -29,5 +37,11 @@ internal class PropertyConverter<TDeclaringType, TEncoder, TDecoder>
 internal sealed record ObjectPropertyWriter<TDeclaringType, TEncoder, TDecoder>(
 	WriteProperty<TDeclaringType, TEncoder, TDecoder> Write,
 	ShouldWriteProperty<TDeclaringType>? ShouldWrite)
+	where TEncoder : IEncoder, allows ref struct
+	where TDecoder : IDecoder, allows ref struct;
+
+internal sealed record ExtensionDataProperty<TDeclaringType, TEncoder, TDecoder>(
+	Func<TDeclaringType, IReadOnlyDictionary<string, ShapeShiftValue>?> GetValues,
+	ReadExtensionData<TDeclaringType, TEncoder, TDecoder> Read)
 	where TEncoder : IEncoder, allows ref struct
 	where TDecoder : IDecoder, allows ref struct;

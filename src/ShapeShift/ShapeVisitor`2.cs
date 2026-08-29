@@ -71,8 +71,20 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 		{
 			Dictionary<string, ReadProperty<TDeclaringType, TEncoder, TDecoder>> propertyReaders = new(objectShape.Properties.Count);
 			Dictionary<string, ObjectPropertyWriter<TDeclaringType, TEncoder, TDecoder>> propertyWriters = new(objectShape.Properties.Count);
+			ExtensionDataProperty<TDeclaringType, TEncoder, TDecoder>? extensionData = null;
 			foreach (var property in objectShape.Properties)
 			{
+				if (property.AttributeProvider.GetCustomAttribute<ShapeShiftExtensionDataAttribute>() is not null)
+				{
+					if (extensionData is not null)
+					{
+						throw new ShapeShiftSerializationException($"{typeof(TDeclaringType).FullName} declares more than one extension-data member.");
+					}
+
+					extensionData = (ExtensionDataProperty<TDeclaringType, TEncoder, TDecoder>)property.Accept(this, ExtensionDataMarker.Instance)!;
+					continue;
+				}
+
 				string name = this.owner.GetSerializedPropertyName(property.Name, property.AttributeProvider);
 				var converters = (PropertyConverter<TDeclaringType, TEncoder, TDecoder>)property.Accept(this)!;
 				if (converters.Read is not null)
@@ -90,6 +102,7 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 			{
 				PropertyReaders = propertyReaders,
 				PropertyWriters = propertyWriters,
+				ExtensionData = extensionData,
 			};
 		}
 		else
@@ -99,6 +112,11 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 			Dictionary<string, IParameterShape> parametersByName = constructorShape.Parameters.ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
 			foreach (var property in objectShape.Properties)
 			{
+				if (property.AttributeProvider.GetCustomAttribute<ShapeShiftExtensionDataAttribute>() is not null)
+				{
+					throw new ShapeShiftSerializationException($"Extension data on {typeof(TDeclaringType).FullName} requires a parameterless deserialization constructor.");
+				}
+
 				string name = this.owner.GetSerializedPropertyName(property.Name, property.AttributeProvider);
 				parametersByName.TryGetValue(property.Name, out IParameterShape? matchingParameter);
 				var converters = (PropertyConverter<TDeclaringType, TEncoder, TDecoder>)property.Accept(this, matchingParameter)!;
@@ -183,6 +201,11 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 
 	public override object? VisitProperty<TDeclaringType, TPropertyType>(IPropertyShape<TDeclaringType, TPropertyType> propertyShape, object? state = null)
 	{
+		if (ReferenceEquals(state, ExtensionDataMarker.Instance))
+		{
+			return this.CreateExtensionDataProperty(propertyShape);
+		}
+
 		IParameterShape? parameterShape = state as IParameterShape;
 		ConverterResult<TEncoder, TDecoder> converter = this.GetConverterForMemberOrParameter(propertyShape.PropertyType, propertyShape.AttributeProvider);
 
@@ -374,6 +397,44 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 		return (ConverterResult<TEncoder, TDecoder>)this.context.GetOrAdd(shape, state)!;
 	}
 
+	private ExtensionDataProperty<TDeclaringType, TEncoder, TDecoder> CreateExtensionDataProperty<TDeclaringType, TPropertyType>(
+		IPropertyShape<TDeclaringType, TPropertyType> propertyShape)
+	{
+		if (typeof(TPropertyType) != typeof(Dictionary<string, ShapeShiftValue>))
+		{
+			throw new ShapeShiftSerializationException($"Extension-data member '{propertyShape.Name}' on {typeof(TDeclaringType).FullName} must have type Dictionary<string, ShapeShiftValue>.");
+		}
+
+		if (!propertyShape.HasGetter)
+		{
+			throw new ShapeShiftSerializationException($"Extension-data member '{propertyShape.Name}' on {typeof(TDeclaringType).FullName} must have a getter.");
+		}
+
+		Getter<TDeclaringType, TPropertyType> getter = propertyShape.GetGetter();
+		Setter<TDeclaringType, TPropertyType>? setter = propertyShape.HasSetter ? propertyShape.GetSetter() : null;
+		return new(
+			target => (Dictionary<string, ShapeShiftValue>?)(object?)getter(ref target),
+			Read);
+
+		void Read(ref TDecoder decoder, ref TDeclaringType target, string propertyName, SerializationContext<TEncoder, TDecoder> context)
+		{
+			Dictionary<string, ShapeShiftValue>? values = (Dictionary<string, ShapeShiftValue>?)(object?)getter(ref target);
+			if (values is null)
+			{
+				if (setter is null)
+				{
+					throw new ShapeShiftSerializationException($"Extension-data member '{propertyShape.Name}' on {typeof(TDeclaringType).FullName} returned null and has no setter.");
+				}
+
+				values = new(StringComparer.Ordinal);
+				TPropertyType propertyValue = (TPropertyType)(object)values;
+				setter(ref target, propertyValue);
+			}
+
+			values.Add(propertyName, context.GetConverter<ShapeShiftValue>().Read(ref decoder, context)!);
+		}
+	}
+
 	private bool TryGetCustomOrPrimitiveConverter<T>(ITypeShape<T> typeShape, IGenericCustomAttributeProvider attributeProvider, [NotNullWhen(true)] out ConverterResult<TEncoder, TDecoder>? converter)
 		=> this.TryGetCustomOrPrimitiveConverter(typeShape.Type, typeShape, typeShape.Provider, attributeProvider, out converter);
 
@@ -541,5 +602,10 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 
 			InvalidOperationException CreateNullPropertyValueError() => new InvalidOperationException($"{this.ComparerSource.FullName}.{this.ComparerSourceMemberName} produced a null value.");
 		}
+	}
+
+	private sealed class ExtensionDataMarker
+	{
+		internal static readonly ExtensionDataMarker Instance = new();
 	}
 }

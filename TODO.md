@@ -64,7 +64,7 @@ work can build on earlier abstractions.
   presence scheme, so format-specific positional converters may decline this
   option.
 
-- [ ] **Format-neutral dynamic value model and unknown-data retention.** Add a
+- [x] **Format-neutral dynamic value model and unknown-data retention.** Add a
   NativeAOT-safe ShapeShift value tree for null, boolean, number, string,
   binary, sequence, and map values. It should support untyped serialization
   and deserialization and allow an extension-data member to capture unknown

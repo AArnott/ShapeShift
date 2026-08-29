@@ -24,6 +24,8 @@ PolyType's `GenerateShapeAttribute`:
 - The format-neutral `ShapeShiftValue` tree for untyped JSON.
 - NativeAOT-safe `JsonElement`, `JsonDocument`, and `JsonNode` pass-through
   converters.
+- Unknown-property capture and round trips through
+  `ShapeShiftExtensionDataAttribute`.
 
 ## Wire representations
 
