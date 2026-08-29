@@ -13,6 +13,7 @@ Every ShapeShift format shares support for:
 
 - Objects with mutable or parameterized construction.
 - Mutable and immutable collections.
+- Rectangular arrays of any rank.
 - String-keyed maps and non-string-keyed dictionary entries.
 - Nullable and other optional values.
 - Enum names and numeric values.
@@ -39,3 +40,8 @@ native binary token, so a `ShapeShiftBinary` writes as base64 text but untyped
 JSON text is read as `ShapeShiftString`.
 
 See [JSON](json.md) for JSON APIs and representation details.
+
+Rectangular arrays use a two-element envelope containing a dimensions vector
+and a row-major flat values vector. For example, a `2 x 3` array is represented
+as `[[2, 3], [v0, v1, v2, v3, v4, v5]]`. This preserves zero-length dimensions
+that a naively nested representation would lose.

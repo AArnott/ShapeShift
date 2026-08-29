@@ -211,6 +211,24 @@ public partial class JsonSerializerTests : TestBase
 		await Assert.That(double.IsPositiveInfinity(actual)).IsTrue();
 	}
 
+	[Test]
+	public async Task MultidimensionalArray_PreservesDimensionsAndValues()
+	{
+		GridContainer value = new(new[,]
+		{
+			{ 1, 2, 3 },
+			{ 4, 5, 6 },
+		});
+
+		string json = this.serializer.Serialize(value);
+		GridContainer? actual = this.serializer.Deserialize<GridContainer>(json);
+
+		await Assert.That(json).IsEqualTo("""{"Grid":[[2,3],[1,2,3,4,5,6]]}""");
+		await Assert.That(actual?.Grid.GetLength(0)).IsEqualTo(2);
+		await Assert.That(actual?.Grid.GetLength(1)).IsEqualTo(3);
+		await Assert.That(actual?.Grid[1, 2]).IsEqualTo(6);
+	}
+
 	private T? RoundTrip<T, TProvider>(T? value)
 		where TProvider : IShapeable<T>
 		=> this.serializer.Deserialize<T, TProvider>(this.serializer.Serialize<T, TProvider>(value));
@@ -274,6 +292,9 @@ public partial class JsonSerializerTests : TestBase
 
 	[GenerateShape]
 	internal partial record JsonValues(JsonElement Element, JsonNode? Node, byte[] Binary);
+
+	[GenerateShape]
+	internal partial record GridContainer(int[,] Grid);
 
 	[GenerateShapeFor<string>]
 	[GenerateShapeFor<int>]

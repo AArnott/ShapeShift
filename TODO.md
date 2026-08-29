@@ -33,7 +33,7 @@ the missing type-shape paths and exposes all intended configuration publicly.
 The following items are implementation TODOs. They are ordered so that later
 work can build on earlier abstractions.
 
-- [ ] **Complete PolyType shape coverage.** Add converters for dictionaries,
+- [x] **Complete PolyType shape coverage.** Add converters for dictionaries,
   nullable values, enums, surrogates, unions/polymorphism, arrays (including
   multidimensional arrays where a format can represent them), and the other
   collection construction strategies exposed by PolyType. The existing

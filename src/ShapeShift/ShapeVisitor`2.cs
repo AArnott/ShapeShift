@@ -277,6 +277,13 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 		}
 
 		var elementConverter = this.GetConverter(enumerableShape.ElementType);
+		if (enumerableShape.Type.IsArray && enumerableShape.Rank > 1)
+		{
+			return ConverterResult.Ok(new MultidimensionalArrayConverter<TEnumerable, TElement, TEncoder, TDecoder>(
+				(ShapeShiftConverter<TElement, TEncoder, TDecoder>)elementConverter.ValueOrThrow,
+				enumerableShape.Rank));
+		}
+
 		return ConverterResult.Ok(new EnumerableConverter<TEnumerable, TElement, TEncoder, TDecoder>(enumerableShape, (ShapeShiftConverter<TElement, TEncoder, TDecoder>)elementConverter.ValueOrThrow));
 	}
 
