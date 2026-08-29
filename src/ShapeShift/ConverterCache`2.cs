@@ -44,6 +44,15 @@ internal class ConverterCache<TEncoder, TDecoder>(SerializerConfiguration<TEncod
 	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.PropertyNamingPolicy"/>
 	internal ShapeShiftNamingPolicy? PropertyNamingPolicy => configuration.PropertyNamingPolicy;
 
+	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.SerializeDefaultValues"/>
+	internal SerializeDefaultValuesPolicy SerializeDefaultValues => configuration.SerializeDefaultValues;
+
+	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.DeserializeDefaultValues"/>
+	internal DeserializeDefaultValuesPolicy DeserializeDefaultValues => configuration.DeserializeDefaultValues;
+
+	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.SerializeEnumValuesByName"/>
+	internal bool SerializeEnumValuesByName => configuration.SerializeEnumValuesByName;
+
 	/// <summary>
 	/// Gets all the converters this instance knows about so far.
 	/// </summary>

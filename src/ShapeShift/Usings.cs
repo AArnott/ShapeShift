@@ -2,6 +2,10 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 global using System.Buffers;
+global using System.Collections.Immutable;
+global using System.Diagnostics.CodeAnalysis;
+global using System.Runtime.CompilerServices;
+global using System.Runtime.InteropServices;
 global using Microsoft;
 global using PolyType;
 global using PolyType.Abstractions;

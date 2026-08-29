@@ -70,7 +70,7 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 		if (constructorShape.Parameters is [])
 		{
 			Dictionary<string, ReadProperty<TDeclaringType, TEncoder, TDecoder>> propertyReaders = new(objectShape.Properties.Count);
-			Dictionary<string, WriteProperty<TDeclaringType, TEncoder, TDecoder>> propertyWriters = new(objectShape.Properties.Count);
+			Dictionary<string, ObjectPropertyWriter<TDeclaringType, TEncoder, TDecoder>> propertyWriters = new(objectShape.Properties.Count);
 			foreach (var property in objectShape.Properties)
 			{
 				string name = this.owner.GetSerializedPropertyName(property.Name, property.AttributeProvider);
@@ -82,7 +82,7 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 
 				if (converters.Write is not null)
 				{
-					propertyWriters.Add(name, converters.Write);
+					propertyWriters.Add(name, new(converters.Write, converters.ShouldWrite));
 				}
 			}
 
@@ -95,14 +95,16 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 		else
 		{
 			Dictionary<string, ReadProperty<TArgumentState, TEncoder, TDecoder>> propertyReaders = new(constructorShape.Parameters.Count);
-			Dictionary<string, WriteProperty<TDeclaringType, TEncoder, TDecoder>> propertyWriters = new(objectShape.Properties.Count);
+			Dictionary<string, ObjectPropertyWriter<TDeclaringType, TEncoder, TDecoder>> propertyWriters = new(objectShape.Properties.Count);
+			Dictionary<string, IParameterShape> parametersByName = constructorShape.Parameters.ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
 			foreach (var property in objectShape.Properties)
 			{
 				string name = this.owner.GetSerializedPropertyName(property.Name, property.AttributeProvider);
-				var converters = (PropertyConverter<TDeclaringType, TEncoder, TDecoder>)property.Accept(this)!;
+				parametersByName.TryGetValue(property.Name, out IParameterShape? matchingParameter);
+				var converters = (PropertyConverter<TDeclaringType, TEncoder, TDecoder>)property.Accept(this, matchingParameter)!;
 				if (converters.Write is not null)
 				{
-					propertyWriters.Add(name, converters.Write);
+					propertyWriters.Add(name, new(converters.Write, converters.ShouldWrite));
 				}
 			}
 
@@ -117,10 +119,57 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 			{
 				PropertyReaders = propertyReaders,
 				PropertyWriters = propertyWriters,
+				Parameters = constructorShape.Parameters,
+				DefaultValuesPolicy = this.owner.DeserializeDefaultValues,
 			};
 		}
 
 		return ConverterResult.Ok(converter);
+	}
+
+	/// <inheritdoc/>
+	public override object? VisitUnion<TUnion>(IUnionTypeShape<TUnion> unionShape, object? state = null)
+	{
+		ConverterResult<TEncoder, TDecoder> baseConverter = (ConverterResult<TEncoder, TDecoder>)unionShape.BaseType.Accept(this)!;
+		if (baseConverter.TryPrepareFailPath("union base type", out ConverterResult<TEncoder, TDecoder>? failure))
+		{
+			return failure;
+		}
+
+		List<UnionCase<TUnion, TEncoder, TDecoder>> cases = new(unionShape.UnionCases.Count);
+		foreach (IUnionCaseShape unionCase in unionShape.UnionCases)
+		{
+			ConverterResult<TEncoder, TDecoder> caseConverter = (ConverterResult<TEncoder, TDecoder>)unionCase.Accept(this)!;
+			if (caseConverter.TryPrepareFailPath(unionCase, out failure))
+			{
+				return failure;
+			}
+
+			cases.Add(new(
+				unionCase.Name,
+				unionCase.Tag,
+				unionCase.IsTagSpecified,
+				(ShapeShiftConverter<TUnion, TEncoder, TDecoder>)caseConverter.ValueOrThrow));
+		}
+
+		return ConverterResult.Ok(new UnionConverter<TUnion, TEncoder, TDecoder>(
+			(ShapeShiftConverter<TUnion, TEncoder, TDecoder>)baseConverter.ValueOrThrow,
+			unionShape.GetGetUnionCaseIndex(),
+			cases));
+	}
+
+	/// <inheritdoc/>
+	public override object? VisitUnionCase<TUnionCase, TUnion>(IUnionCaseShape<TUnionCase, TUnion> unionCaseShape, object? state = null)
+	{
+		ConverterResult<TEncoder, TDecoder> caseConverter = (ConverterResult<TEncoder, TDecoder>)unionCaseShape.UnionCaseType.Accept(this)!;
+		if (caseConverter.TryPrepareFailPath(unionCaseShape, out ConverterResult<TEncoder, TDecoder>? failure))
+		{
+			return failure;
+		}
+
+		return ConverterResult.Ok(new UnionCaseConverter<TUnionCase, TUnion, TEncoder, TDecoder>(
+			(ShapeShiftConverter<TUnionCase, TEncoder, TDecoder>)caseConverter.ValueOrThrow,
+			unionCaseShape.Marshaler));
 	}
 
 	public override object? VisitParameter<TArgumentState, TParameterType>(IParameterShape<TArgumentState, TParameterType> parameterShape, object? state = null)
@@ -134,22 +183,145 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 
 	public override object? VisitProperty<TDeclaringType, TPropertyType>(IPropertyShape<TDeclaringType, TPropertyType> propertyShape, object? state = null)
 	{
+		IParameterShape? parameterShape = state as IParameterShape;
 		ConverterResult<TEncoder, TDecoder> converter = this.GetConverterForMemberOrParameter(propertyShape.PropertyType, propertyShape.AttributeProvider);
 
 		Getter<TDeclaringType, TPropertyType>? getter = propertyShape.HasGetter ? propertyShape.GetGetter() : null;
 		Setter<TDeclaringType, TPropertyType>? setter = propertyShape.HasSetter ? propertyShape.GetSetter() : null;
+		ShouldWriteProperty<TDeclaringType>? shouldWrite = null;
+		if (getter is not null && this.owner.SerializeDefaultValues != SerializeDefaultValuesPolicy.Always)
+		{
+			bool required = parameterShape?.IsRequired is true;
+			bool includeByPolicy = (required && (this.owner.SerializeDefaultValues & SerializeDefaultValuesPolicy.Required) != 0)
+				|| (typeof(TPropertyType).IsValueType
+					? (this.owner.SerializeDefaultValues & SerializeDefaultValuesPolicy.ValueTypes) != 0
+					: (this.owner.SerializeDefaultValues & SerializeDefaultValuesPolicy.ReferenceTypes) != 0);
+			if (!includeByPolicy)
+			{
+				EqualityComparer<TPropertyType> comparer = EqualityComparer<TPropertyType>.Default;
+				TPropertyType? defaultValue = parameterShape?.HasDefaultValue is true ? (TPropertyType?)parameterShape.DefaultValue : default;
+				shouldWrite = (in TDeclaringType target) => !comparer.Equals(getter(ref Unsafe.AsRef(in target)), defaultValue!);
+			}
+		}
+
+		bool rejectNull = (this.owner.DeserializeDefaultValues & DeserializeDefaultValuesPolicy.AllowNullValuesForNonNullableProperties) == 0
+			&& ((!propertyShape.HasGetter || propertyShape.IsGetterNonNullable)
+				&& (!propertyShape.HasSetter || propertyShape.IsSetterNonNullable)
+				&& (parameterShape is null || parameterShape.IsNonNullable));
 		return new PropertyConverter<TDeclaringType, TEncoder, TDecoder>
 		{
 			Write = getter is null ? null : (ref encoder, in target, context) => ((ShapeShiftConverter<TPropertyType, TEncoder, TDecoder>)converter.ValueOrThrow).Write(ref encoder, getter(ref Unsafe.AsRef(in target)), context),
-			Read = setter is null ? null : (ref decoder, ref target, context) => setter(ref target, ((ShapeShiftConverter<TPropertyType, TEncoder, TDecoder>)converter.ValueOrThrow).Read(ref decoder, context)!),
+			Read = setter is null ? null : Read,
+			ShouldWrite = shouldWrite,
 		};
+
+		void Read(ref TDecoder decoder, ref TDeclaringType target, SerializationContext<TEncoder, TDecoder> context)
+		{
+			TPropertyType? value = ((ShapeShiftConverter<TPropertyType, TEncoder, TDecoder>)converter.ValueOrThrow).Read(ref decoder, context);
+			if (rejectNull && value is null)
+			{
+				throw new ShapeShiftSerializationException($"Cannot assign null to non-nullable property '{propertyShape.Name}' on {typeof(TDeclaringType).FullName}.");
+			}
+
+			setter!(ref target, value!);
+		}
+	}
+
+	/// <inheritdoc/>
+	public override object? VisitOptional<TOptional, TElement>(IOptionalTypeShape<TOptional, TElement> optionalShape, object? state = null)
+	{
+		ConverterResult<TEncoder, TDecoder> elementConverter = this.GetConverter(optionalShape.ElementType);
+		if (elementConverter.TryPrepareFailPath(optionalShape, out ConverterResult<TEncoder, TDecoder>? failure))
+		{
+			return failure;
+		}
+
+		return ConverterResult.Ok(new OptionalConverter<TOptional, TElement, TEncoder, TDecoder>(
+			(ShapeShiftConverter<TElement, TEncoder, TDecoder>)elementConverter.ValueOrThrow,
+			optionalShape.GetDeconstructor(),
+			optionalShape.GetNoneConstructor(),
+			optionalShape.GetSomeConstructor()));
+	}
+
+	/// <inheritdoc/>
+	public override object? VisitDictionary<TDictionary, TKey, TValue>(IDictionaryTypeShape<TDictionary, TKey, TValue> dictionaryShape, object? state = null)
+	{
+		if (this.TryGetCustomOrPrimitiveConverter(dictionaryShape, dictionaryShape.AttributeProvider, out ConverterResult<TEncoder, TDecoder>? customConverter))
+		{
+			return customConverter;
+		}
+
+		ConverterResult<TEncoder, TDecoder> keyConverter = this.GetConverter(dictionaryShape.KeyType);
+		if (keyConverter.TryPrepareFailPath("key", out ConverterResult<TEncoder, TDecoder>? keyFailure))
+		{
+			return keyFailure;
+		}
+
+		ConverterResult<TEncoder, TDecoder> valueConverter = this.GetConverter(dictionaryShape.ValueType);
+		if (valueConverter.TryPrepareFailPath("value", out ConverterResult<TEncoder, TDecoder>? valueFailure))
+		{
+			return valueFailure;
+		}
+
+		return ConverterResult.Ok(new DictionaryConverter<TDictionary, TKey, TValue, TEncoder, TDecoder>(
+			dictionaryShape,
+			(ShapeShiftConverter<TKey, TEncoder, TDecoder>)keyConverter.ValueOrThrow,
+			(ShapeShiftConverter<TValue, TEncoder, TDecoder>)valueConverter.ValueOrThrow));
 	}
 
 	public override object? VisitEnumerable<TEnumerable, TElement>(IEnumerableTypeShape<TEnumerable, TElement> enumerableShape, object? state = null)
 	{
+		if (this.TryGetCustomOrPrimitiveConverter(enumerableShape, enumerableShape.AttributeProvider, out ConverterResult<TEncoder, TDecoder>? customConverter))
+		{
+			return customConverter;
+		}
+
 		var elementConverter = this.GetConverter(enumerableShape.ElementType);
 		return ConverterResult.Ok(new EnumerableConverter<TEnumerable, TElement, TEncoder, TDecoder>(enumerableShape, (ShapeShiftConverter<TElement, TEncoder, TDecoder>)elementConverter.ValueOrThrow));
 	}
+
+	/// <inheritdoc/>
+	public override object? VisitEnum<TEnum, TUnderlying>(IEnumTypeShape<TEnum, TUnderlying> enumShape, object? state = null)
+	{
+		if (this.TryGetCustomOrPrimitiveConverter(enumShape, enumShape.AttributeProvider, out ConverterResult<TEncoder, TDecoder>? customConverter))
+		{
+			return customConverter;
+		}
+
+		ConverterResult<TEncoder, TDecoder> underlyingConverter = this.GetConverter(enumShape.UnderlyingType);
+		if (underlyingConverter.TryPrepareFailPath(enumShape, out ConverterResult<TEncoder, TDecoder>? failure))
+		{
+			return failure;
+		}
+
+		return ConverterResult.Ok(new EnumConverter<TEnum, TUnderlying, TEncoder, TDecoder>(
+			(ShapeShiftConverter<TUnderlying, TEncoder, TDecoder>)underlyingConverter.ValueOrThrow,
+			enumShape.Members,
+			this.owner.SerializeEnumValuesByName));
+	}
+
+	/// <inheritdoc/>
+	public override object? VisitSurrogate<T, TSurrogate>(ISurrogateTypeShape<T, TSurrogate> surrogateShape, object? state = null)
+	{
+		if (this.TryGetCustomOrPrimitiveConverter<T>(surrogateShape.Type, null, surrogateShape.Provider, surrogateShape.AttributeProvider, out ConverterResult<TEncoder, TDecoder>? customConverter))
+		{
+			return customConverter;
+		}
+
+		ConverterResult<TEncoder, TDecoder> surrogateConverter = this.GetConverter(surrogateShape.SurrogateType, state: state);
+		if (surrogateConverter.TryPrepareFailPath(surrogateShape, out ConverterResult<TEncoder, TDecoder>? failure))
+		{
+			return failure;
+		}
+
+		return ConverterResult.Ok(new SurrogateConverter<T, TSurrogate, TEncoder, TDecoder>(
+			surrogateShape,
+			(ShapeShiftConverter<TSurrogate, TEncoder, TDecoder>)surrogateConverter.ValueOrThrow));
+	}
+
+	/// <inheritdoc/>
+	public override object? VisitFunction<TFunction, TArgumentState, TResult>(IFunctionTypeShape<TFunction, TArgumentState, TResult> functionShape, object? state = null)
+		=> ConverterResult<TEncoder, TDecoder>.Err("Delegate types cannot be serialized.");
 
 	/// <summary>
 	/// Gets or creates a converter for the given type shape.

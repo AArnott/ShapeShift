@@ -13,6 +13,7 @@ internal class ObjectConverterWithDefaultCtor<T, TEncoder, TDecoder>(Func<T> cto
 	{
 		if (decoder.TryReadNull())
 		{
+			decoder.ReadNull();
 			return default;
 		}
 
@@ -27,9 +28,15 @@ internal class ObjectConverterWithDefaultCtor<T, TEncoder, TDecoder>(Func<T> cto
 		}
 
 		decoder.ReadStartMap();
+		HashSet<string> encounteredProperties = new(StringComparer.Ordinal);
 		while (decoder.NextTokenType != TokenType.EndMap)
 		{
 			string propertyName = decoder.ReadPropertyName().ToString();
+			if (!encounteredProperties.Add(propertyName))
+			{
+				throw new ShapeShiftSerializationException($"Property '{propertyName}' appears more than once while deserializing {typeof(T).FullName}.");
+			}
+
 			if (this.PropertyReaders.TryGetValue(propertyName, out var propertyReader))
 			{
 				propertyReader(ref decoder, ref value, context);

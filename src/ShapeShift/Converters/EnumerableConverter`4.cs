@@ -9,37 +9,54 @@ internal class EnumerableConverter<TEnumerable, TElement, TEncoder, TDecoder> : 
 {
 	private readonly Func<TEnumerable, IEnumerable<TElement>> getEnumerable;
 	private readonly ShapeShiftConverter<TElement, TEncoder, TDecoder> elementConverter;
-	private readonly MutableCollectionConstructor<TElement, TEnumerable> ctor;
-	private readonly EnumerableAppender<TEnumerable, TElement> appender;
+	private readonly CollectionConstructionStrategy constructionStrategy;
+	private readonly MutableCollectionConstructor<TElement, TEnumerable>? mutableConstructor;
+	private readonly EnumerableAppender<TEnumerable, TElement>? appender;
+	private readonly ParameterizedCollectionConstructor<TElement, TElement, TEnumerable>? parameterizedConstructor;
 
 	public EnumerableConverter(IEnumerableTypeShape<TEnumerable, TElement> enumerableShape, ShapeShiftConverter<TElement, TEncoder, TDecoder> elementConverter)
 	{
 		this.getEnumerable = enumerableShape.GetGetEnumerable();
 		this.elementConverter = elementConverter;
-		this.ctor = enumerableShape.GetDefaultConstructor() ?? throw new NotSupportedException();
-		this.appender = enumerableShape.GetAppender();
+		this.constructionStrategy = enumerableShape.ConstructionStrategy;
+		if (this.constructionStrategy == CollectionConstructionStrategy.Mutable)
+		{
+			this.mutableConstructor = enumerableShape.GetDefaultConstructor();
+			this.appender = enumerableShape.GetAppender();
+		}
+		else if (this.constructionStrategy == CollectionConstructionStrategy.Parameterized)
+		{
+			this.parameterizedConstructor = enumerableShape.GetParameterizedConstructor();
+		}
 	}
 
 	public override TEnumerable? Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context)
 	{
 		if (decoder.TryReadNull())
 		{
+			decoder.ReadNull();
 			return default;
 		}
 
 		context.DepthStep();
 		int? length = decoder.ReadStartVector();
-		var options = new CollectionConstructionOptions<TElement> { Capacity = length };
-		var result = this.ctor(options);
+		if (length > context.MaxCollectionLength)
+		{
+			throw new ShapeShiftSerializationException($"Collection length {length} exceeds the configured maximum of {context.MaxCollectionLength}.");
+		}
 
+		List<TElement> elements = length is int count ? new(count) : [];
 		while (decoder.NextTokenType != TokenType.EndVector)
 		{
-			TElement element = this.elementConverter.Read(ref decoder, context)!;
-			this.appender(ref result, element);
+			elements.Add(this.elementConverter.Read(ref decoder, context)!);
+			if (elements.Count > context.MaxCollectionLength)
+			{
+				throw new ShapeShiftSerializationException($"Collection length exceeds the configured maximum of {context.MaxCollectionLength}.");
+			}
 		}
 
 		decoder.ReadEndVector();
-		return result;
+		return this.Construct(elements);
 	}
 
 	public override void Write(ref TEncoder encoder, in TEnumerable? value, SerializationContext<TEncoder, TDecoder> context)
@@ -53,13 +70,43 @@ internal class EnumerableConverter<TEnumerable, TElement, TEncoder, TDecoder> : 
 		context.DepthStep();
 		IEnumerable<TElement> enumerable = this.getEnumerable(value);
 		bool success = enumerable.TryGetNonEnumeratedCount(out int count);
+		if (success && count > context.MaxCollectionLength)
+		{
+			throw new ShapeShiftSerializationException($"Collection length {count} exceeds the configured maximum of {context.MaxCollectionLength}.");
+		}
+
 		encoder.WriteStartVector(success ? count : null);
 
+		int index = 0;
 		foreach (TElement element in enumerable)
 		{
+			if (++index > context.MaxCollectionLength)
+			{
+				throw new ShapeShiftSerializationException($"Collection length exceeds the configured maximum of {context.MaxCollectionLength}.");
+			}
+
 			this.elementConverter.Write(ref encoder, element, context);
 		}
 
 		encoder.WriteEndVector();
+	}
+
+	private TEnumerable Construct(List<TElement> elements)
+	{
+		switch (this.constructionStrategy)
+		{
+			case CollectionConstructionStrategy.Mutable:
+				TEnumerable result = this.mutableConstructor!(new CollectionConstructionOptions<TElement> { Capacity = elements.Count });
+				foreach (TElement element in elements)
+				{
+					this.appender!(ref result, element);
+				}
+
+				return result;
+			case CollectionConstructionStrategy.Parameterized:
+				return this.parameterizedConstructor!(CollectionsMarshal.AsSpan(elements), new CollectionConstructionOptions<TElement> { Capacity = elements.Count });
+			default:
+				throw new NotSupportedException($"{typeof(TEnumerable).FullName} does not support deserialization.");
+		}
 	}
 }

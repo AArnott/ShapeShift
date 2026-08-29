@@ -113,6 +113,7 @@ internal class DateTimeOffsetConverter<TEncoder, TDecoder> : ShapeShiftConverter
 
 		DateTime utcDateTime = decoder.ReadDateTime();
 		short offsetMinutes = decoder.ReadInt16();
+		decoder.ReadEndVector();
 
 		// We construct the offset very carefully so that it knows it's being initialized with UTC time
 		// *and* that we want the time expressed in the offset specified.

@@ -22,6 +22,7 @@ internal class ReferencePreservingConverter<T, TEncoder, TDecoder>(ShapeShiftCon
 	{
 		if (reader.TryReadNull())
 		{
+			reader.ReadNull();
 			return default;
 		}
 

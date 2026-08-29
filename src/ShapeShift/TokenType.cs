@@ -20,4 +20,8 @@ public enum TokenType
 	String,
 
 	Number,
+
+	Boolean,
+
+	EndDocument,
 }

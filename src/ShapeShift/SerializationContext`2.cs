@@ -31,6 +31,15 @@ public struct SerializationContext<TEncoder, TDecoder>
 	public int MaxDepth { get; set; } = 64;
 
 	/// <summary>
+	/// Gets or sets the maximum number of elements allowed in a collection during serialization or deserialization.
+	/// </summary>
+	/// <value>The default value is 1,000,000.</value>
+	/// <remarks>
+	/// This limit protects against payloads that attempt to allocate or populate unreasonably large collections.
+	/// </remarks>
+	public int MaxCollectionLength { get; set; } = 1_000_000;
+
+	/// <summary>
 	/// Gets a cancellation token that can be used to cancel the serialization operation.
 	/// </summary>
 	/// <remarks>

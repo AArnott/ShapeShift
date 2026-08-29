@@ -26,6 +26,41 @@ public abstract record ShapeShiftSerializer<TEncoder, TDecoder> : IShapeShiftSer
 		init => this.configuration = this.configuration with { InternStrings = value };
 	}
 
+	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.Converters"/>
+	public ConverterCollection<TEncoder, TDecoder> Converters
+	{
+		get => this.configuration.Converters;
+		init => this.configuration = this.configuration with { Converters = value };
+	}
+
+	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.ConverterFactories"/>
+	public ImmutableArray<IShapeShiftConverterFactory<TEncoder, TDecoder>> ConverterFactories
+	{
+		get => this.configuration.ConverterFactories;
+		init => this.configuration = this.configuration with { ConverterFactories = value };
+	}
+
+	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.SerializeDefaultValues"/>
+	public SerializeDefaultValuesPolicy SerializeDefaultValues
+	{
+		get => this.configuration.SerializeDefaultValues;
+		init => this.configuration = this.configuration with { SerializeDefaultValues = value };
+	}
+
+	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.DeserializeDefaultValues"/>
+	public DeserializeDefaultValuesPolicy DeserializeDefaultValues
+	{
+		get => this.configuration.DeserializeDefaultValues;
+		init => this.configuration = this.configuration with { DeserializeDefaultValues = value };
+	}
+
+	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.SerializeEnumValuesByName"/>
+	public bool SerializeEnumValuesByName
+	{
+		get => this.configuration.SerializeEnumValuesByName;
+		init => this.configuration = this.configuration with { SerializeEnumValuesByName = value };
+	}
+
 	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.PropertyNamingPolicy"/>
 	public ShapeShiftNamingPolicy? PropertyNamingPolicy
 	{
@@ -33,14 +68,31 @@ public abstract record ShapeShiftSerializer<TEncoder, TDecoder> : IShapeShiftSer
 		init => this.configuration = this.configuration with { PropertyNamingPolicy = value };
 	}
 
-	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.ConverterCache"/>
-	internal ConverterCache<TEncoder, TDecoder> ConverterCache => this.configuration.ConverterCache;
-
 	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.PreserveReferences"/>
-	protected ReferencePreservationMode PreserveReferences
+	public ReferencePreservationMode PreserveReferences
 	{
 		get => this.configuration.PreserveReferences;
 		init => this.configuration = this.configuration with { PreserveReferences = value };
+	}
+
+	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.ConverterCache"/>
+	internal ConverterCache<TEncoder, TDecoder> ConverterCache => this.configuration.ConverterCache;
+
+	/// <summary>
+	/// Creates a serializer configuration that activates converter types through reflection.
+	/// </summary>
+	/// <param name="converterTypes">The converter types to activate.</param>
+	/// <returns>A serializer configuration with reflection-based converter activation enabled.</returns>
+	/// <remarks>
+	/// This opt-in is not trimming-safe or NativeAOT-safe unless every converter constructor is explicitly preserved.
+	/// Prefer <see cref="Converters"/> or <see cref="ConverterFactories"/> in NativeAOT applications.
+	/// </remarks>
+	[RequiresDynamicCode("Activating converter types may require constructing closed generic converter types at runtime.")]
+	[RequiresUnreferencedCode("Converter constructors supplied as Type objects may be removed by trimming.")]
+	public ShapeShiftSerializer<TEncoder, TDecoder> WithReflectionConverterTypes(ConverterTypeCollection converterTypes)
+	{
+		Requires.NotNull(converterTypes);
+		return this with { configuration = this.configuration with { ConverterTypes = converterTypes } };
 	}
 
 	public void Serialize<T>(ref TEncoder encoder, in T? value, ITypeShape<T> typeShape, CancellationToken cancellationToken = default)
