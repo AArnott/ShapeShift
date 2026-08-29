@@ -10,6 +10,14 @@
 
 - Design APIs to be highly testable, and all functionality should be tested.
 - Avoid introducing binary breaking changes in public APIs of projects under `src` unless their project files have `IsPackable` set to `false`.
+- Keep the `ShapeShift` core format-neutral. Format packages should be thin adapters over the shared converter and PolyType infrastructure.
+- Make it straightforward for third parties to add format packages, following `ShapeShift.Taml` as the smallest reference implementation. Public extension points require documentation and conformance tests.
+- All shipping libraries and default code paths must be trimming-safe and NativeAOT-ready.
+- Any useful feature that cannot be NativeAOT-safe must be disabled by default and activated only by an explicit method call. Not calling that method must leave the application NativeAOT-safe.
+- Do not use `InternalsVisibleTo`. Test through public APIs or move reusable test support into an appropriate public test-support package.
+- Prefer immutable, instance-scoped configuration. Do not introduce mutable global serializer defaults.
+- Optimize public APIs for clarity, performance, and long-term compatibility. Keep format-specific wire choices out of shared abstractions unless every format can honor them.
+- New features require thorough tests, docfx documentation, and samples where a runnable example improves understanding.
 
 ## Testing
 
