@@ -11,6 +11,8 @@ namespace ShapeShift.Json;
 public ref struct JsonDecoder : IDecoder
 {
 	private readonly bool allowNamedFloatingPointValues;
+	private readonly JsonReaderOptions options;
+	private ReadOnlySpan<byte> unconsumed;
 	private Utf8JsonReader reader;
 	private bool hasToken;
 
@@ -22,6 +24,8 @@ public ref struct JsonDecoder : IDecoder
 	/// <param name="allowNamedFloatingPointValues">Whether named non-finite floating-point strings are enabled.</param>
 	public JsonDecoder(ReadOnlySpan<byte> json, JsonReaderOptions options = default, bool allowNamedFloatingPointValues = false)
 	{
+		this.options = options;
+		this.unconsumed = json;
 		this.reader = new(json, options);
 		this.allowNamedFloatingPointValues = allowNamedFloatingPointValues;
 		this.hasToken = this.reader.Read();
@@ -300,7 +304,29 @@ public ref struct JsonDecoder : IDecoder
 		this.MoveNext();
 	}
 
-	private void MoveNext() => this.hasToken = this.reader.Read();
+	private void MoveNext()
+	{
+		// Utf8JsonReader is a single-document reader: once it has produced a token that completes the
+		// top-level value (a scalar read directly at depth 0, or the token that closes the top-level
+		// map/vector back to depth 0), asking it to Read() again throws if any further, non-whitespace
+		// content follows -- as it legitimately may for a stream of concatenated top-level values (e.g.
+		// NDJSON). To support that, once such a boundary is crossed and genuine further content remains
+		// (as opposed to nothing, or only trailing insignificant whitespace, both of which the current
+		// reader already handles gracefully), hand off to a fresh reader over what remains, so each
+		// top-level value is parsed by its own single-document reader.
+		if (this.reader.TokenType is not JsonTokenType.None and not JsonTokenType.StartObject and not JsonTokenType.StartArray and not JsonTokenType.PropertyName
+			&& this.reader.CurrentDepth == 0)
+		{
+			ReadOnlySpan<byte> remainder = this.unconsumed[checked((int)this.reader.BytesConsumed)..];
+			if (!remainder.TrimStart(" \t\r\n"u8).IsEmpty)
+			{
+				this.unconsumed = remainder;
+				this.reader = new(remainder, this.options);
+			}
+		}
+
+		this.hasToken = this.reader.Read();
+	}
 
 	private readonly DecoderException Unexpected(string expected)
 		=> new($"Expected {expected} but found {(this.hasToken ? this.reader.TokenType : "the end of the document")}.");

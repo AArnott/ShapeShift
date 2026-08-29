@@ -24,6 +24,50 @@ Every ShapeShift format shares support for:
 - Strict duplicate, required-member, and non-nullable-member validation.
 - Configurable depth, collection, string, and binary length limits.
 
+## Targeted and streaming deserialization
+
+Every ShapeShift decoder supports skipping and seeking without deserializing
+intervening content, and reading a sequence of top-level values (or the
+elements of a nested vector) one at a time.
+
+`ShapeShiftPath` identifies a location within a document as a sequence of
+property names and vector indices, independent of any particular format:
+
+[!code-csharp[TargetedDeserialization](../../samples/cs/TargetedDeserialization.cs#TargetedDeserialization)]
+
+`TrySeek` (a `ref`-receiver extension member on `IDecoder`) advances a decoder
+to the value at a path, skipping everything else along the way without
+allocating or converting it, and returns `false` (leaving the decoder
+unusable for further reads of the current value) if the path does not exist
+in the document. `TryDeserializeFragment`/`DeserializeFragment` combine
+`TrySeek` with an ordinary typed deserialize of whatever is found there.
+
+`ShapeShiftSequenceReader<T>` and `ShapeShiftDocumentReader<T>` enumerate
+multiple values sharing one decoder without loading them all into memory at
+once:
+
+- A sequence reader enumerates the elements of a vector — the root of a
+  document, or one reached first by `TrySeek` — the same way a JSON array or
+  MessagePack array's elements would otherwise all be deserialized together
+  into a single collection.
+- A document reader enumerates whole top-level values, one after another,
+  until the decoder reaches the end of its input. This supports
+  newline-delimited JSON (NDJSON) and any other stream of concatenated
+  top-level values.
+
+[!code-csharp[StreamingDeserialization](../../samples/cs/StreamingDeserialization.cs#StreamingDeserialization)]
+
+Both reader types are plain (non-`ref`) structs that do not themselves store
+the decoder, so a `foreach`-like loop passes the same decoder by `ref` to
+each call to `MoveNext`. This keeps them usable across `await` boundaries even
+though the decoders they read from are typically `ref struct` types that
+cannot themselves cross an `await`. Dispose a reader (or use a `using`
+statement) when finished with it to release any pooled resources it may hold.
+
+See [JSON](json.md#targeted-and-streaming-deserialization) and
+[MessagePack](msgpack.md#targeted-and-streaming-deserialization) for
+format-specific notes.
+
 ## Dynamic values
 
 `ShapeShiftValue` is a NativeAOT-safe, format-neutral value tree. Its concrete

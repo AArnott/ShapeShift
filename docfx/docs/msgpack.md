@@ -52,3 +52,15 @@ the core MessagePack specification.
 The stream convenience methods buffer one complete value. Incremental
 `PipeReader`/`PipeWriter`, framing, and endless top-level streaming APIs are
 tracked as a separate milestone.
+
+## Targeted and streaming deserialization
+
+See [Targeted and streaming deserialization](features.md#targeted-and-streaming-deserialization)
+for the format-neutral `ShapeShiftPath`, `TrySeek`, fragment deserialization,
+and sequence/document reader APIs, all of which `MsgPackDecoder` supports.
+
+Unlike JSON, MessagePack values are self-delimiting by design: a buffer
+containing several concatenated top-level values is already a valid stream
+with no special handling required, so `ShapeShiftDocumentReader<T>` simply
+reads values from wherever `MsgPackDecoder`'s current position (`Remaining`)
+leaves off after each one.

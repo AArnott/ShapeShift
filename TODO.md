@@ -72,7 +72,7 @@ work can build on earlier abstractions.
   must not be part of this feature; reflection-based `object` conversion, if
   ever offered, must be a separate explicit opt-in.
 
-- [ ] **Targeted and streaming deserialization primitives.** Let a decoder skip
+- [x] **Targeted and streaming deserialization primitives.** Let a decoder skip
   to a strongly typed property/index path and deserialize just that fragment,
   and support incremental enumeration of top-level values or a sequence inside
   an envelope. The reusable path model belongs in ShapeShift, while each

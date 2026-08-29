@@ -110,6 +110,88 @@ public abstract record ShapeShiftSerializer<TEncoder, TDecoder> : IShapeShiftSer
 	}
 
 	/// <summary>
+	/// Attempts to deserialize the value found at a given <see cref="ShapeShiftPath"/>, skipping over
+	/// everything else in the document without fully parsing or buffering it.
+	/// </summary>
+	/// <typeparam name="T">The type to deserialize the fragment as.</typeparam>
+	/// <param name="decoder">The decoder, positioned wherever <paramref name="path"/> should be considered relative to (typically the start of the document).</param>
+	/// <param name="path">The location of the value to deserialize.</param>
+	/// <param name="typeShape">The shape of <typeparamref name="T"/>.</param>
+	/// <param name="value">Receives the deserialized value if this method returns <see langword="true" />; otherwise <see langword="default" />.</param>
+	/// <param name="cancellationToken">A cancellation token.</param>
+	/// <returns><see langword="true" /> if <paramref name="path"/> was found and <paramref name="value"/> was populated; <see langword="false" /> otherwise.</returns>
+	/// <exception cref="DecoderException">Thrown when a step along <paramref name="path"/> expects a map or vector but finds some other, non-null token.</exception>
+	/// <remarks>
+	/// After this method returns, the decoder's position is exactly as documented for the <c>TrySeek</c> decoder extension member
+	/// on which this method is built: on success, positioned at the start of the fragment's value's successor;
+	/// on failure, positioned immediately after whichever container could not produce the next step in the path.
+	/// </remarks>
+	public bool TryDeserializeFragment<T>(ref TDecoder decoder, ShapeShiftPath path, ITypeShape<T> typeShape, out T? value, CancellationToken cancellationToken = default)
+	{
+		Requires.NotNull(typeShape);
+		if (!DecoderExtensions.TrySeekCore(ref decoder, path))
+		{
+			value = default;
+			return false;
+		}
+
+		value = this.Deserialize(ref decoder, typeShape, cancellationToken);
+		return true;
+	}
+
+	/// <summary>
+	/// Deserializes the value found at a given <see cref="ShapeShiftPath"/>, skipping over
+	/// everything else in the document without fully parsing or buffering it.
+	/// </summary>
+	/// <typeparam name="T">The type to deserialize the fragment as.</typeparam>
+	/// <param name="decoder">The decoder, positioned wherever <paramref name="path"/> should be considered relative to (typically the start of the document).</param>
+	/// <param name="path">The location of the value to deserialize.</param>
+	/// <param name="typeShape">The shape of <typeparamref name="T"/>.</param>
+	/// <param name="cancellationToken">A cancellation token.</param>
+	/// <returns>The deserialized value.</returns>
+	/// <exception cref="ShapeShiftSerializationException">Thrown when <paramref name="path"/> could not be found.</exception>
+	/// <exception cref="DecoderException">Thrown when a step along <paramref name="path"/> expects a map or vector but finds some other, non-null token.</exception>
+	public T? DeserializeFragment<T>(ref TDecoder decoder, ShapeShiftPath path, ITypeShape<T> typeShape, CancellationToken cancellationToken = default)
+	{
+		if (!this.TryDeserializeFragment(ref decoder, path, typeShape, out T? value, cancellationToken))
+		{
+			throw new ShapeShiftSerializationException($"No value was found at path \"{path}\".");
+		}
+
+		return value;
+	}
+
+	/// <summary>
+	/// Creates a reader that incrementally enumerates the elements of a vector,
+	/// whether that vector is the root of a document or reached by first seeking into an enclosing document.
+	/// </summary>
+	/// <typeparam name="T">The type of each element in the vector.</typeparam>
+	/// <param name="typeShape">The shape of <typeparamref name="T"/>.</param>
+	/// <param name="cancellationToken">A cancellation token that applies throughout the lifetime of the reader.</param>
+	/// <returns>The reader. Callers should dispose of it (or use a <see langword="using" /> statement) when done.</returns>
+	public ShapeShiftSequenceReader<T, TEncoder, TDecoder> CreateSequenceReader<T>(ITypeShape<T> typeShape, CancellationToken cancellationToken = default)
+	{
+		Requires.NotNull(typeShape);
+		SerializationContext<TEncoder, TDecoder> context = this.StartingContext.Start(this, this.ConverterCache, typeShape.Provider, cancellationToken);
+		return new(this.GetConverter(typeShape), context);
+	}
+
+	/// <summary>
+	/// Creates a reader that incrementally enumerates a sequence of whole top-level values sharing one decoder,
+	/// such as newline-delimited JSON (NDJSON) or a buffer containing several concatenated values.
+	/// </summary>
+	/// <typeparam name="T">The type of each top-level value.</typeparam>
+	/// <param name="typeShape">The shape of <typeparamref name="T"/>.</param>
+	/// <param name="cancellationToken">A cancellation token that applies throughout the lifetime of the reader.</param>
+	/// <returns>The reader. Callers should dispose of it (or use a <see langword="using" /> statement) when done.</returns>
+	public ShapeShiftDocumentReader<T, TEncoder, TDecoder> CreateDocumentReader<T>(ITypeShape<T> typeShape, CancellationToken cancellationToken = default)
+	{
+		Requires.NotNull(typeShape);
+		SerializationContext<TEncoder, TDecoder> context = this.StartingContext.Start(this, this.ConverterCache, typeShape.Provider, cancellationToken);
+		return new(this.GetConverter(typeShape), context);
+	}
+
+	/// <summary>
 	/// Creates a new serialization context that is ready to process a serialization job.
 	/// </summary>
 	/// <param name="provider">

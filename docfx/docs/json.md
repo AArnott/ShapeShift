@@ -59,5 +59,21 @@ arguments by default. The shared `StartingContext` controls maximum depth and
 collection length. Comments and trailing commas remain disabled unless
 explicitly enabled.
 
-The current stream convenience methods buffer one complete JSON document.
-Incremental stream and pipeline APIs are tracked separately.
+## Targeted and streaming deserialization
+
+See [Targeted and streaming deserialization](features.md#targeted-and-streaming-deserialization)
+for the format-neutral `ShapeShiftPath`, `TrySeek`, fragment deserialization,
+and sequence/document reader APIs, all of which `JsonDecoder` supports.
+
+`Utf8JsonReader` only supports a single top-level JSON value per instance.
+`JsonDecoder` transparently constructs a fresh reader over the unconsumed
+input whenever a `ShapeShiftDocumentReader<T>` (or any other caller) reads
+past one top-level value into genuine further content, so a single
+`JsonDecoder` can walk an entire newline-delimited JSON (NDJSON) stream, or
+any other buffer of concatenated top-level values, without the caller
+reconstructing anything itself.
+
+The stream convenience methods on `JsonSerializer` still buffer one complete
+value per call. Incremental, non-buffering `Stream`/`PipeReader` APIs that
+avoid holding an entire payload in memory are tracked as a separate
+milestone.
