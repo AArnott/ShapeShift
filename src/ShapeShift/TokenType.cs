@@ -23,5 +23,7 @@ public enum TokenType
 
 	Boolean,
 
+	Binary,
+
 	EndDocument,
 }

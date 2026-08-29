@@ -46,4 +46,11 @@ public interface IEncoder
 	void WriteValue(string value);
 
 	void WriteValue(scoped ReadOnlySpan<char> value);
+
+	/// <summary>
+	/// Writes a binary value.
+	/// </summary>
+	/// <param name="value">The bytes to write.</param>
+	/// <exception cref="NotSupportedException">Thrown when the format has no binary representation.</exception>
+	void WriteValue(scoped ReadOnlySpan<byte> value) => throw new NotSupportedException("This encoder does not support binary values.");
 }

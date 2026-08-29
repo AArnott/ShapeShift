@@ -394,6 +394,12 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 			return true;
 		}
 
+		if (type == typeof(ShapeShiftValue))
+		{
+			converter = ConverterResult.Ok((ShapeShiftConverter<TEncoder, TDecoder>)(object)new ShapeShiftValueConverter<TEncoder, TDecoder>());
+			return true;
+		}
+
 		// Check if the type has a built-in converter.
 		if (PrimitiveConverterLookup<TEncoder, TDecoder>.TryGetPrimitiveConverter(this.owner.PreserveReferences, out ShapeShiftConverter<T, TEncoder, TDecoder>? primitiveConverter))
 		{

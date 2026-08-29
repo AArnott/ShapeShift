@@ -279,6 +279,10 @@ public ref struct TamlDecoder(TextReader reader) : IDecoder
 		return this.UnescapeString(token);
 	}
 
+	public byte[] ReadByteArray() => throw new NotSupportedException("TAML binary values are not supported.");
+
+	public ShapeShiftNumber ReadDynamicNumber() => new ShapeShiftDecimal(this.ReadDecimal());
+
 	private ReadOnlySpan<char> ReadToken(TokenType expectedType)
 	{
 		this.EnsureBufferedToken();

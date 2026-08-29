@@ -41,7 +41,7 @@ work can build on earlier abstractions.
   converters format-neutral; a format may supply a more specialized converter
   when its wire model requires one.
 
-- [ ] **Public, immutable serializer configuration.** Expose custom converter
+- [x] **Public, immutable serializer configuration.** Expose custom converter
   instances, converter types, converter factories, reference preservation,
   default-value policy, required-member policy, security limits, and comparer
   selection through an elegant immutable API. Runtime activation of converter
@@ -49,7 +49,7 @@ work can build on earlier abstractions.
   converter instances, factories, and source-generated type shapes remain the
   NativeAOT-safe default.
 
-- [ ] **Secure and strict deserialization defaults.** Reject duplicate object
+- [x] **Secure and strict deserialization defaults.** Reject duplicate object
   properties, enforce required constructor parameters/properties and
   non-nullable members, bound collection and string/binary lengths, and retain
   the existing depth limit. Limits must be configurable for trusted or unusual
@@ -57,7 +57,7 @@ work can build on earlier abstractions.
   keys, but should be supplied through a comparer provider because not every
   key type has the same equality semantics.
 
-- [ ] **Default-value omission.** Optionally omit properties with default
+- [x] **Default-value omission.** Optionally omit properties with default
   values while preserving required values and keeping the default wire shape
   stable. This is directly applicable to map/object formats. Positional
   encodings cannot generally omit an interior value without an explicit

@@ -162,6 +162,9 @@ public ref struct TamlEncoder(TextWriter writer) : IEncoder
 		this.WriteStringScalar(value.ToString(), includeTrailingNewline: true);
 	}
 
+	public void WriteValue(scoped ReadOnlySpan<byte> value)
+		=> throw new NotSupportedException("TAML binary values are not supported.");
+
 	private void WriteStartContainer(ContainerKind kind)
 	{
 		if (this.pendingPropertyValue)

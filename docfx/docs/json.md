@@ -20,6 +20,7 @@ PolyType's `GenerateShapeAttribute`:
 - All shared ShapeShift converters and policies, including naming policies,
   generated surrogates, attributed unions, default-value omission, and strict
   duplicate/required-member validation.
+- The format-neutral `ShapeShiftValue` tree for untyped JSON.
 
 ## Wire representations
 
@@ -35,6 +36,11 @@ Dates use the ISO 8601 representation produced by `Utf8JsonWriter`, and
 
 `Int128`, `UInt128`, and `BigInteger` values are written as JSON numbers. A
 consumer whose number model is limited to IEEE 754 may lose precision.
+
+`ShapeShiftBinary` is written as base64 JSON text. Because JSON has no binary
+token, untyped JSON deserialization reads such text as `ShapeShiftString`;
+applications that require round-trip type identity should place binary data in
+a strongly typed contract.
 
 ## Reader security
 

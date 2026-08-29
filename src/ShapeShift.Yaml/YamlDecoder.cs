@@ -302,6 +302,12 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 		return this.UnescapeString(token);
 	}
 
+	/// <inheritdoc/>
+	public byte[] ReadByteArray() => throw new NotSupportedException("YAML binary values are not yet supported.");
+
+	/// <inheritdoc/>
+	public ShapeShiftNumber ReadDynamicNumber() => new ShapeShiftDecimal(this.ReadDecimal());
+
 	private ReadOnlySpan<char> ReadToken(TokenType expectedType)
 	{
 		this.EnsureBufferedToken();

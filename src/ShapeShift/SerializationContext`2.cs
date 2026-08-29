@@ -40,6 +40,18 @@ public struct SerializationContext<TEncoder, TDecoder>
 	public int MaxCollectionLength { get; set; } = 1_000_000;
 
 	/// <summary>
+	/// Gets or sets the maximum number of characters allowed in a string.
+	/// </summary>
+	/// <value>The default value is 16,777,216.</value>
+	public int MaxStringLength { get; set; } = 16 * 1024 * 1024;
+
+	/// <summary>
+	/// Gets or sets the maximum number of bytes allowed in a binary value.
+	/// </summary>
+	/// <value>The default value is 64 MiB.</value>
+	public int MaxBinaryLength { get; set; } = 64 * 1024 * 1024;
+
+	/// <summary>
 	/// Gets a cancellation token that can be used to cancel the serialization operation.
 	/// </summary>
 	/// <remarks>

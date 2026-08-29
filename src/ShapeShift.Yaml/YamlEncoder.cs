@@ -194,6 +194,10 @@ public ref struct YamlEncoder(TextWriter writer) : IEncoder
 		this.WriteStringScalar(value.ToString(), includeTrailingNewline: true);
 	}
 
+	/// <inheritdoc/>
+	public void WriteValue(scoped ReadOnlySpan<byte> value)
+		=> throw new NotSupportedException("YAML binary values are not yet supported.");
+
 	private void WriteStartContainer(ContainerKind kind)
 	{
 		if (this.pendingPropertyValue)

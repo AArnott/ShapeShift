@@ -150,6 +150,52 @@ public ref struct JsonDecoder : IDecoder
 	/// <inheritdoc/>
 	public ReadOnlySpan<char> ReadCharSpan() => this.ReadStringToken(JsonTokenType.String);
 
+	/// <inheritdoc/>
+	public byte[] ReadByteArray()
+	{
+		if (this.reader.TokenType != JsonTokenType.String)
+		{
+			throw this.Unexpected("a base64 string");
+		}
+
+		byte[] value = this.reader.GetBytesFromBase64();
+		this.MoveNext();
+		return value;
+	}
+
+	/// <inheritdoc/>
+	public ShapeShiftNumber ReadDynamicNumber()
+	{
+		if (this.reader.TokenType != JsonTokenType.Number)
+		{
+			throw this.Unexpected("a number");
+		}
+
+		ShapeShiftNumber value;
+		if (this.reader.TryGetInt64(out long signed))
+		{
+			value = new ShapeShiftInteger(signed);
+		}
+		else if (this.reader.TryGetUInt64(out ulong unsigned))
+		{
+			value = new ShapeShiftUnsignedInteger(unsigned);
+		}
+		else
+		{
+			string text = this.reader.HasValueSequence
+				? Encoding.UTF8.GetString(this.reader.ValueSequence)
+				: Encoding.UTF8.GetString(this.reader.ValueSpan);
+			value = BigInteger.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out BigInteger integer)
+				? new ShapeShiftBigInteger(integer)
+				: decimal.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out decimal exact)
+					? new ShapeShiftDecimal(exact)
+					: new ShapeShiftFloat(double.Parse(text, NumberStyles.Float, CultureInfo.InvariantCulture));
+		}
+
+		this.MoveNext();
+		return value;
+	}
+
 	/// <summary>
 	/// Verifies that the complete JSON document was consumed.
 	/// </summary>

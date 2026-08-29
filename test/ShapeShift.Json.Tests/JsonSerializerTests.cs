@@ -148,6 +148,38 @@ public partial class JsonSerializerTests : TestBase
 		await Assert.That(actual?.Tagged).IsEqualTo(value.Tagged);
 	}
 
+	[Test]
+	public async Task DynamicValue_RoundTrips()
+	{
+		ShapeShiftValue value = new ShapeShiftMap(new Dictionary<string, ShapeShiftValue>
+		{
+			["boolean"] = true,
+			["integer"] = 42L,
+			["array"] = new ShapeShiftArray([ShapeShiftValue.Null, "text"]),
+		});
+
+		string json = this.serializer.Serialize(value);
+		ShapeShiftValue? actual = this.serializer.Deserialize<ShapeShiftValue>(json);
+
+		await Assert.That(json).IsEqualTo("""{"boolean":true,"integer":42,"array":[null,"text"]}""");
+		await Assert.That(actual).IsTypeOf<ShapeShiftMap>();
+		ShapeShiftMap map = actual as ShapeShiftMap ?? throw new InvalidOperationException("Expected a dynamic map.");
+		await Assert.That(map.Properties["boolean"]).IsEqualTo(new ShapeShiftBoolean(true));
+		await Assert.That(map.Properties["integer"]).IsEqualTo(new ShapeShiftInteger(42));
+		await Assert.That(map.Properties["array"]).IsTypeOf<ShapeShiftArray>();
+	}
+
+	[Test]
+	public async Task StringLengthLimit_IsEnforced()
+	{
+		JsonSerializer serializer = this.serializer with { StartingContext = new() { MaxStringLength = 3 } };
+		Func<string> serialize = () => serializer.Serialize<string, Witness>("long");
+		Func<string?> deserialize = () => serializer.Deserialize<string, Witness>("\"long\"");
+
+		await Assert.That(serialize).Throws<ShapeShiftSerializationException>();
+		await Assert.That(deserialize).Throws<ShapeShiftSerializationException>();
+	}
+
 	private T? RoundTrip<T, TProvider>(T? value)
 		where TProvider : IShapeable<T>
 		=> this.serializer.Deserialize<T, TProvider>(this.serializer.Serialize<T, TProvider>(value));

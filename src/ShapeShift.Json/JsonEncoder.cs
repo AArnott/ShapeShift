@@ -73,4 +73,7 @@ public ref struct JsonEncoder(Utf8JsonWriter writer) : IEncoder
 
 	/// <inheritdoc/>
 	public void WriteValue(scoped ReadOnlySpan<char> value) => writer.WriteStringValue(value);
+
+	/// <inheritdoc/>
+	public void WriteValue(scoped ReadOnlySpan<byte> value) => writer.WriteBase64StringValue(value);
 }

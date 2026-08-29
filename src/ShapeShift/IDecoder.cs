@@ -58,4 +58,17 @@ public interface IDecoder
 	public string ReadString();
 
 	public ReadOnlySpan<char> ReadCharSpan();
+
+	/// <summary>
+	/// Reads a binary value.
+	/// </summary>
+	/// <returns>The decoded bytes.</returns>
+	/// <exception cref="NotSupportedException">Thrown when the format has no binary representation.</exception>
+	public byte[] ReadByteArray() => throw new NotSupportedException("This decoder does not support binary values.");
+
+	/// <summary>
+	/// Reads a number while preserving the representation available from the format.
+	/// </summary>
+	/// <returns>The dynamic number.</returns>
+	public ShapeShiftNumber ReadDynamicNumber() => new ShapeShiftDecimal(this.ReadDecimal());
 }
