@@ -108,13 +108,13 @@ work can build on earlier abstractions.
 
 ## `ShapeShift.Json`
 
-- [ ] Add a `ShapeShift.Json` package with `JsonEncoder`, `JsonDecoder`, and
+- [x] Add a `ShapeShift.Json` package with `JsonEncoder`, `JsonDecoder`, and
   `JsonSerializer` built on `System.Text.Json` primitives. Support UTF-8 spans,
   streams, `IBufferWriter<byte>`, comments/trailing-comma policy, named floating
   point values, and configurable indentation. Do not delegate object mapping
   to `System.Text.Json.JsonSerializer`; ShapeShift converters and PolyType
   contracts must remain authoritative.
-- [ ] Integrate the dynamic value model with `JsonElement`, `JsonDocument`, and
+- [x] Integrate the dynamic value model with `JsonElement`, `JsonDocument`, and
   `JsonNode` through optional converters. These BCL types are NativeAOT-safe;
   reflection-based `System.Text.Json` contract discovery is not used.
 - [ ] Project ShapeShift contracts to JSON Schema and document JSON-specific

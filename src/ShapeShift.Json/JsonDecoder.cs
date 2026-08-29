@@ -10,6 +10,7 @@ namespace ShapeShift.Json;
 /// </summary>
 public ref struct JsonDecoder : IDecoder
 {
+	private readonly bool allowNamedFloatingPointValues;
 	private Utf8JsonReader reader;
 	private bool hasToken;
 
@@ -18,9 +19,11 @@ public ref struct JsonDecoder : IDecoder
 	/// </summary>
 	/// <param name="json">The UTF-8 JSON document.</param>
 	/// <param name="options">Options that control JSON tokenization.</param>
-	public JsonDecoder(ReadOnlySpan<byte> json, JsonReaderOptions options = default)
+	/// <param name="allowNamedFloatingPointValues">Whether named non-finite floating-point strings are enabled.</param>
+	public JsonDecoder(ReadOnlySpan<byte> json, JsonReaderOptions options = default, bool allowNamedFloatingPointValues = false)
 	{
 		this.reader = new(json, options);
+		this.allowNamedFloatingPointValues = allowNamedFloatingPointValues;
 		this.hasToken = this.reader.Read();
 	}
 
@@ -111,13 +114,13 @@ public ref struct JsonDecoder : IDecoder
 	public UInt128 ReadUInt128() => UInt128.Parse(this.ReadNumberText(), CultureInfo.InvariantCulture);
 
 	/// <inheritdoc/>
-	public Half ReadHalf() => (Half)this.ReadNumber(static reader => reader.GetSingle());
+	public Half ReadHalf() => (Half)this.ReadFloatingPoint(single: true);
 
 	/// <inheritdoc/>
-	public float ReadSingle() => this.ReadNumber(static reader => reader.GetSingle());
+	public float ReadSingle() => (float)this.ReadFloatingPoint(single: true);
 
 	/// <inheritdoc/>
-	public double ReadDouble() => this.ReadNumber(static reader => reader.GetDouble());
+	public double ReadDouble() => this.ReadFloatingPoint(single: false);
 
 	/// <inheritdoc/>
 	public decimal ReadDecimal() => this.ReadNumber(static reader => reader.GetDecimal());
@@ -197,6 +200,23 @@ public ref struct JsonDecoder : IDecoder
 	}
 
 	/// <summary>
+	/// Reads and clones the next complete JSON value.
+	/// </summary>
+	/// <returns>The detached JSON element.</returns>
+	public JsonElement ReadJsonElement()
+	{
+		if (!this.hasToken)
+		{
+			throw this.Unexpected("a JSON value");
+		}
+
+		using JsonDocument document = JsonDocument.ParseValue(ref this.reader);
+		JsonElement value = document.RootElement.Clone();
+		this.MoveNext();
+		return value;
+	}
+
+	/// <summary>
 	/// Verifies that the complete JSON document was consumed.
 	/// </summary>
 	/// <exception cref="DecoderException">Thrown when another token follows the deserialized value.</exception>
@@ -216,6 +236,30 @@ public ref struct JsonDecoder : IDecoder
 		}
 
 		T value = read(this.reader);
+		this.MoveNext();
+		return value;
+	}
+
+	private double ReadFloatingPoint(bool single)
+	{
+		if (this.reader.TokenType == JsonTokenType.Number)
+		{
+			return single ? this.ReadNumber(static reader => reader.GetSingle()) : this.ReadNumber(static reader => reader.GetDouble());
+		}
+
+		if (!this.allowNamedFloatingPointValues || this.reader.TokenType != JsonTokenType.String)
+		{
+			throw this.Unexpected("a number");
+		}
+
+		string text = this.reader.GetString()!;
+		double value = text switch
+		{
+			"NaN" => double.NaN,
+			"Infinity" => double.PositiveInfinity,
+			"-Infinity" => double.NegativeInfinity,
+			_ => throw this.Unexpected("a named floating-point value"),
+		};
 		this.MoveNext();
 		return value;
 	}

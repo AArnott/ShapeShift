@@ -4,6 +4,7 @@
 using System.Buffers;
 using System.Collections.Immutable;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using ShapeShift.Tests;
 
 namespace ShapeShift.Json.Tests;
@@ -180,6 +181,36 @@ public partial class JsonSerializerTests : TestBase
 		await Assert.That(deserialize).Throws<ShapeShiftSerializationException>();
 	}
 
+	[Test]
+	public async Task JsonDomAndBinaryConverters_RoundTrip()
+	{
+		using JsonDocument document = JsonDocument.Parse("""{"value":1}""");
+		JsonValues value = new(
+			document.RootElement.Clone(),
+			JsonNode.Parse("""[true,null]"""),
+			[1, 2, 3]);
+
+		string json = this.serializer.Serialize(value);
+		JsonValues? actual = this.serializer.Deserialize<JsonValues>(json);
+
+		await Assert.That(actual?.Element.GetRawText()).IsEqualTo("""{"value":1}""");
+		await Assert.That(actual?.Node?.ToJsonString()).IsEqualTo("""[true,null]""");
+		await Assert.That(actual?.Binary.SequenceEqual(new byte[] { 1, 2, 3 })).IsTrue();
+		await Assert.That(json).Contains("\"Binary\":\"AQID\"");
+	}
+
+	[Test]
+	public async Task NamedFloatingPointValues_AreExplicitOptIn()
+	{
+		JsonSerializer serializer = this.serializer with { AllowNamedFloatingPointValues = true };
+
+		string json = serializer.Serialize<double, Witness>(double.PositiveInfinity);
+		double actual = serializer.Deserialize<double, Witness>(json);
+
+		await Assert.That(json).IsEqualTo("\"Infinity\"");
+		await Assert.That(double.IsPositiveInfinity(actual)).IsTrue();
+	}
+
 	private T? RoundTrip<T, TProvider>(T? value)
 		where TProvider : IShapeable<T>
 		=> this.serializer.Deserialize<T, TProvider>(this.serializer.Serialize<T, TProvider>(value));
@@ -241,8 +272,12 @@ public partial class JsonSerializerTests : TestBase
 	[GenerateShape]
 	internal partial record UnionContainer(UnionBase Named, UnionBase Tagged);
 
+	[GenerateShape]
+	internal partial record JsonValues(JsonElement Element, JsonNode? Node, byte[] Binary);
+
 	[GenerateShapeFor<string>]
 	[GenerateShapeFor<int>]
 	[GenerateShapeFor<bool>]
+	[GenerateShapeFor<double>]
 	private partial class Witness;
 }

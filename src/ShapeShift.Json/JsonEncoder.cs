@@ -7,7 +7,8 @@ namespace ShapeShift.Json;
 /// A ShapeShift encoder that writes UTF-8 JSON.
 /// </summary>
 /// <param name="writer">The underlying JSON writer.</param>
-public ref struct JsonEncoder(Utf8JsonWriter writer) : IEncoder
+/// <param name="allowNamedFloatingPointValues">Whether named non-finite floating-point strings are enabled.</param>
+public ref struct JsonEncoder(Utf8JsonWriter writer, bool allowNamedFloatingPointValues = false) : IEncoder
 {
 	/// <summary>
 	/// Gets the underlying JSON writer for advanced custom converters.
@@ -48,13 +49,13 @@ public ref struct JsonEncoder(Utf8JsonWriter writer) : IEncoder
 	public void WriteValue(UInt128 value) => writer.WriteRawValue(value.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
 	/// <inheritdoc/>
-	public void WriteValue(Half value) => writer.WriteNumberValue((float)value);
+	public void WriteValue(Half value) => this.WriteFloatingPoint((float)value);
 
 	/// <inheritdoc/>
-	public void WriteValue(float value) => writer.WriteNumberValue(value);
+	public void WriteValue(float value) => this.WriteFloatingPoint(value);
 
 	/// <inheritdoc/>
-	public void WriteValue(double value) => writer.WriteNumberValue(value);
+	public void WriteValue(double value) => this.WriteFloatingPoint(value);
 
 	/// <inheritdoc/>
 	public void WriteValue(decimal value) => writer.WriteNumberValue(value);
@@ -76,4 +77,28 @@ public ref struct JsonEncoder(Utf8JsonWriter writer) : IEncoder
 
 	/// <inheritdoc/>
 	public void WriteValue(scoped ReadOnlySpan<byte> value) => writer.WriteBase64StringValue(value);
+
+	private void WriteFloatingPoint(float value)
+	{
+		if (allowNamedFloatingPointValues && !float.IsFinite(value))
+		{
+			writer.WriteStringValue(value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+		}
+		else
+		{
+			writer.WriteNumberValue(value);
+		}
+	}
+
+	private void WriteFloatingPoint(double value)
+	{
+		if (allowNamedFloatingPointValues && !double.IsFinite(value))
+		{
+			writer.WriteStringValue(value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+		}
+		else
+		{
+			writer.WriteNumberValue(value);
+		}
+	}
 }

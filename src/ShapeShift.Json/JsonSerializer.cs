@@ -9,6 +9,14 @@ namespace ShapeShift.Json;
 public sealed record JsonSerializer : ShapeShiftSerializer<JsonEncoder, JsonDecoder>
 {
 	/// <summary>
+	/// Initializes a new instance of the <see cref="JsonSerializer"/> class.
+	/// </summary>
+	public JsonSerializer()
+	{
+		this.Converters = [new BinaryConverter(), new JsonElementConverter(), new JsonDocumentConverter(), new JsonNodeConverter()];
+	}
+
+	/// <summary>
 	/// Gets a value indicating whether JSON output is indented.
 	/// </summary>
 	public bool Indented { get; init; }
@@ -22,6 +30,11 @@ public sealed record JsonSerializer : ShapeShiftSerializer<JsonEncoder, JsonDeco
 	/// Gets the handling applied to JSON comments while reading.
 	/// </summary>
 	public JsonCommentHandling CommentHandling { get; init; }
+
+	/// <summary>
+	/// Gets a value indicating whether NaN and infinity are written and accepted as named JSON strings.
+	/// </summary>
+	public bool AllowNamedFloatingPointValues { get; init; }
 
 	/// <summary>
 	/// Serializes a value to UTF-8 JSON.
@@ -83,7 +96,7 @@ public sealed record JsonSerializer : ShapeShiftSerializer<JsonEncoder, JsonDeco
 	{
 		ArgumentNullException.ThrowIfNull(destination);
 		using Utf8JsonWriter writer = new(destination, new JsonWriterOptions { Indented = this.Indented });
-		JsonEncoder encoder = new(writer);
+		JsonEncoder encoder = new(writer, this.AllowNamedFloatingPointValues);
 		this.Serialize(ref encoder, value, TProvider.GetTypeShape(), cancellationToken);
 		writer.Flush();
 	}
@@ -135,7 +148,7 @@ public sealed record JsonSerializer : ShapeShiftSerializer<JsonEncoder, JsonDeco
 	public T? Deserialize<T, TProvider>(ReadOnlySpan<byte> json, CancellationToken cancellationToken = default)
 		where TProvider : IShapeable<T>
 	{
-		JsonDecoder decoder = new(json, new JsonReaderOptions { AllowTrailingCommas = this.AllowTrailingCommas, CommentHandling = this.CommentHandling });
+		JsonDecoder decoder = new(json, new JsonReaderOptions { AllowTrailingCommas = this.AllowTrailingCommas, CommentHandling = this.CommentHandling }, this.AllowNamedFloatingPointValues);
 		T? value = this.Deserialize(ref decoder, TProvider.GetTypeShape(), cancellationToken);
 		decoder.EnsureEndOfDocument();
 		return value;

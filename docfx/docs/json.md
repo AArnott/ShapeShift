@@ -17,10 +17,13 @@ PolyType's `GenerateShapeAttribute`:
 - Asynchronous `Stream` convenience methods.
 - Optional indentation.
 - Configurable comment and trailing-comma handling.
+- Explicit opt-in support for `"NaN"`, `"Infinity"`, and `"-Infinity"`.
 - All shared ShapeShift converters and policies, including naming policies,
   generated surrogates, attributed unions, default-value omission, and strict
   duplicate/required-member validation.
 - The format-neutral `ShapeShiftValue` tree for untyped JSON.
+- NativeAOT-safe `JsonElement`, `JsonDocument`, and `JsonNode` pass-through
+  converters.
 
 ## Wire representations
 
@@ -41,6 +44,11 @@ consumer whose number model is limited to IEEE 754 may lose precision.
 token, untyped JSON deserialization reads such text as `ShapeShiftString`;
 applications that require round-trip type identity should place binary data in
 a strongly typed contract.
+
+Non-finite floating-point values are rejected by default because JSON has no
+standard representation for them. Set `AllowNamedFloatingPointValues` to
+`true` to write and accept the strings `"NaN"`, `"Infinity"`, and
+`"-Infinity"`.
 
 ## Reader security
 
