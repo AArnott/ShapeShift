@@ -178,6 +178,27 @@ public partial class JsonErrorPathTests : TestBase
 		await Assert.That(actual?.Numbers?.Count).IsEqualTo(2);
 	}
 
+	[Test]
+	public async Task PositionalRecordProperty_ReportsPath()
+	{
+		// Records with a parameterized constructor use a different object converter than
+		// types with a default constructor, so breadcrumbs are verified for both.
+		string json = """
+			{
+				"Id": 5,
+				"Lines": [
+					{ "Sku": "a-1", "Quantity": 2 },
+					{ "Sku": "b-2", "Quantity": "two" }
+				]
+			}
+			""";
+
+		ShapeShiftSerializationException ex = await this.AssertFails<Order>(json);
+
+		await Assert.That(ex.Path).IsEqualTo(new ShapeShiftPath("Lines", 1, "Quantity"));
+		await Assert.That(ex.Message).Contains("$.Lines[1].Quantity");
+	}
+
 	private async Task<ShapeShiftSerializationException> AssertFails<T>(string json)
 		where T : IShapeable<T>
 	{
@@ -252,4 +273,10 @@ public partial class JsonErrorPathTests : TestBase
 		[ShapeShiftExtensionData]
 		public Dictionary<string, ShapeShiftValue> Extra { get; } = new(StringComparer.Ordinal);
 	}
+
+	[GenerateShape]
+	internal partial record Order(int Id, List<OrderLine> Lines);
+
+	[GenerateShape]
+	internal partial record OrderLine(string Sku, int Quantity);
 }

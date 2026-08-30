@@ -1,0 +1,17 @@
+items:
+- name: SHIFT001 Converter type is not a ShapeShift converter
+  href: SHIFT001.md
+- name: SHIFT002 Converter type cannot be activated
+  href: SHIFT002.md
+- name: SHIFT003 Converter type converts a different data type
+  href: SHIFT003.md
+- name: SHIFT004 Type has no generated shape
+  href: SHIFT004.md
+- name: SHIFT005 Ambiguous serialized name
+  href: SHIFT005.md
+- name: SHIFT006 Ambiguous serialized name under a naming policy
+  href: SHIFT006.md
+- name: SHIFT007 Reflection-based activation is not trimming or NativeAOT safe
+  href: SHIFT007.md
+- name: SHIFT008 Unsupported ShapeShift contract
+  href: SHIFT008.md

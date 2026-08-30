@@ -11,3 +11,7 @@ items:
   href: schema.md
 - name: Structural equality and hashing
   href: equality.md
+- name: Diagnostics
+  href: diagnostics.md
+- name: Diagnostic IDs
+  href: analyzers/toc.yml

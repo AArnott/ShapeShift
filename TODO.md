@@ -100,7 +100,7 @@ work can build on earlier abstractions.
   to ShapeShift callers. Collision-resistant hashing should be a distinct
   opt-in API with documented comparer caveats.
 
-- [ ] **Diagnostics and analyzers.** Add actionable exception paths (property
+- [x] **Diagnostics and analyzers.** Add actionable exception paths (property
   and index breadcrumbs) and analyzers for converter construction, missing
   generated shapes, ambiguous wire names, unsafe reflection activation, and
   unsupported contracts. Runtime behavior must remain correct without the

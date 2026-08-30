@@ -123,3 +123,10 @@ from the same source-generated shapes the serializer uses, covering objects,
 collections, dictionaries, unions, surrogates, `ShapeShiftValue` and cyclic
 graphs. Collision-resistant hashing is available as an opt-in policy. See
 [Structural equality and hashing](equality.md).
+
+## Diagnostics and analyzers
+
+Every serialization failure carries a `ShapeShiftPath` breadcrumb that names the
+exact value that failed, and the ShapeShift package ships Roslyn analyzers that
+move common authoring mistakes forward to build time. Runtime behavior is
+correct without the analyzers. See [Diagnostics](diagnostics.md).
