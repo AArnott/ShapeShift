@@ -39,6 +39,23 @@ public struct ConverterContext<TEncoder, TDecoder>
 	/// </summary>
 	public ITypeShapeProvider TypeShapeProvider { get; }
 
+	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.SerializeDefaultValues"/>
+	/// <remarks>
+	/// A converter that decides for itself whether to write a member should honor this policy so that its output
+	/// matches what the serializer's built-in converters would produce for the same configuration.
+	/// </remarks>
+	public SerializeDefaultValuesPolicy SerializeDefaultValues => this.cache?.SerializeDefaultValues ?? SerializeDefaultValuesPolicy.Always;
+
+	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.DeserializeDefaultValues"/>
+	/// <remarks>
+	/// A converter that validates required or non-nullable members itself should honor this policy so that its
+	/// strictness matches the serializer's built-in converters.
+	/// </remarks>
+	public DeserializeDefaultValuesPolicy DeserializeDefaultValues => this.cache?.DeserializeDefaultValues ?? DeserializeDefaultValuesPolicy.Default;
+
+	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.PropertyNamingPolicy"/>
+	public ShapeShiftNamingPolicy? PropertyNamingPolicy => this.cache?.PropertyNamingPolicy;
+
 #if NET
 	/// <summary>
 	/// Gets a converter for some type.

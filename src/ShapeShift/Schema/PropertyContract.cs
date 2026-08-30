@@ -74,6 +74,17 @@ public sealed class PropertyContract(string name, DataContract type)
 	/// </summary>
 	public ShapeShiftValue? DefaultValue { get; init; }
 
+	/// <summary>
+	/// Gets the 0-based position this property occupies when its declaring type uses
+	/// <see cref="ObjectEncoding.Positional"/>.
+	/// </summary>
+	/// <value>The default value is <see langword="null" />, meaning the property is identified by <see cref="Name"/> alone.</value>
+	/// <remarks>
+	/// A position is a permanent part of the contract: it may be retired but never reused for a different member,
+	/// and members may only be appended after the highest position already in use.
+	/// </remarks>
+	public int? Position { get; init; }
+
 	/// <inheritdoc/>
 	public override string ToString() => $"{this.Name}: {this.Type}";
 }

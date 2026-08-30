@@ -6,7 +6,7 @@ namespace ShapeShift.MsgPack;
 /// <summary>
 /// Serializes PolyType-described object graphs as MessagePack.
 /// </summary>
-public sealed record MsgPackSerializer : ShapeShiftSerializer<MsgPackEncoder, MsgPackDecoder>
+public sealed record MsgPackSerializer : ShapeShiftSerializer<MsgPackEncoder, MsgPackDecoder>, IReferencePreservingSerializer<MsgPackEncoder, MsgPackDecoder>
 {
 	/// <summary>
 	/// The default maximum number of bytes buffered while searching for one complete top-level value via the
@@ -15,11 +15,93 @@ public sealed record MsgPackSerializer : ShapeShiftSerializer<MsgPackEncoder, Ms
 	private const long DefaultMaxBufferedValueSize = 64 * 1024 * 1024;
 
 	/// <summary>
+	/// The factory that supplies positional (array) converters, which is always present and always consulted last.
+	/// </summary>
+	private static readonly MsgPackArrayContractFactory ArrayContractFactory = new();
+
+	/// <summary>
 	/// Initializes a new instance of the <see cref="MsgPackSerializer"/> class.
 	/// </summary>
 	public MsgPackSerializer()
 	{
 		this.Converters = [new BinaryConverter()];
+		this.ConverterFactories = [];
+	}
+
+	/// <inheritdoc cref="ShapeShiftSerializer{TEncoder, TDecoder}.ConverterFactories"/>
+	/// <remarks>
+	/// The built-in factory that implements <see cref="MsgPackArrayContractAttribute"/> is always retained, and
+	/// always consulted after the factories assigned here, so assigning this property can extend but never disable
+	/// positional contracts.
+	/// </remarks>
+	public new ImmutableArray<IShapeShiftConverterFactory<MsgPackEncoder, MsgPackDecoder>> ConverterFactories
+	{
+		get => base.ConverterFactories;
+		init => base.ConverterFactories = [.. value.IsDefault ? [] : value.Where(f => f is not MsgPackArrayContractFactory), ArrayContractFactory];
+	}
+
+	/// <summary>
+	/// Writes a reference to an object that has already been written in this payload.
+	/// </summary>
+	/// <param name="writer">The encoder.</param>
+	/// <param name="referenceId">The 0-based order in which the referenced object was first written.</param>
+	/// <param name="context">The serialization context.</param>
+	/// <remarks>
+	/// The reference is written as the MessagePack extension <see cref="MsgPackExtensionCodes.Reference"/>,
+	/// whose payload is the smallest big-endian unsigned integer (1, 2, or 4 bytes) that can carry
+	/// <paramref name="referenceId"/>, for a total of 3 to 6 bytes.
+	/// </remarks>
+	void IReferencePreservingSerializer<MsgPackEncoder, MsgPackDecoder>.WriteObjectReference(ref MsgPackEncoder writer, int referenceId, SerializationContext<MsgPackEncoder, MsgPackDecoder> context)
+	{
+		if (referenceId < 0)
+		{
+			throw new ShapeShiftSerializationException("Reference identifiers cannot be negative.");
+		}
+
+		Span<byte> payload = stackalloc byte[4];
+		if (referenceId <= byte.MaxValue)
+		{
+			payload[0] = (byte)referenceId;
+			writer.WriteExtension(MsgPackExtensionCodes.Reference, payload[..1]);
+		}
+		else if (referenceId <= ushort.MaxValue)
+		{
+			BinaryPrimitives.WriteUInt16BigEndian(payload, (ushort)referenceId);
+			writer.WriteExtension(MsgPackExtensionCodes.Reference, payload[..2]);
+		}
+		else
+		{
+			BinaryPrimitives.WriteUInt32BigEndian(payload, (uint)referenceId);
+			writer.WriteExtension(MsgPackExtensionCodes.Reference, payload);
+		}
+	}
+
+	/// <summary>
+	/// Reads a reference to an object that appeared earlier in this payload, if the decoder is positioned at one.
+	/// </summary>
+	/// <param name="reader">The decoder.</param>
+	/// <param name="referenceId">Receives the referenced object's identifier when this method returns <see langword="true" />.</param>
+	/// <param name="context">The serialization context.</param>
+	/// <returns><see langword="true" /> if a reference was read; <see langword="false" /> if the decoder is positioned at an ordinary value.</returns>
+	/// <exception cref="DecoderException">Thrown when a reference extension carries a payload of an unsupported length.</exception>
+	bool IReferencePreservingSerializer<MsgPackEncoder, MsgPackDecoder>.TryReadObjectReference(ref MsgPackDecoder reader, out int referenceId, SerializationContext<MsgPackEncoder, MsgPackDecoder> context)
+	{
+		if (!reader.TryPeekExtensionHeader(out MsgPackExtensionHeader header) || header.TypeCode != MsgPackExtensionCodes.Reference)
+		{
+			referenceId = 0;
+			return false;
+		}
+
+		Span<byte> payload = stackalloc byte[4];
+		int length = reader.ReadExtension(MsgPackExtensionCodes.Reference, payload);
+		referenceId = length switch
+		{
+			1 => payload[0],
+			2 => BinaryPrimitives.ReadUInt16BigEndian(payload),
+			4 => checked((int)BinaryPrimitives.ReadUInt32BigEndian(payload)),
+			_ => throw new DecoderException($"A MessagePack object reference must carry 1, 2, or 4 bytes, but this one carries {length}."),
+		};
+		return true;
 	}
 
 	/// <summary>

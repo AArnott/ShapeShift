@@ -52,6 +52,17 @@ public sealed class ObjectContract : DataContract
 		init => this.hasExtensionData = value;
 	}
 
+	/// <summary>
+	/// Gets a value indicating how this object's members are laid out in a payload.
+	/// </summary>
+	/// <value>The default value is <see cref="ObjectEncoding.Map"/>.</value>
+	/// <remarks>
+	/// When this is <see cref="ObjectEncoding.Positional"/>, every entry in <see cref="Properties"/> carries a
+	/// <see cref="PropertyContract.Position"/>, and positions not claimed by any property are written as null
+	/// placeholders.
+	/// </remarks>
+	public ObjectEncoding Encoding { get; init; }
+
 	/// <inheritdoc/>
 	public override DataContractKind Kind => DataContractKind.Object;
 
