@@ -535,7 +535,7 @@ public static class JsonSchema
 				{
 					JsonObject placeholder = new() { ["type"] = "null" };
 					this.Comment(placeholder, $"Position {i} is not used by this contract; a writer emits null and a reader ignores whatever it finds.");
-					prefixItems.Add(placeholder);
+					prefixItems.Add((JsonNode)placeholder);
 					continue;
 				}
 
@@ -556,7 +556,7 @@ public static class JsonSchema
 					lastRequired = i;
 				}
 
-				prefixItems.Add(elementSchema);
+				prefixItems.Add((JsonNode)elementSchema);
 			}
 
 			JsonObject schema = new()
@@ -731,13 +731,13 @@ public static class JsonSchema
 		{
 			JsonArray cases = new()
 			{
-				this.BuildUnionCase(null, contract.BaseType),
+				(JsonNode)this.BuildUnionCase(null, contract.BaseType),
 			};
 
 			foreach (UnionCaseContract unionCase in contract.Cases)
 			{
 				JsonNode discriminator = unionCase.IsTagSpecified ? unionCase.Tag : unionCase.Name;
-				cases.Add(this.BuildUnionCase(discriminator, unionCase.Type));
+				cases.Add((JsonNode)this.BuildUnionCase(discriminator, unionCase.Type));
 			}
 
 			JsonObject schema = new() { ["oneOf"] = cases };
