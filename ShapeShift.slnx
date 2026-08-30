@@ -27,6 +27,7 @@
   <Folder Name="/src/">
     <Project Path="src/ShapeShift.Analyzers/ShapeShift.Analyzers.csproj" />
     <Project Path="src/ShapeShift.Analyzers.CodeFixes/ShapeShift.Analyzers.CodeFixes.csproj" />
+    <Project Path="src/ShapeShift.Conformance/ShapeShift.Conformance.csproj" />
     <Project Path="src/ShapeShift.Json/ShapeShift.Json.csproj" />
     <Project Path="src/ShapeShift.MsgPack/ShapeShift.MsgPack.csproj" />
     <Project Path="src/ShapeShift.Taml/ShapeShift.Taml.csproj" Id="7f31bb72-652a-4705-905d-65a3728ac52f" />
