@@ -115,3 +115,11 @@ that a naively nested representation would lose.
 write, and `ShapeShift.Json` projects that description to JSON Schema 2020-12,
 optionally with MessagePack annotations. See
 [Schema and contract inspection](schema.md).
+
+## Structural equality and hashing
+
+`StructuralEqualityComparer.Create<T>()` builds a deep `IEqualityComparer<T>`
+from the same source-generated shapes the serializer uses, covering objects,
+collections, dictionaries, unions, surrogates, `ShapeShiftValue` and cyclic
+graphs. Collision-resistant hashing is available as an opt-in policy. See
+[Structural equality and hashing](equality.md).

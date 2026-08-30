@@ -9,3 +9,5 @@ items:
   href: msgpack.md
 - name: Schema and contract inspection
   href: schema.md
+- name: Structural equality and hashing
+  href: equality.md

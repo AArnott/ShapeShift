@@ -94,7 +94,7 @@ work can build on earlier abstractions.
   schema hook; converters without one should produce an explicit
   "undocumented" contract rather than an incorrect schema.
 
-- [ ] **Structural equality and hashing.** Provide deep
+- [x] **Structural equality and hashing.** Provide deep
   `IEqualityComparer<T>` generation from PolyType shapes, including collection
   contents and cycles. This is independent of serialization formats and useful
   to ShapeShift callers. Collision-resistant hashing should be a distinct
