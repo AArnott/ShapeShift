@@ -160,14 +160,6 @@ public ref struct MsgPackDecoder : IDecoder
 	/// <inheritdoc/>
 	public void Skip()
 	{
-		// Extensions are skipped byte-wise without interpreting their type code, so that a payload carrying an
-		// extension this decoder would refuse to *read* here can still be stepped over as opaque content.
-		if (IsExtensionCode(this.PeekByteOrDefault()))
-		{
-			this.SkipScalar();
-			return;
-		}
-
 		switch (this.NextTokenType)
 		{
 			case TokenType.StartMap:

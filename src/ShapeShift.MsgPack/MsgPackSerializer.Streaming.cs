@@ -125,6 +125,42 @@ public sealed partial record MsgPackSerializer
 	}
 
 	/// <summary>
+	/// Asynchronously writes a sequence of MessagePack values, one after another, to a stream.
+	/// </summary>
+	/// <typeparam name="T">The value type.</typeparam>
+	/// <param name="stream">The destination stream. It is not closed or disposed by this method.</param>
+	/// <param name="values">The values to write.</param>
+	/// <param name="cancellationToken">A cancellation token.</param>
+	/// <returns>A task that represents the operation.</returns>
+	public ValueTask SerializeAllAsync<T>(Stream stream, IEnumerable<T?> values, CancellationToken cancellationToken = default)
+		where T : IShapeable<T> => this.SerializeAllAsync<T, T>(stream, values, cancellationToken);
+
+	/// <summary>
+	/// Asynchronously writes a sequence of MessagePack values, one after another, to a stream using a specified
+	/// shape provider.
+	/// </summary>
+	/// <typeparam name="T">The value type.</typeparam>
+	/// <typeparam name="TProvider">The type shape provider.</typeparam>
+	/// <param name="stream">The destination stream. It is not closed or disposed by this method.</param>
+	/// <param name="values">The values to write.</param>
+	/// <param name="cancellationToken">A cancellation token.</param>
+	/// <returns>A task that represents the operation.</returns>
+	public async ValueTask SerializeAllAsync<T, TProvider>(Stream stream, IEnumerable<T?> values, CancellationToken cancellationToken = default)
+		where TProvider : IShapeable<T>
+	{
+		ArgumentNullException.ThrowIfNull(stream);
+		PipeWriter writer = PipeWriter.Create(stream, new StreamPipeWriterOptions(leaveOpen: true));
+		try
+		{
+			await this.SerializeAllAsync<T, TProvider>(writer, values, cancellationToken).ConfigureAwait(false);
+		}
+		finally
+		{
+			await writer.CompleteAsync().ConfigureAwait(false);
+		}
+	}
+
+	/// <summary>
 	/// Asynchronously reads a sequence of whole top-level MessagePack values from a stream, buffering only as much
 	/// input as each value requires.
 	/// </summary>
