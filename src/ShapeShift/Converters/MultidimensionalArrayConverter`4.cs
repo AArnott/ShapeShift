@@ -80,7 +80,18 @@ internal sealed class MultidimensionalArrayConverter<TArray, TElement, TEncoder,
 				throw new ShapeShiftSerializationException($"Expected {elements.Length} array values but found {i}.");
 			}
 
-			elements[i] = elementConverter.Read(ref decoder, context)!;
+			try
+			{
+				elements[i] = elementConverter.Read(ref decoder, context)!;
+			}
+			catch (ShapeShiftSerializationException ex) when (ex.AddEnclosingPathElement(i) && ex.AddEnclosingPathElement(1))
+			{
+				throw;
+			}
+			catch (Exception ex) when (SerializationErrors.IsAugmentable(ex))
+			{
+				throw SerializationErrors.WrapEntry(ex, 1, i, typeof(TArray), serializing: false);
+			}
 		}
 
 		decoder.ReadEndVector();
@@ -113,9 +124,23 @@ internal sealed class MultidimensionalArrayConverter<TArray, TElement, TEncoder,
 
 		encoder.WriteEndVector();
 		encoder.WriteStartVector(array.Length);
+		int elementIndex = 0;
 		foreach (TElement element in AsSpan(array))
 		{
-			elementConverter.Write(ref encoder, element, context);
+			try
+			{
+				elementConverter.Write(ref encoder, element, context);
+			}
+			catch (ShapeShiftSerializationException ex) when (ex.AddEnclosingPathElement(elementIndex) && ex.AddEnclosingPathElement(1))
+			{
+				throw;
+			}
+			catch (Exception ex) when (SerializationErrors.IsAugmentable(ex))
+			{
+				throw SerializationErrors.WrapEntry(ex, 1, elementIndex, typeof(TArray), serializing: true);
+			}
+
+			elementIndex++;
 		}
 
 		encoder.WriteEndVector();

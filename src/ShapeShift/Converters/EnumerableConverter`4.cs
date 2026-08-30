@@ -48,7 +48,20 @@ internal class EnumerableConverter<TEnumerable, TElement, TEncoder, TDecoder> : 
 		List<TElement> elements = length is int count ? new(count) : [];
 		while (decoder.NextTokenType != TokenType.EndVector)
 		{
-			elements.Add(this.elementConverter.Read(ref decoder, context)!);
+			int index = elements.Count;
+			try
+			{
+				elements.Add(this.elementConverter.Read(ref decoder, context)!);
+			}
+			catch (ShapeShiftSerializationException ex) when (ex.AddEnclosingPathElement(index))
+			{
+				throw;
+			}
+			catch (Exception ex) when (SerializationErrors.IsAugmentable(ex))
+			{
+				throw SerializationErrors.Wrap(ex, index, typeof(TEnumerable), serializing: false);
+			}
+
 			if (elements.Count > context.MaxCollectionLength)
 			{
 				throw new ShapeShiftSerializationException($"Collection length exceeds the configured maximum of {context.MaxCollectionLength}.");
@@ -85,7 +98,18 @@ internal class EnumerableConverter<TEnumerable, TElement, TEncoder, TDecoder> : 
 				throw new ShapeShiftSerializationException($"Collection length exceeds the configured maximum of {context.MaxCollectionLength}.");
 			}
 
-			this.elementConverter.Write(ref encoder, element, context);
+			try
+			{
+				this.elementConverter.Write(ref encoder, element, context);
+			}
+			catch (ShapeShiftSerializationException ex) when (ex.AddEnclosingPathElement(index - 1))
+			{
+				throw;
+			}
+			catch (Exception ex) when (SerializationErrors.IsAugmentable(ex))
+			{
+				throw SerializationErrors.Wrap(ex, index - 1, typeof(TEnumerable), serializing: true);
+			}
 		}
 
 		encoder.WriteEndVector();

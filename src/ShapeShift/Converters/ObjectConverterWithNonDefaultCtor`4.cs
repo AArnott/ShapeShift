@@ -32,12 +32,23 @@ internal class ObjectConverterWithNonDefaultCtor<T, TArgumentState, TEncoder, TD
 			string propertyName = decoder.ReadPropertyName().ToString();
 			if (!encounteredProperties.Add(propertyName))
 			{
-				throw new ShapeShiftSerializationException($"Property '{propertyName}' appears more than once while deserializing {typeof(T).FullName}.");
+				throw new ShapeShiftSerializationException($"Property '{propertyName}' appears more than once while deserializing {typeof(T).FullName}.", null, new ShapeShiftPath(propertyName));
 			}
 
 			if (this.PropertyReaders.TryGetValue(propertyName, out var propertyConverter))
 			{
-				propertyConverter(ref decoder, ref argState, context);
+				try
+				{
+					propertyConverter(ref decoder, ref argState, context);
+				}
+				catch (ShapeShiftSerializationException ex) when (ex.AddEnclosingPathElement(propertyName))
+				{
+					throw;
+				}
+				catch (Exception ex) when (SerializationErrors.IsAugmentable(ex))
+				{
+					throw SerializationErrors.Wrap(ex, propertyName, typeof(T), serializing: false);
+				}
 			}
 			else
 			{

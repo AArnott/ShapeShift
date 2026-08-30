@@ -40,7 +40,7 @@ internal abstract class ObjectConverter<T, TEncoder, TDecoder> : ShapeShiftConve
 			{
 				if (this.PropertyWriters.ContainsKey(name))
 				{
-					throw new ShapeShiftSerializationException($"Extension property '{name}' conflicts with a declared property on {typeof(T).FullName}.");
+					throw new ShapeShiftSerializationException($"Extension property '{name}' conflicts with a declared property on {typeof(T).FullName}.", null, new ShapeShiftPath(name));
 				}
 			}
 
@@ -56,7 +56,18 @@ internal abstract class ObjectConverter<T, TEncoder, TDecoder> : ShapeShiftConve
 			}
 
 			encoder.WritePropertyName(name);
-			property.Write(ref encoder, in value, context);
+			try
+			{
+				property.Write(ref encoder, in value, context);
+			}
+			catch (ShapeShiftSerializationException ex) when (ex.AddEnclosingPathElement(name))
+			{
+				throw;
+			}
+			catch (Exception ex) when (SerializationErrors.IsAugmentable(ex))
+			{
+				throw SerializationErrors.Wrap(ex, name, typeof(T), serializing: true);
+			}
 		}
 
 		if (extensionData is not null)
@@ -65,7 +76,18 @@ internal abstract class ObjectConverter<T, TEncoder, TDecoder> : ShapeShiftConve
 			foreach ((string name, ShapeShiftValue extensionValue) in extensionData)
 			{
 				encoder.WritePropertyName(name);
-				valueConverter.Write(ref encoder, extensionValue, context);
+				try
+				{
+					valueConverter.Write(ref encoder, extensionValue, context);
+				}
+				catch (ShapeShiftSerializationException ex) when (ex.AddEnclosingPathElement(name))
+				{
+					throw;
+				}
+				catch (Exception ex) when (SerializationErrors.IsAugmentable(ex))
+				{
+					throw SerializationErrors.Wrap(ex, name, typeof(T), serializing: true);
+				}
 			}
 		}
 

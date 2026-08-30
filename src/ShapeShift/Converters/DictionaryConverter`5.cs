@@ -63,7 +63,20 @@ internal sealed class DictionaryConverter<TDictionary, TKey, TValue, TEncoder, T
 			{
 				string propertyName = decoder.ReadPropertyName().ToString();
 				TKey key = (TKey)(object)propertyName;
-				TValue value = this.valueConverter.Read(ref decoder, context)!;
+				TValue value;
+				try
+				{
+					value = this.valueConverter.Read(ref decoder, context)!;
+				}
+				catch (ShapeShiftSerializationException ex) when (ex.AddEnclosingPathElement(propertyName))
+				{
+					throw;
+				}
+				catch (Exception ex) when (SerializationErrors.IsAugmentable(ex))
+				{
+					throw SerializationErrors.Wrap(ex, propertyName, typeof(TDictionary), serializing: false);
+				}
+
 				entries.Add(new(key, value));
 				ValidateCount(entries.Count, context);
 			}
@@ -76,14 +89,41 @@ internal sealed class DictionaryConverter<TDictionary, TKey, TValue, TEncoder, T
 			ValidateCount(count, context);
 			while (decoder.NextTokenType != TokenType.EndVector)
 			{
+				int entryIndex = entries.Count;
 				int? pairCount = decoder.ReadStartVector();
 				if (pairCount is not null and not 2)
 				{
-					throw new ShapeShiftSerializationException("Expected a two-element dictionary entry.");
+					throw new ShapeShiftSerializationException("Expected a two-element dictionary entry.", null, new ShapeShiftPath(entryIndex));
 				}
 
-				TKey key = this.keyConverter.Read(ref decoder, context)!;
-				TValue value = this.valueConverter.Read(ref decoder, context)!;
+				TKey key;
+				try
+				{
+					key = this.keyConverter.Read(ref decoder, context)!;
+				}
+				catch (ShapeShiftSerializationException ex) when (ex.AddEnclosingPathElement(0) && ex.AddEnclosingPathElement(entryIndex))
+				{
+					throw;
+				}
+				catch (Exception ex) when (SerializationErrors.IsAugmentable(ex))
+				{
+					throw SerializationErrors.WrapEntry(ex, entryIndex, 0, typeof(TDictionary), serializing: false);
+				}
+
+				TValue value;
+				try
+				{
+					value = this.valueConverter.Read(ref decoder, context)!;
+				}
+				catch (ShapeShiftSerializationException ex) when (ex.AddEnclosingPathElement(1) && ex.AddEnclosingPathElement(entryIndex))
+				{
+					throw;
+				}
+				catch (Exception ex) when (SerializationErrors.IsAugmentable(ex))
+				{
+					throw SerializationErrors.WrapEntry(ex, entryIndex, 1, typeof(TDictionary), serializing: false);
+				}
+
 				decoder.ReadEndVector();
 				entries.Add(new(key, value));
 				ValidateCount(entries.Count, context);
@@ -112,8 +152,20 @@ internal sealed class DictionaryConverter<TDictionary, TKey, TValue, TEncoder, T
 			encoder.WriteStartMap(dictionary.Count);
 			foreach ((TKey key, TValue itemValue) in dictionary)
 			{
-				encoder.WritePropertyName((string)(object)key);
-				this.valueConverter.Write(ref encoder, itemValue, context);
+				string propertyName = (string)(object)key;
+				encoder.WritePropertyName(propertyName);
+				try
+				{
+					this.valueConverter.Write(ref encoder, itemValue, context);
+				}
+				catch (ShapeShiftSerializationException ex) when (ex.AddEnclosingPathElement(propertyName))
+				{
+					throw;
+				}
+				catch (Exception ex) when (SerializationErrors.IsAugmentable(ex))
+				{
+					throw SerializationErrors.Wrap(ex, propertyName, typeof(TDictionary), serializing: true);
+				}
 			}
 
 			encoder.WriteEndMap();
@@ -121,12 +173,38 @@ internal sealed class DictionaryConverter<TDictionary, TKey, TValue, TEncoder, T
 		else
 		{
 			encoder.WriteStartVector(dictionary.Count);
+			int entryIndex = 0;
 			foreach ((TKey key, TValue itemValue) in dictionary)
 			{
 				encoder.WriteStartVector(2);
-				this.keyConverter.Write(ref encoder, key, context);
-				this.valueConverter.Write(ref encoder, itemValue, context);
+				try
+				{
+					this.keyConverter.Write(ref encoder, key, context);
+				}
+				catch (ShapeShiftSerializationException ex) when (ex.AddEnclosingPathElement(0) && ex.AddEnclosingPathElement(entryIndex))
+				{
+					throw;
+				}
+				catch (Exception ex) when (SerializationErrors.IsAugmentable(ex))
+				{
+					throw SerializationErrors.WrapEntry(ex, entryIndex, 0, typeof(TDictionary), serializing: true);
+				}
+
+				try
+				{
+					this.valueConverter.Write(ref encoder, itemValue, context);
+				}
+				catch (ShapeShiftSerializationException ex) when (ex.AddEnclosingPathElement(1) && ex.AddEnclosingPathElement(entryIndex))
+				{
+					throw;
+				}
+				catch (Exception ex) when (SerializationErrors.IsAugmentable(ex))
+				{
+					throw SerializationErrors.WrapEntry(ex, entryIndex, 1, typeof(TDictionary), serializing: true);
+				}
+
 				encoder.WriteEndVector();
+				entryIndex++;
 			}
 
 			encoder.WriteEndVector();

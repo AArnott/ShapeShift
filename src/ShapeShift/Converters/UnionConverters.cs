@@ -87,7 +87,20 @@ internal sealed class UnionConverter<TUnion, TEncoder, TDecoder>(
 			converter = this.FindCase(name).Converter;
 		}
 
-		TUnion? value = converter.Read(ref decoder, context);
+		TUnion? value;
+		try
+		{
+			value = converter.Read(ref decoder, context);
+		}
+		catch (ShapeShiftSerializationException ex) when (ex.AddEnclosingPathElement(1))
+		{
+			throw;
+		}
+		catch (Exception ex) when (SerializationErrors.IsAugmentable(ex))
+		{
+			throw SerializationErrors.Wrap(ex, 1, typeof(TUnion), serializing: false);
+		}
+
 		decoder.ReadEndVector();
 		return value;
 	}
@@ -129,7 +142,19 @@ internal sealed class UnionConverter<TUnion, TEncoder, TDecoder>(
 			converter = unionCase.Converter;
 		}
 
-		converter.Write(ref encoder, value, context);
+		try
+		{
+			converter.Write(ref encoder, value, context);
+		}
+		catch (ShapeShiftSerializationException ex) when (ex.AddEnclosingPathElement(1))
+		{
+			throw;
+		}
+		catch (Exception ex) when (SerializationErrors.IsAugmentable(ex))
+		{
+			throw SerializationErrors.Wrap(ex, 1, typeof(TUnion), serializing: true);
+		}
+
 		encoder.WriteEndVector();
 	}
 
