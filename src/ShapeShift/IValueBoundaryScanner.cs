@@ -36,7 +36,7 @@ namespace ShapeShift;
 /// This lets a caller (such as <see cref="PipeReaderExtensions.ReadValueAsync{T}"/>) release that prefix back to
 /// its underlying <see cref="System.IO.Pipelines.PipeReader"/> immediately. Because the eventual decode step still
 /// needs every byte of the value once it is fully recognized, an implementation may only report an
-/// <c>examined</c> position past a value's first byte once that value is complete (<paramref name="end"/> is
+/// <c>examined</c> position past a value's first byte once that value is complete (its <c>end</c> is
 /// known); before a value has begun, however, it is free to report progress through any bytes it can prove are
 /// not part of one (for example, insignificant whitespace between JSON tokens), so pure separator bytes between
 /// values need not be held onto merely because the next value has not yet arrived.

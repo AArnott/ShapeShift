@@ -6,7 +6,7 @@ namespace ShapeShift.MsgPack;
 /// <summary>
 /// Serializes PolyType-described object graphs as MessagePack.
 /// </summary>
-public sealed record MsgPackSerializer : ShapeShiftSerializer<MsgPackEncoder, MsgPackDecoder>, IReferencePreservingSerializer<MsgPackEncoder, MsgPackDecoder>
+public sealed partial record MsgPackSerializer : ShapeShiftSerializer<MsgPackEncoder, MsgPackDecoder>, IReferencePreservingSerializer<MsgPackEncoder, MsgPackDecoder>
 {
 	/// <summary>
 	/// The default maximum number of bytes buffered while searching for one complete top-level value via the

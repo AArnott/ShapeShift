@@ -133,6 +133,12 @@ internal abstract class MsgPackArrayObjectConverter<T> : ShapeShiftConverter<T, 
 	/// Reads element <paramref name="position"/>, dispatching it to the member that occupies that position or
 	/// skipping it when no member does.
 	/// </summary>
+	/// <typeparam name="TState">The object or argument state being populated.</typeparam>
+	/// <param name="decoder">The decoder, positioned at the element to read.</param>
+	/// <param name="state">The destination that receives the member's value.</param>
+	/// <param name="readSlots">The readers for each position, indexed by position.</param>
+	/// <param name="position">The 0-based position of the element being read.</param>
+	/// <param name="context">The serialization context.</param>
 	private protected void ReadElement<TState>(ref MsgPackDecoder decoder, ref TState state, ImmutableArray<MsgPackArrayReadSlot<TState>?> readSlots, int position, SerializationContext<MsgPackEncoder, MsgPackDecoder> context)
 	{
 		if (position >= readSlots.Length || readSlots[position] is not { } slot)

@@ -225,31 +225,6 @@ public partial class MsgPackExtensionTests : TestBase
 		await Assert.That(caught!.Message).Contains("1, 2, or 4 bytes");
 	}
 
-	/// <summary>
-	/// Runs an operation and returns the <see cref="DecoderException"/> it failed with, wherever that exception
-	/// appears in the chain of wrappers that add path breadcrumbs to it.
-	/// </summary>
-	private static DecoderException? Capture(Action action)
-	{
-		try
-		{
-			action();
-			return null;
-		}
-		catch (Exception ex)
-		{
-			for (Exception? candidate = ex; candidate is not null; candidate = candidate.InnerException)
-			{
-				if (candidate is DecoderException decoderException)
-				{
-					return decoderException;
-				}
-			}
-
-			throw;
-		}
-	}
-
 	[Test]
 	public async Task ExtensionCodesAreStable()
 	{
@@ -281,6 +256,31 @@ public partial class MsgPackExtensionTests : TestBase
 		await Assert.That(BinaryPrimitives.ReadInt128BigEndian(signed.AsSpan(2))).IsEqualTo(Int128.MinValue);
 		await Assert.That(duration[0]).IsEqualTo((byte)0xd7);
 		await Assert.That(BinaryPrimitives.ReadInt64BigEndian(duration.AsSpan(2))).IsEqualTo(123456789L);
+	}
+
+	/// <summary>
+	/// Runs an operation and returns the <see cref="DecoderException"/> it failed with, wherever that exception
+	/// appears in the chain of wrappers that add path breadcrumbs to it.
+	/// </summary>
+	private static DecoderException? Capture(Action action)
+	{
+		try
+		{
+			action();
+			return null;
+		}
+		catch (Exception ex)
+		{
+			for (Exception? candidate = ex; candidate is not null; candidate = candidate.InnerException)
+			{
+				if (candidate is DecoderException decoderException)
+				{
+					return decoderException;
+				}
+			}
+
+			throw;
+		}
 	}
 
 	[GenerateShape]

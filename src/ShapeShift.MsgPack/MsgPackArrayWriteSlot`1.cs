@@ -20,7 +20,7 @@ internal delegate void WriteArrayElement<TDeclaringType>(ref MsgPackEncoder enco
 /// </summary>
 /// <typeparam name="TState">The object or argument state being populated.</typeparam>
 /// <param name="decoder">The decoder.</param>
-/// <param name="state">The object or argument state being populated.</param>
+/// <param name="state">The destination that receives the member's value.</param>
 /// <param name="context">The serialization context.</param>
 internal delegate void ReadArrayElement<TState>(ref MsgPackDecoder decoder, ref TState state, SerializationContext<MsgPackEncoder, MsgPackDecoder> context);
 
