@@ -100,6 +100,17 @@ public partial class MsgPackSchemaTests : TestBase
 		await Assert.That(((ObjectContract)msgpack).Properties.Length).IsEqualTo(((ObjectContract)json).Properties.Length);
 	}
 
+	[Test]
+	public async Task Contract_IsRejectedWhileReferencesArePreserved()
+	{
+		// Reference preservation replaces repeated values with back-references, which no static
+		// contract can describe, so describing a type is refused while it is enabled.
+		MsgPackSerializer preserving = this.serializer with { PreserveReferences = ReferencePreservationMode.RejectCycles };
+		Func<DataContract> act = () => preserving.GetContract<Person>();
+
+		await Assert.That(act).Throws<NotSupportedException>();
+	}
+
 	private JsonObject Schema<T>()
 		where T : IShapeable<T> => JsonSchema.Create(this.serializer.GetContract<T>(), Options);
 

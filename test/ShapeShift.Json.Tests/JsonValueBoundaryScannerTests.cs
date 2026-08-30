@@ -178,14 +178,15 @@ public class JsonValueBoundaryScannerTests : TestBase
 	}
 
 	[Test]
-	public async Task MalformedInput_ThrowsJsonException()
+	public async Task MalformedInput_ThrowsDecoderException()
 	{
 		JsonValueBoundaryScanner scanner = new();
 		ReadOnlySequence<byte> buffer = new(Encode("{invalid}"));
 
 		void Act() => scanner.TryScan(buffer, isFinalBlock: true, out _, out _);
 
-		await Assert.That(Act).Throws<System.Text.Json.JsonException>();
+		DecoderException ex = await Assert.That(Act).Throws<DecoderException>() ?? throw new InvalidOperationException();
+		await Assert.That(ex.InnerException).IsAssignableTo<System.Text.Json.JsonException>();
 	}
 
 	[Test]

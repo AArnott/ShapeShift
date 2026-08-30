@@ -112,6 +112,17 @@ internal sealed class ConverterSuite<TEncoder, TDecoder> : IConformanceSuite<TEn
 					"serializing a cyclic graph under ReferencePreservationMode.RejectCycles");
 			});
 
+		collector.AddIf(
+			"ReferencePreservationIsRejectedWhenUnsupported",
+			!collector.Options.SupportsReferencePreservation,
+			"The format supports reference preservation.",
+			adapter =>
+			{
+				ConformanceAssert.Throws<NotSupportedException>(
+					() => _ = adapter.CreateSerializer() with { PreserveReferences = ReferencePreservationMode.RejectCycles },
+					"enabling reference preservation on a format that does not implement IReferencePreservingSerializer");
+			});
+
 		collector.Add("NamingPolicyIsApplied", adapter =>
 		{
 			ShapeShiftSerializer<TEncoder, TDecoder> serializer = adapter.CreateSerializer() with

@@ -71,10 +71,25 @@ public abstract record ShapeShiftSerializer<TEncoder, TDecoder> : IShapeShiftSer
 	}
 
 	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.PreserveReferences"/>
+	/// <exception cref="NotSupportedException">
+	/// Thrown when set to anything but <see cref="ReferencePreservationMode.Off"/> on a serializer whose format
+	/// does not implement <see cref="IReferencePreservingSerializer{TEncoder, TDecoder}"/>. Preserving references
+	/// requires a format-specific way to write and recognize a back-reference, so a format that has not opted in
+	/// cannot honor the request. Failing here reports that at configuration time rather than partway through the
+	/// first serialization.
+	/// </exception>
 	public ReferencePreservationMode PreserveReferences
 	{
 		get => this.configuration.PreserveReferences;
-		init => this.configuration = this.configuration with { PreserveReferences = value };
+		init
+		{
+			if (value != ReferencePreservationMode.Off && this is not IReferencePreservingSerializer<TEncoder, TDecoder>)
+			{
+				throw new NotSupportedException($"{this.GetType().Name} does not support reference preservation because it does not implement {nameof(IReferencePreservingSerializer<TEncoder, TDecoder>)}.");
+			}
+
+			this.configuration = this.configuration with { PreserveReferences = value };
+		}
 	}
 
 	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.ConverterCache"/>

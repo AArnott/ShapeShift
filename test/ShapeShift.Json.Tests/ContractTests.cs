@@ -336,8 +336,9 @@ public partial class ContractTests : TestBase
 	[Test]
 	public async Task PreserveReferences_IsRejected()
 	{
-		JsonSerializer preserving = this.serializer with { PreserveReferences = ReferencePreservationMode.RejectCycles };
-		Func<DataContract> act = () => preserving.GetContract<Person>();
+		// JSON has no back-reference token, so JsonSerializer does not implement
+		// IReferencePreservingSerializer and rejects the request at configuration time.
+		Func<JsonSerializer> act = () => this.serializer with { PreserveReferences = ReferencePreservationMode.RejectCycles };
 
 		await Assert.That(act).Throws<NotSupportedException>();
 	}

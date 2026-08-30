@@ -259,7 +259,7 @@ public partial class JsonPathAndStreamingTests : TestBase
 		// rejects a completely empty buffer rather than allowing a document reader to observe zero values.
 		Action act = () => _ = new JsonDecoder(Encoding.UTF8.GetBytes(string.Empty));
 
-		await Assert.That(act).Throws<JsonException>();
+		await Assert.That(act).Throws<DecoderException>();
 	}
 
 	[Test]

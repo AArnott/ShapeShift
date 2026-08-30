@@ -28,7 +28,14 @@ public ref struct JsonDecoder : IDecoder
 		this.unconsumed = json;
 		this.reader = new(json, options);
 		this.allowNamedFloatingPointValues = allowNamedFloatingPointValues;
-		this.hasToken = this.reader.Read();
+		try
+		{
+			this.hasToken = this.reader.Read();
+		}
+		catch (JsonException ex)
+		{
+			throw new DecoderException("The input is not well-formed JSON.", ex);
+		}
 	}
 
 	/// <summary>
@@ -50,6 +57,19 @@ public ref struct JsonDecoder : IDecoder
 		JsonTokenType.True or JsonTokenType.False => TokenType.Boolean,
 		_ => throw new DecoderException($"Unsupported JSON token {this.reader.TokenType}."),
 	} : TokenType.EndDocument;
+
+	/// <summary>
+	/// Gets the type of the token the decoder is positioned at, or <see cref="JsonTokenType.None"/> once the
+	/// document has been fully consumed.
+	/// </summary>
+	/// <remarks>
+	/// <see cref="Utf8JsonReader.TokenType"/> keeps reporting the last token it read after
+	/// <see cref="Utf8JsonReader.Read"/> returns <see langword="false" />, so every read path must consult this
+	/// instead. Otherwise a read attempted past the end of the document is dispatched to the last token's
+	/// accessor, which fails with whatever exception that accessor happens to throw rather than with a
+	/// <see cref="DecoderException"/> that says the document ended.
+	/// </remarks>
+	private readonly JsonTokenType CurrentTokenType => this.hasToken ? this.reader.TokenType : JsonTokenType.None;
 
 	/// <inheritdoc/>
 	public readonly bool TryReadNull() => this.NextTokenType == TokenType.Null;
@@ -85,7 +105,15 @@ public ref struct JsonDecoder : IDecoder
 			throw new DecoderException("Cannot skip beyond the end of the JSON document.");
 		}
 
-		this.reader.Skip();
+		try
+		{
+			this.reader.Skip();
+		}
+		catch (JsonException ex)
+		{
+			throw new DecoderException("The JSON value to skip is not well-formed.", ex);
+		}
+
 		this.MoveNext();
 	}
 
@@ -95,7 +123,7 @@ public ref struct JsonDecoder : IDecoder
 	/// <inheritdoc/>
 	public bool ReadBoolean()
 	{
-		bool result = this.reader.TokenType switch
+		bool result = this.CurrentTokenType switch
 		{
 			JsonTokenType.True => true,
 			JsonTokenType.False => false,
@@ -112,10 +140,10 @@ public ref struct JsonDecoder : IDecoder
 	public ulong ReadUInt64() => this.ReadNumber(static reader => reader.GetUInt64());
 
 	/// <inheritdoc/>
-	public Int128 ReadInt128() => Int128.Parse(this.ReadNumberText(), CultureInfo.InvariantCulture);
+	public Int128 ReadInt128() => ParseNumber(this.ReadNumberText(), static text => Int128.Parse(text, CultureInfo.InvariantCulture));
 
 	/// <inheritdoc/>
-	public UInt128 ReadUInt128() => UInt128.Parse(this.ReadNumberText(), CultureInfo.InvariantCulture);
+	public UInt128 ReadUInt128() => ParseNumber(this.ReadNumberText(), static text => UInt128.Parse(text, CultureInfo.InvariantCulture));
 
 	/// <inheritdoc/>
 	public Half ReadHalf() => (Half)this.ReadFloatingPoint(single: true);
@@ -132,7 +160,7 @@ public ref struct JsonDecoder : IDecoder
 	/// <inheritdoc/>
 	public DateTime ReadDateTime()
 	{
-		if (this.reader.TokenType != JsonTokenType.String || !this.reader.TryGetDateTime(out DateTime value))
+		if (this.CurrentTokenType != JsonTokenType.String || !this.reader.TryGetDateTime(out DateTime value))
 		{
 			throw this.Unexpected("an ISO 8601 date/time string");
 		}
@@ -144,12 +172,17 @@ public ref struct JsonDecoder : IDecoder
 	/// <inheritdoc/>
 	public TimeSpan ReadTimeSpan()
 	{
-		ReadOnlySpan<char> text = this.ReadStringToken(JsonTokenType.String);
-		return TimeSpan.ParseExact(text, "c", CultureInfo.InvariantCulture);
+		string text = this.ReadStringToken(JsonTokenType.String).ToString();
+		if (!TimeSpan.TryParseExact(text, "c", CultureInfo.InvariantCulture, out TimeSpan value))
+		{
+			throw new DecoderException($"\"{text}\" is not a valid duration.");
+		}
+
+		return value;
 	}
 
 	/// <inheritdoc/>
-	public BigInteger ReadBigInteger() => BigInteger.Parse(this.ReadNumberText(), CultureInfo.InvariantCulture);
+	public BigInteger ReadBigInteger() => ParseNumber(this.ReadNumberText(), static text => BigInteger.Parse(text, CultureInfo.InvariantCulture));
 
 	/// <inheritdoc/>
 	public string ReadString() => this.ReadStringToken(JsonTokenType.String).ToString();
@@ -160,12 +193,21 @@ public ref struct JsonDecoder : IDecoder
 	/// <inheritdoc/>
 	public byte[] ReadByteArray()
 	{
-		if (this.reader.TokenType != JsonTokenType.String)
+		if (this.CurrentTokenType != JsonTokenType.String)
 		{
 			throw this.Unexpected("a base64 string");
 		}
 
-		byte[] value = this.reader.GetBytesFromBase64();
+		byte[] value;
+		try
+		{
+			value = this.reader.GetBytesFromBase64();
+		}
+		catch (FormatException ex)
+		{
+			throw new DecoderException("The JSON string is not valid base64.", ex);
+		}
+
 		this.MoveNext();
 		return value;
 	}
@@ -173,7 +215,7 @@ public ref struct JsonDecoder : IDecoder
 	/// <inheritdoc/>
 	public ShapeShiftNumber ReadDynamicNumber()
 	{
-		if (this.reader.TokenType != JsonTokenType.Number)
+		if (this.CurrentTokenType != JsonTokenType.Number)
 		{
 			throw this.Unexpected("a number");
 		}
@@ -196,7 +238,9 @@ public ref struct JsonDecoder : IDecoder
 				? new ShapeShiftBigInteger(integer)
 				: decimal.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out decimal exact)
 					? new ShapeShiftDecimal(exact)
-					: new ShapeShiftFloat(double.Parse(text, NumberStyles.Float, CultureInfo.InvariantCulture));
+					: double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double approximate)
+						? new ShapeShiftFloat(approximate)
+						: throw new DecoderException($"\"{text}\" is not a number this decoder can represent.");
 		}
 
 		this.MoveNext();
@@ -214,7 +258,7 @@ public ref struct JsonDecoder : IDecoder
 			throw this.Unexpected("a JSON value");
 		}
 
-		using JsonDocument document = JsonDocument.ParseValue(ref this.reader);
+		using JsonDocument document = ParseValue(ref this.reader);
 		JsonElement value = document.RootElement.Clone();
 		this.MoveNext();
 		return value;
@@ -232,31 +276,88 @@ public ref struct JsonDecoder : IDecoder
 		}
 	}
 
+	private static JsonDocument ParseValue(ref Utf8JsonReader reader)
+	{
+		try
+		{
+			return JsonDocument.ParseValue(ref reader);
+		}
+		catch (JsonException ex)
+		{
+			throw new DecoderException("The JSON value is not well-formed.", ex);
+		}
+	}
+
+	private static T ParseNumber<T>(string text, Func<string, T> parse)
+	{
+		try
+		{
+			return parse(text);
+		}
+		catch (Exception ex) when (ex is FormatException or OverflowException)
+		{
+			throw new DecoderException($"\"{text}\" cannot be represented as a {typeof(T).Name}.", ex);
+		}
+	}
+
+	/// <summary>
+	/// Transcodes the current string or property-name token to UTF-16.
+	/// </summary>
+	/// <param name="reader">The reader positioned at the token.</param>
+	/// <returns>The decoded text.</returns>
+	/// <exception cref="DecoderException">Thrown when the token is not valid UTF-8 or contains an invalid escape sequence.</exception>
+	/// <remarks>
+	/// <see cref="Utf8JsonReader.GetString"/> reports invalid UTF-8 by throwing
+	/// <see cref="InvalidOperationException"/>, which reads as a caller bug rather than as the bad input it
+	/// actually is. Corrupted bytes reach here routinely, so the failure is translated into the
+	/// <see cref="DecoderException"/> that the rest of the decoder promises.
+	/// </remarks>
+	private static string GetString(ref Utf8JsonReader reader)
+	{
+		try
+		{
+			return reader.GetString()!;
+		}
+		catch (Exception ex) when (ex is InvalidOperationException or JsonException)
+		{
+			throw new DecoderException("The JSON string is not valid UTF-8 text.", ex);
+		}
+	}
+
 	private T ReadNumber<T>(Func<Utf8JsonReader, T> read)
 	{
-		if (this.reader.TokenType != JsonTokenType.Number)
+		if (this.CurrentTokenType != JsonTokenType.Number)
 		{
 			throw this.Unexpected("a number");
 		}
 
-		T value = read(this.reader);
+		T value;
+		try
+		{
+			value = read(this.reader);
+		}
+		catch (Exception ex) when (ex is FormatException or OverflowException)
+		{
+			throw new DecoderException($"The JSON number cannot be represented as a {typeof(T).Name}.", ex);
+		}
+
 		this.MoveNext();
 		return value;
 	}
 
 	private double ReadFloatingPoint(bool single)
 	{
-		if (this.reader.TokenType == JsonTokenType.Number)
+		if (this.CurrentTokenType == JsonTokenType.Number)
 		{
 			return single ? this.ReadNumber(static reader => reader.GetSingle()) : this.ReadNumber(static reader => reader.GetDouble());
 		}
 
-		if (!this.allowNamedFloatingPointValues || this.reader.TokenType != JsonTokenType.String)
+		if (!this.allowNamedFloatingPointValues || this.CurrentTokenType != JsonTokenType.String)
 		{
 			throw this.Unexpected("a number");
 		}
 
-		string text = this.reader.GetString()!;
+		string text = GetString(ref this.reader);
 		double value = text switch
 		{
 			"NaN" => double.NaN,
@@ -270,7 +371,7 @@ public ref struct JsonDecoder : IDecoder
 
 	private string ReadNumberText()
 	{
-		if (this.reader.TokenType != JsonTokenType.Number)
+		if (this.CurrentTokenType != JsonTokenType.Number)
 		{
 			throw this.Unexpected("a number");
 		}
@@ -284,12 +385,12 @@ public ref struct JsonDecoder : IDecoder
 
 	private ReadOnlySpan<char> ReadStringToken(JsonTokenType expected)
 	{
-		if (this.reader.TokenType != expected)
+		if (this.CurrentTokenType != expected)
 		{
 			throw this.Unexpected(expected == JsonTokenType.PropertyName ? "a property name" : "a string");
 		}
 
-		string value = this.reader.GetString()!;
+		string value = GetString(ref this.reader);
 		this.MoveNext();
 		return value;
 	}
@@ -325,7 +426,14 @@ public ref struct JsonDecoder : IDecoder
 			}
 		}
 
-		this.hasToken = this.reader.Read();
+		try
+		{
+			this.hasToken = this.reader.Read();
+		}
+		catch (JsonException ex)
+		{
+			throw new DecoderException("The JSON that follows the value just read is not well-formed.", ex);
+		}
 	}
 
 	private readonly DecoderException Unexpected(string expected)

@@ -68,6 +68,21 @@ public sealed class JsonValueBoundaryScanner : IValueBoundaryScanner
 	/// <inheritdoc/>
 	public bool TryScan(in ReadOnlySequence<byte> buffer, bool isFinalBlock, out SequencePosition end, out SequencePosition examined)
 	{
+		try
+		{
+			return this.TryScanCore(buffer, isFinalBlock, out end, out examined);
+		}
+		catch (JsonException ex)
+		{
+			// The scanner contract is expressed in terms of DecoderException, so callers that work across
+			// formats can catch one exception type. Utf8JsonReader's own JsonException becomes the inner
+			// exception so its line and position information is not lost.
+			throw new DecoderException("The buffered input is not well-formed JSON.", ex);
+		}
+	}
+
+	private bool TryScanCore(in ReadOnlySequence<byte> buffer, bool isFinalBlock, out SequencePosition end, out SequencePosition examined)
+	{
 		ReadOnlySequence<byte> remainder = this.consumed == 0 ? buffer : buffer.Slice(this.consumed);
 		Utf8JsonReader reader = new(remainder, isFinalBlock, this.state);
 

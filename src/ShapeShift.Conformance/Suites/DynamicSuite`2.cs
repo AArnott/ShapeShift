@@ -103,7 +103,9 @@ internal sealed class DynamicSuite<TEncoder, TDecoder> : IConformanceSuite<TEnco
 		});
 
 		string? binarySkipReason = collector.Options.SupportsDynamicValues && collector.Options.SupportsBinary
-			? null
+			? collector.Adapter.GetExpectedTokenType(ConformanceValueKind.Binary) == TokenType.Binary
+				? null
+				: "The format's binary values share a token type with another kind, so a dynamic read cannot tell them apart."
 			: skipReason ?? "The format has no binary representation.";
 		collector.Add(
 			"ShapeShiftValueBinaryRoundtrips",
