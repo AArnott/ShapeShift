@@ -145,22 +145,22 @@ internal sealed class ConverterSuite<TEncoder, TDecoder> : IConformanceSuite<TEn
 			"The format cannot represent the empty map that omitting every default member produces.",
 			adapter =>
 			{
-			ShapeShiftSerializer<TEncoder, TDecoder> omitting = adapter.CreateSerializer() with
-			{
-				SerializeDefaultValues = SerializeDefaultValuesPolicy.Never,
-			};
-			ShapeShiftSerializer<TEncoder, TDecoder> including = adapter.CreateSerializer() with
-			{
-				SerializeDefaultValues = SerializeDefaultValuesPolicy.Always,
-			};
+				ShapeShiftSerializer<TEncoder, TDecoder> omitting = adapter.CreateSerializer() with
+				{
+					SerializeDefaultValues = SerializeDefaultValuesPolicy.Never,
+				};
+				ShapeShiftSerializer<TEncoder, TDecoder> including = adapter.CreateSerializer() with
+				{
+					SerializeDefaultValues = SerializeDefaultValuesPolicy.Always,
+				};
 
-			ConformanceDefaults value = new();
-			List<string> omitted = ReadPropertyNames(adapter, adapter.Serialize(omitting, value, Shapes.Of<ConformanceDefaults>()));
-			List<string> included = ReadPropertyNames(adapter, adapter.Serialize(including, value, Shapes.Of<ConformanceDefaults>()));
+				ConformanceDefaults value = new();
+				List<string> omitted = ReadPropertyNames(adapter, adapter.Serialize(omitting, value, Shapes.Of<ConformanceDefaults>()));
+				List<string> included = ReadPropertyNames(adapter, adapter.Serialize(including, value, Shapes.Of<ConformanceDefaults>()));
 
-			ConformanceAssert.Equal(0, omitted.Count, $"the number of members written under SerializeDefaultValuesPolicy.Never, which were [{string.Join(", ", omitted)}]");
-			ConformanceAssert.Equal(2, included.Count, $"the number of members written under SerializeDefaultValuesPolicy.Always, which were [{string.Join(", ", included)}]");
-		});
+				ConformanceAssert.Equal(0, omitted.Count, $"the number of members written under SerializeDefaultValuesPolicy.Never, which were [{string.Join(", ", omitted)}]");
+				ConformanceAssert.Equal(2, included.Count, $"the number of members written under SerializeDefaultValuesPolicy.Always, which were [{string.Join(", ", included)}]");
+			});
 
 		collector.AddIf(
 			"MissingMembersFallBackToDefaults",

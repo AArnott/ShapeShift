@@ -294,6 +294,78 @@ public ref struct TamlDecoder(TextReader reader) : IDecoder
 
 	public ShapeShiftNumber ReadDynamicNumber() => new ShapeShiftDecimal(this.ReadDecimal());
 
+	/// <summary>
+	/// Determines whether an unquoted scalar should be classified as <see cref="TokenType.Number"/>.
+	/// </summary>
+	/// <param name="span">The trimmed scalar text.</param>
+	/// <returns><see langword="true" /> when the text is a decimal number in the round-trip form the encoder writes.</returns>
+	/// <remarks>
+	/// This recognizes the same shapes .NET's <see cref="NumberStyles.Float"/> parsing accepts -- an optional sign,
+	/// digits with an optional fractional part, and an optional exponent -- because the encoder writes every
+	/// numeric type with its invariant round-trip form. Recognizing only whole numbers would classify a
+	/// <see cref="double"/> or <see cref="decimal"/> as a string, and the matching read would then fail on a
+	/// value this decoder itself had written.
+	/// </remarks>
+	internal static bool LooksLikeNumberCore(ReadOnlySpan<char> span)
+	{
+		if (span.IsEmpty)
+		{
+			return false;
+		}
+
+		int i = 0;
+		if (span[i] is '-' or '+')
+		{
+			i++;
+		}
+
+		int integerDigits = 0;
+		while (i < span.Length && char.IsAsciiDigit(span[i]))
+		{
+			i++;
+			integerDigits++;
+		}
+
+		int fractionDigits = 0;
+		if (i < span.Length && span[i] == '.')
+		{
+			i++;
+			while (i < span.Length && char.IsAsciiDigit(span[i]))
+			{
+				i++;
+				fractionDigits++;
+			}
+		}
+
+		if (integerDigits == 0 && fractionDigits == 0)
+		{
+			return false;
+		}
+
+		if (i < span.Length && (span[i] is 'e' or 'E'))
+		{
+			i++;
+			if (i < span.Length && span[i] is '-' or '+')
+			{
+				i++;
+			}
+
+			int exponentDigits = 0;
+			while (i < span.Length && char.IsAsciiDigit(span[i]))
+			{
+				i++;
+				exponentDigits++;
+			}
+
+			if (exponentDigits == 0)
+			{
+				return false;
+			}
+		}
+
+		return i == span.Length;
+	}
+
 	private ReadOnlySpan<char> ReadToken(TokenType expectedType)
 	{
 		this.EnsureBufferedToken();
@@ -518,19 +590,6 @@ public ref struct TamlDecoder(TextReader reader) : IDecoder
 	}
 
 	/// <summary>
-	/// Determines whether a line is a key whose value is the indented block that follows it.
-	/// </summary>
-	/// <param name="lineStart">The offset of the line's first character, including its indentation.</param>
-	/// <param name="lineEndNoNewline">The offset just past the line's last character, excluding any newline.</param>
-	/// <param name="indent">The line's indentation level.</param>
-	/// <returns><see langword="true" /> when the line names a key whose value is nested beneath it.</returns>
-	/// <remarks>
-	/// A key with a scalar value is written as <c>key TAB value</c>. A key whose value is a map or vector has
-	/// nothing to put after the separator, so the separator is omitted and the value is carried entirely by the
-	/// deeper indentation of the lines that follow. Recognizing that shape is what lets a document contain a
-	/// nested container at all.
-	/// </remarks>
-	/// <summary>
 	/// Determines whether a blank line separates two positions in the document.
 	/// </summary>
 	/// <param name="from">The offset to start looking from, which is just past the last consumed line.</param>
@@ -553,6 +612,19 @@ public ref struct TamlDecoder(TextReader reader) : IDecoder
 		return false;
 	}
 
+	/// <summary>
+	/// Determines whether a line is a key whose value is the indented block that follows it.
+	/// </summary>
+	/// <param name="lineStart">The offset of the line's first character, including its indentation.</param>
+	/// <param name="lineEndNoNewline">The offset just past the line's last character, excluding any newline.</param>
+	/// <param name="indent">The line's indentation level.</param>
+	/// <returns><see langword="true" /> when the line names a key whose value is nested beneath it.</returns>
+	/// <remarks>
+	/// A key with a scalar value is written as <c>key TAB value</c>. A key whose value is a map or vector has
+	/// nothing to put after the separator, so the separator is omitted and the value is carried entirely by the
+	/// deeper indentation of the lines that follow. Recognizing that shape is what lets a document contain a
+	/// nested container at all.
+	/// </remarks>
 	private bool IsKeyWithNestedValue(int lineStart, int lineEndNoNewline, int indent)
 		=> this.TrySplitKeyOnly(lineStart, lineEndNoNewline, indent, out _, out _);
 
@@ -656,78 +728,6 @@ public ref struct TamlDecoder(TextReader reader) : IDecoder
 	}
 
 	private bool LooksLikeNumber(ReadOnlySpan<char> span) => LooksLikeNumberCore(span);
-
-	/// <summary>
-	/// Determines whether an unquoted scalar should be classified as <see cref="TokenType.Number"/>.
-	/// </summary>
-	/// <param name="span">The trimmed scalar text.</param>
-	/// <returns><see langword="true" /> when the text is a decimal number in the round-trip form the encoder writes.</returns>
-	/// <remarks>
-	/// This recognizes the same shapes .NET's <see cref="NumberStyles.Float"/> parsing accepts -- an optional sign,
-	/// digits with an optional fractional part, and an optional exponent -- because the encoder writes every
-	/// numeric type with its invariant round-trip form. Recognizing only whole numbers would classify a
-	/// <see cref="double"/> or <see cref="decimal"/> as a string, and the matching read would then fail on a
-	/// value this decoder itself had written.
-	/// </remarks>
-	internal static bool LooksLikeNumberCore(ReadOnlySpan<char> span)
-	{
-		if (span.IsEmpty)
-		{
-			return false;
-		}
-
-		int i = 0;
-		if (span[i] is '-' or '+')
-		{
-			i++;
-		}
-
-		int integerDigits = 0;
-		while (i < span.Length && char.IsAsciiDigit(span[i]))
-		{
-			i++;
-			integerDigits++;
-		}
-
-		int fractionDigits = 0;
-		if (i < span.Length && span[i] == '.')
-		{
-			i++;
-			while (i < span.Length && char.IsAsciiDigit(span[i]))
-			{
-				i++;
-				fractionDigits++;
-			}
-		}
-
-		if (integerDigits == 0 && fractionDigits == 0)
-		{
-			return false;
-		}
-
-		if (i < span.Length && (span[i] is 'e' or 'E'))
-		{
-			i++;
-			if (i < span.Length && span[i] is '-' or '+')
-			{
-				i++;
-			}
-
-			int exponentDigits = 0;
-			while (i < span.Length && char.IsAsciiDigit(span[i]))
-			{
-				i++;
-				exponentDigits++;
-			}
-
-			if (exponentDigits == 0)
-			{
-				return false;
-			}
-		}
-
-		return i == span.Length;
-	}
 
 	private int FindNextSignificantLineStart(int from, out int indent)
 	{

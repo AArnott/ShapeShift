@@ -145,7 +145,7 @@ public sealed class MsgPackValueBoundaryScanner : IValueBoundaryScanner
 		examined = buffer.Start;
 		return false;
 
-	Done:
+Done:
 		end = buffer.GetPosition(this.consumed + reader.Consumed);
 		examined = end;
 		this.depth = 0;
