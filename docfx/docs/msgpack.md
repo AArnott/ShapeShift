@@ -48,6 +48,13 @@ Readers validate the extension type and fixed payload lengths. These encodings
 are deterministic but require ShapeShift-aware readers; they are not part of
 the core MessagePack specification.
 
+## Schema
+
+`MsgPackSerializer.GetContract` produces the format-neutral contract, and
+`ShapeShift.Json`'s `JsonSchema.Create` renders it as JSON Schema 2020-12 with
+MessagePack annotations such as `x-msgpack-type` and `x-msgpack-extension`. See
+[Schema and contract inspection](schema.md#messagepack-annotations).
+
 ## Targeted and streaming deserialization
 
 See [Targeted and streaming deserialization](features.md#targeted-and-streaming-deserialization)

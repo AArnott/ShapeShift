@@ -87,7 +87,7 @@ work can build on earlier abstractions.
   incrementally fill/drain buffers around synchronous conversion rather than
   pretending a synchronous `TextReader.ReadToEnd` implementation is async.
 
-- [ ] **Schema and contract inspection.** Export a format-neutral contract
+- [x] **Schema and contract inspection.** Export a format-neutral contract
   description from PolyType shapes, with JSON Schema projection in
   `ShapeShift.Json`. MessagePack can expose the same contract as JSON Schema
   with MessagePack-specific annotations. Custom converters need an optional
@@ -117,7 +117,7 @@ work can build on earlier abstractions.
 - [x] Integrate the dynamic value model with `JsonElement`, `JsonDocument`, and
   `JsonNode` through optional converters. These BCL types are NativeAOT-safe;
   reflection-based `System.Text.Json` contract discovery is not used.
-- [ ] Project ShapeShift contracts to JSON Schema and document JSON-specific
+- [x] Project ShapeShift contracts to JSON Schema and document JSON-specific
   representation choices for dates, times, binary data, large integers, and
   non-string dictionary keys.
 

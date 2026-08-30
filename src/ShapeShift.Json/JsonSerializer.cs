@@ -1,6 +1,8 @@
 // Copyright (c) Andrew Arnott. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+using System.Text.Json.Nodes;
+
 namespace ShapeShift.Json;
 
 /// <summary>
@@ -41,6 +43,33 @@ public sealed record JsonSerializer : ShapeShiftSerializer<JsonEncoder, JsonDeco
 	/// Gets a value indicating whether NaN and infinity are written and accepted as named JSON strings.
 	/// </summary>
 	public bool AllowNamedFloatingPointValues { get; init; }
+
+	/// <summary>
+	/// Creates a JSON Schema document that describes the JSON this serializer reads and writes for a type.
+	/// </summary>
+	/// <param name="typeShape">The shape of the type to describe.</param>
+	/// <param name="options">
+	/// Options that influence the projection.
+	/// When <see langword="null" />, defaults are used except that
+	/// <see cref="JsonSchemaOptions.AllowNamedFloatingPointValues"/> is taken from this serializer.
+	/// </param>
+	/// <returns>A mutable JSON Schema document conforming to the <see cref="JsonSchema.Dialect"/> dialect.</returns>
+	/// <exception cref="NotSupportedException">
+	/// Thrown when <see cref="ShapeShiftSerializer{TEncoder, TDecoder}.PreserveReferences"/> is enabled.
+	/// </exception>
+	public JsonObject GetJsonSchema(ITypeShape typeShape, JsonSchemaOptions? options = null)
+		=> JsonSchema.Create(this.GetContract(typeShape), options ?? new JsonSchemaOptions { AllowNamedFloatingPointValues = this.AllowNamedFloatingPointValues });
+
+	/// <inheritdoc cref="GetJsonSchema(ITypeShape, JsonSchemaOptions?)"/>
+	/// <typeparam name="T">The type to describe.</typeparam>
+	public JsonObject GetJsonSchema<T>(JsonSchemaOptions? options = null)
+		where T : IShapeable<T> => this.GetJsonSchema(T.GetTypeShape(), options);
+
+	/// <inheritdoc cref="GetJsonSchema(ITypeShape, JsonSchemaOptions?)"/>
+	/// <typeparam name="T">The type to describe.</typeparam>
+	/// <typeparam name="TProvider">The witness class that provides the shape for <typeparamref name="T"/>.</typeparam>
+	public JsonObject GetJsonSchema<T, TProvider>(JsonSchemaOptions? options = null)
+		where TProvider : IShapeable<T> => this.GetJsonSchema(TProvider.GetTypeShape(), options);
 
 	/// <summary>
 	/// Serializes a value to UTF-8 JSON.

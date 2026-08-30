@@ -53,6 +53,13 @@ standard representation for them. Set `AllowNamedFloatingPointValues` to
 `true` to write and accept the strings `"NaN"`, `"Infinity"`, and
 `"-Infinity"`.
 
+## JSON Schema
+
+`JsonSerializer.GetJsonSchema` renders the type's contract as a JSON Schema
+2020-12 document, and `JsonSchema.Create` projects a contract obtained from any
+serializer (including `MsgPackSerializer`, with MessagePack annotations). See
+[Schema and contract inspection](schema.md).
+
 ## Reader security
 
 ShapeShift rejects duplicate object properties and missing required constructor

@@ -7,3 +7,5 @@ items:
   href: json.md
 - name: MessagePack
   href: msgpack.md
+- name: Schema and contract inspection
+  href: schema.md

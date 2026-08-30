@@ -108,3 +108,10 @@ Rectangular arrays use a two-element envelope containing a dimensions vector
 and a row-major flat values vector. For example, a `2 x 3` array is represented
 as `[[2, 3], [v0, v1, v2, v3, v4, v5]]`. This preserves zero-length dimensions
 that a naively nested representation would lose.
+
+## Schema and contract inspection
+
+`GetContract` produces a format-neutral description of what a serializer would
+write, and `ShapeShift.Json` projects that description to JSON Schema 2020-12,
+optionally with MessagePack annotations. See
+[Schema and contract inspection](schema.md).

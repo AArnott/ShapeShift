@@ -5,6 +5,7 @@
   <Import Project="../AOT.props" />
   <ItemGroup>
     <ProjectReference Include="..\..\src\ShapeShift.MsgPack\ShapeShift.MsgPack.csproj" />
+    <ProjectReference Include="..\..\src\ShapeShift.Json\ShapeShift.Json.csproj" />
     <ProjectReference Include="..\ShapeShift.Tests\ShapeShift.Tests.csproj" />
   </ItemGroup>
   <ItemGroup>
