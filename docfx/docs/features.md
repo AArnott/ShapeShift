@@ -24,6 +24,25 @@ Every ShapeShift format shares support for:
 - Strict duplicate, required-member, and non-nullable-member validation.
 - Configurable depth, collection, string, and binary length limits.
 
+Objects are written as maps of named properties in every format, which is the
+version-tolerant choice. A format whose wire model rewards compactness may also
+offer an explicit positional mode with stricter versioning rules; see
+[MessagePack positional contracts](msgpack.md#positional-array-contracts).
+
+## Reference preservation
+
+`PreserveReferences` makes an object graph that shares objects stay a graph: an
+object is written once and referred back to afterwards, and the reader
+reconstructs the sharing. `RejectCycles` preserves identity while refusing
+cycles; `AllowCycles` also reconstructs graphs that refer back to themselves.
+
+Each format chooses how a reference is represented, because there is no
+format-neutral answer: see
+[MessagePack reference preservation](msgpack.md#reference-preservation) for the
+reserved extension MessagePack uses, its size, and the errors a mismatched
+reader reports. Because references are a runtime protocol rather than a static
+shape, `GetContract` is not available while preservation is enabled.
+
 ## Targeted and streaming deserialization
 
 Every ShapeShift decoder supports skipping and seeking without deserializing
@@ -63,6 +82,13 @@ each call to `MoveNext`. This keeps them usable across `await` boundaries even
 though the decoders they read from are typically `ref struct` types that
 cannot themselves cross an `await`. Dispose a reader (or use a `using`
 statement) when finished with it to release any pooled resources it may hold.
+
+A decoder that reads a segmented `ReadOnlySequence<byte>` should walk it in
+place rather than consolidating it, so that a targeted read of a small fragment
+costs a small fragment's worth of work no matter how large the surrounding
+document is or how it happens to be chopped into segments.
+`ShapeShift.MsgPack` does exactly that; see
+[Segmented buffers and no-copy reads](msgpack.md#segmented-buffers-and-no-copy-reads).
 
 See [JSON](json.md#targeted-and-streaming-deserialization) and
 [MessagePack](msgpack.md#targeted-and-streaming-deserialization) for

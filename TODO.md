@@ -132,15 +132,30 @@ work can build on earlier abstractions.
   converters. Decimal, `Int128`, `UInt128`, `BigInteger`, and `TimeSpan` need
   documented interoperable encodings because MessagePack has no universal
   native representation for them.
-- [ ] Support map contracts by default and an explicit positional/array
+- [x] Support map contracts by default and an explicit positional/array
   contract mode for compact payloads. Positional mode requires stable integer
-  keys and has stricter versioning caveats than map mode.
-- [ ] Reserve and document extension codes used by ShapeShift reference
+  keys and has stricter versioning caveats than map mode. Implemented as
+  `MsgPackArrayContractAttribute` plus `MsgPackKeyAttribute`, which are opt-in
+  per type and validated when the converter is built. Because a MessagePack
+  array cannot distinguish an absent interior element from a null one,
+  positional mode declines default-value omission for interior positions and
+  honors it only for the tail of the array, where a shorter array says so
+  unambiguously; required members are never elided.
+- [x] Reserve and document extension codes used by ShapeShift reference
   preservation and other optional features. Readers must reject malformed or
-  conflicting extension payloads.
-- [ ] Add endless top-level streaming, framed stream helpers, and targeted
+  conflicting extension payloads. Decision: reference preservation had no
+  working format-neutral representation (no serializer implemented the hook),
+  and a MessagePack extension is the only unambiguous way to distinguish a
+  reference from data, so references are written as a reserved extension rather
+  than as an in-band envelope. All ShapeShift-invented codes moved out of the
+  specification-reserved negative range into a reserved application-specific
+  block (100-109), documented in `MsgPackExtensionCodes` and the MessagePack
+  topic, including interoperability caveats for non-ShapeShift readers.
+- [x] Add endless top-level streaming, framed stream helpers, and targeted
   path deserialization over `ReadOnlySequence<byte>`/`PipeReader` without
-  requiring a contiguous copy.
+  requiring a contiguous copy. `MsgPackDecoder` now walks a segmented sequence
+  in place instead of consolidating it, so a targeted read copies only the
+  fragment it returns.
 
 ## Ecosystem and extensibility
 
@@ -150,7 +165,9 @@ work can build on earlier abstractions.
   a conformance test kit that third-party format packages can reuse.
 - [ ] Add focused samples for core customization, JSON, MessagePack, streaming,
   schema generation, unknown-data retention, and third-party format creation;
-  link them from docfx topics.
+  link them from docfx topics. The MessagePack, streaming, schema-generation,
+  and unknown-data samples exist and are linked; core customization and
+  third-party format creation remain.
 - [ ] Consider separate ASP.NET Core MVC and SignalR integration packages after
   the JSON and MessagePack stream APIs stabilize. These integrations are
   applicable, but keeping framework dependencies out of the core format

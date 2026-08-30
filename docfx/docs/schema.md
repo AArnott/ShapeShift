@@ -26,7 +26,7 @@ custom converters that have been registered.
 | `DataContractKind` | Concrete type | Wire shape |
 | --- | --- | --- |
 | `Primitive` | `PrimitiveContract` | A single scalar token, identified by `PrimitiveDataType`. |
-| `Object` | `ObjectContract` | A string-keyed map of declared properties. |
+| `Object` | `ObjectContract` | A string-keyed map of declared properties, or (when `Encoding` is `Positional`) a vector whose elements are located by `PropertyContract.Position`. |
 | `Sequence` | `SequenceContract` | A vector of elements; `IsSet` marks set semantics. |
 | `RectangularArray` | `RectangularArrayContract` | A two-element `[dimensions, row-major values]` envelope. |
 | `Map` | `MapContract` | A string-keyed map, or a vector of `[key, value]` pairs. |
@@ -65,6 +65,20 @@ declaration alone:
 - `IsAlwaysWritten` is `false` when `SerializeDefaultValuesPolicy` may omit the
   property. `DefaultValue` carries the value that would be omitted when the
   policy makes it available.
+- `Position` is set only for a member of a positionally encoded object, where it
+  is the permanent index the member occupies in the vector.
+
+## Object encodings
+
+`ObjectContract.Encoding` records whether an object is written as a map of named
+properties (the default for every format) or as a vector whose elements are
+located by position. Only a format that offers a positional mode ever produces
+the latter; today that is
+[MessagePack's `[MsgPackArrayContract]`](msgpack.md#positional-array-contracts).
+
+In a positional contract every `PropertyContract` carries a `Position`, and the
+positions no property claims are the holes left by retired members, which
+writers fill with null placeholders.
 
 ## Custom converters
 
@@ -154,11 +168,18 @@ Differences from the JSON profile:
 - `DateTime` uses the standard timestamp extension (`x-msgpack-extension: -1`).
 - `decimal`, `Int128`, `UInt128`, `BigInteger`, and `TimeSpan` use the reserved
   ShapeShift extension codes documented in
-  [MessagePack extension types](msgpack.md#shapeshift-extension-types).
+  [MessagePack extension types](msgpack.md#extension-types).
 - `TimeSpan` is an integer tick count rather than a string.
 - Named floating-point values are never offered, because MessagePack encodes
   non-finite values natively.
 - Objects, arrays, and maps carry `x-msgpack-type` describing the token family.
+
+A positionally encoded object is projected as `{"type":"array"}` with one
+`prefixItems` entry per position. Each entry carries the member's name as its
+`title`; a position no member claims is described as `{"type":"null"}` with a
+`$comment` explaining that writers emit null there and readers ignore whatever
+they find. `minItems` is the number of positions up to and including the last
+required member, because a shorter array cannot supply it.
 
 ## Sample
 
