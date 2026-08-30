@@ -25,6 +25,7 @@ internal sealed class LimitsSuite<TEncoder, TDecoder> : IConformanceSuite<TEncod
 	public void AddTests(ConformanceTestCollector<TEncoder, TDecoder> collector)
 	{
 		Requires.NotNull(collector);
+		string? rootVectorSkip = collector.Options.SupportsRootVectors ? null : "The format cannot carry a vector at the root of a document.";
 
 		collector.Add("MaxDepthIsEnforcedOnRead", adapter =>
 		{
@@ -69,7 +70,7 @@ internal sealed class LimitsSuite<TEncoder, TDecoder> : IConformanceSuite<TEncod
 				$"serializing a {Depth}-deep graph with MaxDepth set to {Depth / 2}");
 		});
 
-		collector.Add("MaxCollectionLengthIsEnforcedOnRead", adapter =>
+		collector.Add("MaxCollectionLengthIsEnforcedOnRead", rootVectorSkip, adapter =>
 		{
 			const int Count = 64;
 			ShapeShiftSerializer<TEncoder, TDecoder> serializer = WithLimits(adapter, maxCollectionLength: Count / 2);
@@ -89,7 +90,7 @@ internal sealed class LimitsSuite<TEncoder, TDecoder> : IConformanceSuite<TEncod
 				$"deserializing a {Count}-element vector with MaxCollectionLength set to {Count / 2}");
 		});
 
-		collector.Add("MaxCollectionLengthIsEnforcedOnWrite", adapter =>
+		collector.Add("MaxCollectionLengthIsEnforcedOnWrite", rootVectorSkip, adapter =>
 		{
 			const int Count = 64;
 			ShapeShiftSerializer<TEncoder, TDecoder> serializer = WithLimits(adapter, maxCollectionLength: Count / 2);
@@ -104,7 +105,7 @@ internal sealed class LimitsSuite<TEncoder, TDecoder> : IConformanceSuite<TEncod
 		{
 			const int Length = 512;
 			ShapeShiftSerializer<TEncoder, TDecoder> serializer = WithLimits(adapter, maxStringLength: Length / 2);
-			byte[] payload = ScalarHarness.Encode(adapter, static (ref TEncoder encoder) => encoder.WriteValue(new string('x', Length)));
+			byte[] payload = RootHarness.EncodeScalar(adapter, static (ref TEncoder encoder) => encoder.WriteValue(new string('x', Length)));
 
 			ConformanceAssert.FailsCleanly(
 				() => adapter.Deserialize(serializer, payload, Shapes.Of<string, ConformanceWitness>()),
@@ -118,14 +119,14 @@ internal sealed class LimitsSuite<TEncoder, TDecoder> : IConformanceSuite<TEncod
 			{
 				const int Length = 512;
 				ShapeShiftSerializer<TEncoder, TDecoder> serializer = WithLimits(adapter, maxBinaryLength: Length / 2);
-				byte[] payload = ScalarHarness.Encode(adapter, static (ref TEncoder encoder) => encoder.WriteValue(new byte[Length].AsSpan()));
+				byte[] payload = RootHarness.EncodeScalar(adapter, static (ref TEncoder encoder) => encoder.WriteValue(new byte[Length].AsSpan()));
 
 				ConformanceAssert.FailsCleanly(
 					() => adapter.Deserialize(serializer, payload, Shapes.Of<byte[], ConformanceWitness>()),
 					$"deserializing a {Length}-byte binary value with MaxBinaryLength set to {Length / 2}");
 			});
 
-		collector.Add("LimitsPermitValuesAtTheBoundary", adapter =>
+		collector.Add("LimitsPermitValuesAtTheBoundary", rootVectorSkip, adapter =>
 		{
 			const int Count = 8;
 			ShapeShiftSerializer<TEncoder, TDecoder> serializer = WithLimits(adapter, maxDepth: 8, maxCollectionLength: Count, maxStringLength: 4);

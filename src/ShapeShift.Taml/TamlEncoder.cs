@@ -337,9 +337,16 @@ public ref struct TamlEncoder(TextWriter writer) : IEncoder
 			return true;
 		}
 
-		if (value.Equals("\"\"".AsSpan(), StringComparison.Ordinal))
+		// A bare scalar that reads back as a number would return TokenType.Number, and the string read
+		// that follows would fail on text this encoder had itself produced. Quoting keeps the value a string.
+		if (TamlDecoder.LooksLikeNumberCore(value))
 		{
-			return false;
+			return true;
+		}
+
+		if (value[0] == '"')
+		{
+			return true;
 		}
 
 		return false;

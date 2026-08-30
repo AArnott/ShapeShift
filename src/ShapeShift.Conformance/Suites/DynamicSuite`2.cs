@@ -24,7 +24,7 @@ internal sealed class DynamicSuite<TEncoder, TDecoder> : IConformanceSuite<TEnco
 
 		collector.Add("ReadDynamicNumber_PositiveInteger", skipReason, adapter =>
 		{
-			ShapeShiftNumber number = ScalarHarness.Roundtrip(
+			ShapeShiftNumber number = RootHarness.RoundtripScalar(
 				adapter,
 				static (ref TEncoder encoder) => encoder.WriteValue(123L),
 				static (ref TDecoder decoder) => decoder.ReadDynamicNumber());
@@ -33,7 +33,7 @@ internal sealed class DynamicSuite<TEncoder, TDecoder> : IConformanceSuite<TEnco
 
 		collector.Add("ReadDynamicNumber_NegativeInteger", skipReason, adapter =>
 		{
-			ShapeShiftNumber number = ScalarHarness.Roundtrip(
+			ShapeShiftNumber number = RootHarness.RoundtripScalar(
 				adapter,
 				static (ref TEncoder encoder) => encoder.WriteValue(-456L),
 				static (ref TDecoder decoder) => decoder.ReadDynamicNumber());
@@ -42,7 +42,7 @@ internal sealed class DynamicSuite<TEncoder, TDecoder> : IConformanceSuite<TEnco
 
 		collector.Add("ReadDynamicNumber_Fractional", skipReason, adapter =>
 		{
-			ShapeShiftNumber number = ScalarHarness.Roundtrip(
+			ShapeShiftNumber number = RootHarness.RoundtripScalar(
 				adapter,
 				static (ref TEncoder encoder) => encoder.WriteValue(1.5d),
 				static (ref TDecoder decoder) => decoder.ReadDynamicNumber());
@@ -51,7 +51,7 @@ internal sealed class DynamicSuite<TEncoder, TDecoder> : IConformanceSuite<TEnco
 
 		collector.Add("ReadDynamicNumberConsumesTheToken", skipReason, adapter =>
 		{
-			byte[] payload = adapter.Encode(static (ref TEncoder encoder) =>
+			byte[] payload = RootHarness.EncodeVector(adapter, static (ref TEncoder encoder) =>
 			{
 				encoder.WriteStartVector(2);
 				encoder.WriteValue(1L);
@@ -59,7 +59,7 @@ internal sealed class DynamicSuite<TEncoder, TDecoder> : IConformanceSuite<TEnco
 				encoder.WriteEndVector();
 			});
 
-			adapter.Decode(payload, static (ref TDecoder decoder) =>
+			RootHarness.DecodeVector(adapter, payload, static (ref TDecoder decoder) =>
 			{
 				decoder.ReadStartVector();
 				_ = decoder.ReadDynamicNumber();

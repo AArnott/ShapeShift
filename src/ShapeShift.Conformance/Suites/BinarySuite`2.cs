@@ -53,9 +53,9 @@ internal sealed class BinarySuite<TEncoder, TDecoder> : IConformanceSuite<TEncod
 			});
 		});
 
-		collector.Add("BinaryIsSkippable", supported && collector.Options.SupportsSkip ? null : skipReason ?? "The format does not implement Skip.", adapter =>
+		collector.Add("BinaryIsSkippable", supported && collector.Options.SupportsSkip && collector.Options.SupportsHeterogeneousVectors ? null : skipReason ?? "The format does not implement Skip.", adapter =>
 		{
-			byte[] payload = adapter.Encode(static (ref TEncoder encoder) =>
+			byte[] payload = RootHarness.EncodeVector(adapter, static (ref TEncoder encoder) =>
 			{
 				encoder.WriteStartVector(2);
 				encoder.WriteValue(new byte[] { 9, 8, 7 }.AsSpan());
@@ -63,7 +63,7 @@ internal sealed class BinarySuite<TEncoder, TDecoder> : IConformanceSuite<TEncod
 				encoder.WriteEndVector();
 			});
 
-			adapter.Decode(payload, static (ref TDecoder decoder) =>
+			RootHarness.DecodeVector(adapter, payload, static (ref TDecoder decoder) =>
 			{
 				decoder.ReadStartVector();
 				decoder.Skip();
@@ -103,7 +103,7 @@ internal sealed class BinarySuite<TEncoder, TDecoder> : IConformanceSuite<TEncod
 	{
 		collector.Add(name, skipReason, adapter =>
 		{
-			byte[] roundtripped = ScalarHarness.Roundtrip(
+			byte[] roundtripped = RootHarness.RoundtripScalar(
 				adapter,
 				(ref TEncoder encoder) => encoder.WriteValue(value.AsSpan()),
 				static (ref TDecoder decoder) => decoder.ReadByteArray());

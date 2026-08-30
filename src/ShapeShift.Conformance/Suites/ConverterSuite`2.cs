@@ -139,8 +139,12 @@ internal sealed class ConverterSuite<TEncoder, TDecoder> : IConformanceSuite<TEn
 			ConformanceAssert.Equal("x", roundtripped?.Text, "a member read back through a naming policy");
 		});
 
-		collector.Add("SerializeDefaultValuesPolicyIsApplied", adapter =>
-		{
+		collector.AddIf(
+			"SerializeDefaultValuesPolicyIsApplied",
+			collector.Options.SupportsEmptyMaps,
+			"The format cannot represent the empty map that omitting every default member produces.",
+			adapter =>
+			{
 			ShapeShiftSerializer<TEncoder, TDecoder> omitting = adapter.CreateSerializer() with
 			{
 				SerializeDefaultValues = SerializeDefaultValuesPolicy.Never,
@@ -158,20 +162,24 @@ internal sealed class ConverterSuite<TEncoder, TDecoder> : IConformanceSuite<TEn
 			ConformanceAssert.Equal(2, included.Count, $"the number of members written under SerializeDefaultValuesPolicy.Always, which were [{string.Join(", ", included)}]");
 		});
 
-		collector.Add("MissingMembersFallBackToDefaults", adapter =>
-		{
-			ShapeShiftSerializer<TEncoder, TDecoder> serializer = adapter.CreateSerializer();
-			byte[] payload = adapter.Encode(static (ref TEncoder encoder) =>
+		collector.AddIf(
+			"MissingMembersFallBackToDefaults",
+			collector.Options.SupportsEmptyMaps,
+			"The format cannot represent an empty map.",
+			adapter =>
 			{
-				encoder.WriteStartMap(0);
-				encoder.WriteEndMap();
-			});
+				ShapeShiftSerializer<TEncoder, TDecoder> serializer = adapter.CreateSerializer();
+				byte[] payload = adapter.Encode(static (ref TEncoder encoder) =>
+				{
+					encoder.WriteStartMap(0);
+					encoder.WriteEndMap();
+				});
 
-			ConformanceDefaults? value = adapter.Deserialize(serializer, payload, Shapes.Of<ConformanceDefaults>());
-			ConformanceAssert.True(value is not null, "An empty map should deserialize into an object rather than null.");
-			ConformanceAssert.Equal(null, value!.Text, "a member absent from the payload");
-			ConformanceAssert.Equal(0, value.Number, "a value-typed member absent from the payload");
-		});
+				ConformanceDefaults? value = adapter.Deserialize(serializer, payload, Shapes.Of<ConformanceDefaults>());
+				ConformanceAssert.True(value is not null, "An empty map should deserialize into an object rather than null.");
+				ConformanceAssert.Equal(null, value!.Text, "a member absent from the payload");
+				ConformanceAssert.Equal(0, value.Number, "a value-typed member absent from the payload");
+			});
 
 		collector.Add("UnknownMembersAreIgnored", adapter =>
 		{

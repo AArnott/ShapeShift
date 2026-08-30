@@ -154,7 +154,7 @@ internal sealed class PrimitiveSuite<TEncoder, TDecoder> : IConformanceSuite<TEn
 		collector.Add("CharSpanMatchesString", adapter =>
 		{
 			const string Value = "span and string agree";
-			string roundtripped = ScalarHarness.Roundtrip(
+			string roundtripped = RootHarness.RoundtripScalar(
 				adapter,
 				static (ref TEncoder encoder) => encoder.WriteValue(Value.AsSpan()),
 				static (ref TDecoder decoder) => decoder.ReadCharSpan().ToString());
@@ -163,7 +163,7 @@ internal sealed class PrimitiveSuite<TEncoder, TDecoder> : IConformanceSuite<TEn
 
 		collector.Add("NarrowIntegerExtensions", adapter =>
 		{
-			byte[] payload = adapter.Encode(static (ref TEncoder encoder) =>
+			byte[] payload = RootHarness.EncodeVector(adapter, static (ref TEncoder encoder) =>
 			{
 				encoder.WriteStartVector(6);
 				encoder.WriteValue((long)sbyte.MinValue);
@@ -175,7 +175,7 @@ internal sealed class PrimitiveSuite<TEncoder, TDecoder> : IConformanceSuite<TEn
 				encoder.WriteEndVector();
 			});
 
-			adapter.Decode(payload, static (ref TDecoder decoder) =>
+			RootHarness.DecodeVector(adapter, payload, static (ref TDecoder decoder) =>
 			{
 				decoder.ReadStartVector();
 				ConformanceAssert.Equal(sbyte.MinValue, checked((sbyte)decoder.ReadInt64()), "an sbyte read through ReadInt64");
@@ -190,30 +190,41 @@ internal sealed class PrimitiveSuite<TEncoder, TDecoder> : IConformanceSuite<TEn
 
 		collector.Add("PropertyNamesRoundtrip", adapter =>
 		{
-			string[] names = ["simple", "with space", "with\"quote", "caf\u00e9", "1", string.Empty];
-			byte[] payload = adapter.Encode((ref TEncoder encoder) =>
+			string[] names = ["simple", "with space", "caf\u00e9", "AlreadyPascal", "under_score"];
+			RoundtripPropertyNames(adapter, names);
+		});
+
+		collector.AddIf(
+			"UnusualPropertyNamesRoundtrip",
+			options.SupportsEmptyStrings && options.PreservesAmbiguousStrings,
+			"The format cannot carry an empty or otherwise ambiguous property name.",
+			adapter => RoundtripPropertyNames(adapter, [string.Empty, "1", "true", "with\"quote"]));
+	}
+
+	private static void RoundtripPropertyNames(FormatConformanceAdapter<TEncoder, TDecoder> adapter, string[] names)
+	{
+		byte[] payload = adapter.Encode((ref TEncoder encoder) =>
+		{
+			encoder.WriteStartMap(names.Length);
+			for (int i = 0; i < names.Length; i++)
 			{
-				encoder.WriteStartMap(names.Length);
-				for (int i = 0; i < names.Length; i++)
-				{
-					encoder.WritePropertyName(names[i]);
-					encoder.WriteValue((long)i);
-				}
+				encoder.WritePropertyName(names[i]);
+				encoder.WriteValue((long)i);
+			}
 
-				encoder.WriteEndMap();
-			});
+			encoder.WriteEndMap();
+		});
 
-			adapter.Decode(payload, (ref TDecoder decoder) =>
+		adapter.Decode(payload, (ref TDecoder decoder) =>
+		{
+			decoder.ReadStartMap();
+			for (int i = 0; i < names.Length; i++)
 			{
-				decoder.ReadStartMap();
-				for (int i = 0; i < names.Length; i++)
-				{
-					ConformanceAssert.Equal(names[i], decoder.ReadPropertyName().ToString(), $"property name {i}");
-					ConformanceAssert.Equal((long)i, decoder.ReadInt64(), $"the value of property {i}");
-				}
+				ConformanceAssert.Equal(names[i], decoder.ReadPropertyName().ToString(), $"property name {i}");
+				ConformanceAssert.Equal((long)i, decoder.ReadInt64(), $"the value of property {i}");
+			}
 
-				decoder.ReadEndMap();
-			});
+			decoder.ReadEndMap();
 		});
 	}
 
@@ -227,7 +238,7 @@ internal sealed class PrimitiveSuite<TEncoder, TDecoder> : IConformanceSuite<TEn
 	{
 		collector.Add(name, skipReason, adapter =>
 		{
-			TValue roundtripped = ScalarHarness.Roundtrip(
+			TValue roundtripped = RootHarness.RoundtripScalar(
 				adapter,
 				(ref TEncoder encoder) => write(ref encoder, value),
 				read);

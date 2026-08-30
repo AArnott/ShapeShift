@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\ShapeShift.Yaml\ShapeShift.Yaml.csproj" />
+    <ProjectReference Include="..\..\src\ShapeShift.Conformance\ShapeShift.Conformance.csproj" />
     <ProjectReference Include="..\ShapeShift.Tests\ShapeShift.Tests.csproj" />
   </ItemGroup>
 

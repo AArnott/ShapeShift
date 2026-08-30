@@ -70,14 +70,14 @@ internal sealed class TokenSuite<TEncoder, TDecoder> : IConformanceSuite<TEncode
 
 		collector.Add("VectorStartAndEnd", adapter =>
 		{
-			byte[] payload = adapter.Encode(static (ref TEncoder encoder) =>
+			byte[] payload = RootHarness.EncodeVector(adapter, static (ref TEncoder encoder) =>
 			{
 				encoder.WriteStartVector(1);
 				encoder.WriteValue(7L);
 				encoder.WriteEndVector();
 			});
 
-			adapter.Decode(payload, (ref TDecoder decoder) =>
+			RootHarness.DecodeVector(adapter, payload, (ref TDecoder decoder) =>
 			{
 				ConformanceAssert.NextToken(adapter.GetExpectedTokenType(ConformanceValueKind.Vector), ref decoder, "the start of a vector");
 				decoder.ReadStartVector();
@@ -114,8 +114,8 @@ internal sealed class TokenSuite<TEncoder, TDecoder> : IConformanceSuite<TEncode
 
 		collector.Add("NextTokenTypeIsRepeatable", adapter =>
 		{
-			byte[] payload = ScalarHarness.Encode(adapter, static (ref TEncoder encoder) => encoder.WriteValue("text"));
-			ScalarHarness.Decode(adapter, payload, (ref TDecoder decoder) =>
+			byte[] payload = RootHarness.EncodeScalar(adapter, static (ref TEncoder encoder) => encoder.WriteValue("text"));
+			RootHarness.DecodeScalar(adapter, payload, (ref TDecoder decoder) =>
 			{
 				TokenType first = decoder.NextTokenType;
 				TokenType second = decoder.NextTokenType;
@@ -137,8 +137,8 @@ internal sealed class TokenSuite<TEncoder, TDecoder> : IConformanceSuite<TEncode
 	{
 		collector.Add(name, skipReason, adapter =>
 		{
-			byte[] payload = ScalarHarness.Encode(adapter, write);
-			ScalarHarness.Decode(adapter, payload, (ref TDecoder decoder) =>
+			byte[] payload = RootHarness.EncodeScalar(adapter, write);
+			RootHarness.DecodeScalar(adapter, payload, (ref TDecoder decoder) =>
 			{
 				ConformanceAssert.NextToken(adapter.GetExpectedTokenType(kind), ref decoder, $"a {kind} value");
 				return 0;

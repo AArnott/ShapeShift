@@ -25,7 +25,7 @@ internal sealed class SkipSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder
 
 		collector.Add("SkipScalarLeavesSuccessor", skipReason, adapter =>
 		{
-			byte[] payload = adapter.Encode(static (ref TEncoder encoder) =>
+			byte[] payload = RootHarness.EncodeVector(adapter, static (ref TEncoder encoder) =>
 			{
 				encoder.WriteStartVector(2);
 				encoder.WriteValue("skipped");
@@ -33,7 +33,7 @@ internal sealed class SkipSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder
 				encoder.WriteEndVector();
 			});
 
-			adapter.Decode(payload, static (ref TDecoder decoder) =>
+			RootHarness.DecodeVector(adapter, payload, static (ref TDecoder decoder) =>
 			{
 				decoder.ReadStartVector();
 				decoder.Skip();
@@ -75,9 +75,9 @@ internal sealed class SkipSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder
 			});
 		});
 
-		collector.Add("SkipVectorElement", skipReason, adapter =>
+		collector.Add("SkipVectorElement", collector.Options.SupportsHeterogeneousVectors ? skipReason : "The format cannot mix a map and a scalar in one vector.", adapter =>
 		{
-			byte[] payload = adapter.Encode(static (ref TEncoder encoder) =>
+			byte[] payload = RootHarness.EncodeVector(adapter, static (ref TEncoder encoder) =>
 			{
 				encoder.WriteStartVector(2);
 				encoder.WriteStartMap(1);
@@ -88,7 +88,7 @@ internal sealed class SkipSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder
 				encoder.WriteEndVector();
 			});
 
-			adapter.Decode(payload, static (ref TDecoder decoder) =>
+			RootHarness.DecodeVector(adapter, payload, static (ref TDecoder decoder) =>
 			{
 				decoder.ReadStartVector();
 				decoder.Skip();
@@ -127,10 +127,10 @@ internal sealed class SkipSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder
 			});
 		});
 
-		collector.Add("SkipNestedContainers", skipReason, adapter =>
+		collector.Add("SkipNestedContainers", collector.Options.SupportsHeterogeneousVectors ? skipReason : "The format cannot mix a map and a scalar in one vector.", adapter =>
 		{
 			int depth = Math.Max(2, Math.Min(8, adapter.Options.MaxTestedNestingDepth));
-			byte[] payload = adapter.Encode((ref TEncoder encoder) =>
+			byte[] payload = RootHarness.EncodeVector(adapter, (ref TEncoder encoder) =>
 			{
 				encoder.WriteStartVector(2);
 				for (int i = 0; i < depth; i++)
@@ -150,7 +150,7 @@ internal sealed class SkipSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder
 				encoder.WriteEndVector();
 			});
 
-			adapter.Decode(payload, static (ref TDecoder decoder) =>
+			RootHarness.DecodeVector(adapter, payload, static (ref TDecoder decoder) =>
 			{
 				decoder.ReadStartVector();
 				decoder.Skip();

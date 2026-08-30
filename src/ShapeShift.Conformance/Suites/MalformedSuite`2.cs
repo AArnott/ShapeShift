@@ -89,9 +89,9 @@ internal sealed class MalformedSuite<TEncoder, TDecoder> : IConformanceSuite<TEn
 
 		collector.Add("ReadingAStringAsAMapFailsCleanly", collector.Options.RejectsTypeMismatches ? null : "The format coerces mismatched types.", adapter =>
 		{
-			byte[] payload = ScalarHarness.Encode(adapter, static (ref TEncoder encoder) => encoder.WriteValue("text"));
+			byte[] payload = RootHarness.EncodeScalar(adapter, static (ref TEncoder encoder) => encoder.WriteValue("text"));
 			ConformanceAssert.FailsCleanly(
-				() => ScalarHarness.Decode(adapter, payload, static (ref TDecoder decoder) => decoder.ReadStartMap()),
+				() => RootHarness.DecodeScalar(adapter, payload, static (ref TDecoder decoder) => decoder.ReadStartMap()),
 				"reading a string as the start of a map");
 		});
 
@@ -110,15 +110,15 @@ internal sealed class MalformedSuite<TEncoder, TDecoder> : IConformanceSuite<TEn
 
 		collector.Add("ReadingAStringAsANumberFailsCleanly", collector.Options.RejectsTypeMismatches ? null : "The format coerces mismatched types.", adapter =>
 		{
-			byte[] payload = ScalarHarness.Encode(adapter, static (ref TEncoder encoder) => encoder.WriteValue("not a number"));
+			byte[] payload = RootHarness.EncodeScalar(adapter, static (ref TEncoder encoder) => encoder.WriteValue("not a number"));
 			ConformanceAssert.FailsCleanly(
-				() => ScalarHarness.Decode(adapter, payload, static (ref TDecoder decoder) => decoder.ReadInt64()),
+				() => RootHarness.DecodeScalar(adapter, payload, static (ref TDecoder decoder) => decoder.ReadInt64()),
 				"reading a non-numeric string as an integer");
 		});
 
 		collector.Add("ReadingAPropertyNameOutsideAMapFailsCleanly", collector.Options.RejectsTypeMismatches ? null : "The format coerces mismatched types.", adapter =>
 		{
-			byte[] payload = adapter.Encode(static (ref TEncoder encoder) =>
+			byte[] payload = RootHarness.EncodeVector(adapter, static (ref TEncoder encoder) =>
 			{
 				encoder.WriteStartVector(1);
 				encoder.WriteValue("element");
@@ -126,7 +126,7 @@ internal sealed class MalformedSuite<TEncoder, TDecoder> : IConformanceSuite<TEn
 			});
 
 			ConformanceAssert.FailsCleanly(
-				() => adapter.Decode(payload, static (ref TDecoder decoder) =>
+				() => RootHarness.DecodeVector(adapter, payload, static (ref TDecoder decoder) =>
 				{
 					decoder.ReadStartVector();
 					return decoder.ReadPropertyName().ToString();
@@ -134,32 +134,36 @@ internal sealed class MalformedSuite<TEncoder, TDecoder> : IConformanceSuite<TEn
 				"reading a vector element as a property name");
 		});
 
-		collector.Add("ErrorsCarryThePathToTheFailure", adapter =>
-		{
-			ShapeShiftSerializer<TEncoder, TDecoder> serializer = adapter.CreateSerializer();
-			byte[] payload = adapter.Encode(static (ref TEncoder encoder) =>
+		collector.AddIf(
+			"ErrorsCarryThePathToTheFailure",
+			collector.Options.ReportsErrorPaths,
+			"The format's decoder rejects the malformed member before the converter layer can attribute it.",
+			adapter =>
 			{
-				encoder.WriteStartMap(3);
-				encoder.WritePropertyName("Name");
-				encoder.WriteValue("Ada");
-				encoder.WritePropertyName("Age");
-				encoder.WriteValue(1L);
-				encoder.WritePropertyName("Scores");
-				encoder.WriteStartVector(2);
-				encoder.WriteValue(1L);
-				encoder.WriteValue("not an int");
-				encoder.WriteEndVector();
-				encoder.WriteEndMap();
+				ShapeShiftSerializer<TEncoder, TDecoder> serializer = adapter.CreateSerializer();
+				byte[] payload = adapter.Encode(static (ref TEncoder encoder) =>
+				{
+					encoder.WriteStartMap(3);
+					encoder.WritePropertyName("Name");
+					encoder.WriteValue("Ada");
+					encoder.WritePropertyName("Age");
+					encoder.WriteValue(1L);
+					encoder.WritePropertyName("Scores");
+					encoder.WriteStartVector(2);
+					encoder.WriteValue(1L);
+					encoder.WriteValue("not an int");
+					encoder.WriteEndVector();
+					encoder.WriteEndMap();
+				});
+
+				ShapeShiftSerializationException exception = ConformanceAssert.Throws<ShapeShiftSerializationException>(
+					() => adapter.Deserialize(serializer, payload, Shapes.Of<ConformancePerson>()),
+					"deserializing an object whose vector member holds a wrongly typed element");
+
+				ConformanceAssert.True(
+					exception.Path.Count > 0,
+					$"A failure inside a member should report the path to it, but the path was empty. Message: {exception.Message}");
 			});
-
-			ShapeShiftSerializationException exception = ConformanceAssert.Throws<ShapeShiftSerializationException>(
-				() => adapter.Deserialize(serializer, payload, Shapes.Of<ConformancePerson>()),
-				"deserializing an object whose vector member holds a wrongly typed element");
-
-			ConformanceAssert.True(
-				exception.Path.Count > 0,
-				$"A failure inside a member should report the path to it, but the path was empty. Message: {exception.Message}");
-		});
 	}
 
 	private static byte[] EncodeRichDocument(FormatConformanceAdapter<TEncoder, TDecoder> adapter)

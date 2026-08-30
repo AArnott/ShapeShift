@@ -37,8 +37,8 @@ internal sealed class NullSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder
 
 		collector.Add("TryReadNullDoesNotConsume", adapter =>
 		{
-			byte[] payload = ScalarHarness.Encode(adapter, static (ref TEncoder encoder) => encoder.WriteNull());
-			ScalarHarness.Decode(adapter, payload, (ref TDecoder decoder) =>
+			byte[] payload = RootHarness.EncodeScalar(adapter, static (ref TEncoder encoder) => encoder.WriteNull());
+			RootHarness.DecodeScalar(adapter, payload, (ref TDecoder decoder) =>
 			{
 				ConformanceAssert.True(decoder.TryReadNull(), "TryReadNull should report true for a null token.");
 				ConformanceAssert.True(decoder.TryReadNull(), "TryReadNull must not consume the null token, so a second call should also report true.");
@@ -49,7 +49,7 @@ internal sealed class NullSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder
 
 		collector.Add("ReadNullConsumes", adapter =>
 		{
-			byte[] payload = adapter.Encode(static (ref TEncoder encoder) =>
+			byte[] payload = RootHarness.EncodeVector(adapter, static (ref TEncoder encoder) =>
 			{
 				encoder.WriteStartVector(2);
 				encoder.WriteNull();
@@ -57,7 +57,7 @@ internal sealed class NullSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder
 				encoder.WriteEndVector();
 			});
 
-			adapter.Decode(payload, (ref TDecoder decoder) =>
+			RootHarness.DecodeVector(adapter, payload, (ref TDecoder decoder) =>
 			{
 				decoder.ReadStartVector();
 				ConformanceAssert.True(decoder.TryReadNull(), "The first element is null.");
@@ -70,8 +70,8 @@ internal sealed class NullSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder
 
 		collector.Add("TryReadNullIsFalseForNonNull", adapter =>
 		{
-			byte[] payload = ScalarHarness.Encode(adapter, static (ref TEncoder encoder) => encoder.WriteValue("text"));
-			ScalarHarness.Decode(adapter, payload, (ref TDecoder decoder) =>
+			byte[] payload = RootHarness.EncodeScalar(adapter, static (ref TEncoder encoder) => encoder.WriteValue("text"));
+			RootHarness.DecodeScalar(adapter, payload, (ref TDecoder decoder) =>
 			{
 				ConformanceAssert.False(decoder.TryReadNull(), "TryReadNull should report false for a string token.");
 				ConformanceAssert.False(decoder.TryReadNull(), "TryReadNull must not consume anything when it reports false.");
@@ -82,9 +82,9 @@ internal sealed class NullSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder
 
 		collector.Add("ReadNullRejectsNonNull", adapter =>
 		{
-			byte[] payload = ScalarHarness.Encode(adapter, static (ref TEncoder encoder) => encoder.WriteValue("text"));
+			byte[] payload = RootHarness.EncodeScalar(adapter, static (ref TEncoder encoder) => encoder.WriteValue("text"));
 			ConformanceAssert.FailsCleanly(
-				() => ScalarHarness.Decode(adapter, payload, static (ref TDecoder decoder) =>
+				() => RootHarness.DecodeScalar(adapter, payload, static (ref TDecoder decoder) =>
 				{
 					decoder.ReadNull();
 					return 0;
@@ -123,7 +123,7 @@ internal sealed class NullSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder
 			"The format does not implement Skip.",
 			adapter =>
 			{
-				byte[] payload = adapter.Encode(static (ref TEncoder encoder) =>
+				byte[] payload = RootHarness.EncodeVector(adapter, static (ref TEncoder encoder) =>
 				{
 					encoder.WriteStartVector(2);
 					encoder.WriteNull();
@@ -131,7 +131,7 @@ internal sealed class NullSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder
 					encoder.WriteEndVector();
 				});
 
-				adapter.Decode(payload, static (ref TDecoder decoder) =>
+				RootHarness.DecodeVector(adapter, payload, static (ref TDecoder decoder) =>
 				{
 					decoder.ReadStartVector();
 					decoder.Skip();

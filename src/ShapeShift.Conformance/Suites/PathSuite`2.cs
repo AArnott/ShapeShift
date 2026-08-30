@@ -105,7 +105,7 @@ internal sealed class PathSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder
 			ConformanceAssert.Equal("items", next, "the key immediately following the sought value");
 		});
 
-		collector.Add("SeekToRootReadsWholeDocument", skipReason, adapter =>
+		collector.Add("SeekToRootReadsWholeDocument", collector.Options.SupportsRootVectors ? skipReason : "The format cannot carry a vector at the root of a document.", adapter =>
 		{
 			ShapeShiftSerializer<TEncoder, TDecoder> serializer = adapter.CreateSerializer();
 			byte[] payload = adapter.Encode(static (ref TEncoder encoder) =>

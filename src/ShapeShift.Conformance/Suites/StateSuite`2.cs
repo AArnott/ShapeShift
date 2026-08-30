@@ -48,13 +48,13 @@ internal sealed class StateSuite<TEncoder, TDecoder> : IConformanceSuite<TEncode
 			"The format cannot represent an empty vector.",
 			adapter =>
 			{
-				byte[] payload = adapter.Encode(static (ref TEncoder encoder) =>
+				byte[] payload = RootHarness.EncodeVector(adapter, static (ref TEncoder encoder) =>
 				{
 					encoder.WriteStartVector(0);
 					encoder.WriteEndVector();
 				});
 
-				adapter.Decode(payload, (ref TDecoder decoder) =>
+				RootHarness.DecodeVector(adapter, payload, (ref TDecoder decoder) =>
 				{
 					int? count = decoder.ReadStartVector();
 					AssertCount(adapter, count, 0, "an empty vector");
@@ -97,7 +97,7 @@ internal sealed class StateSuite<TEncoder, TDecoder> : IConformanceSuite<TEncode
 
 		collector.Add("VectorElementsAreOrdered", adapter =>
 		{
-			byte[] payload = adapter.Encode(static (ref TEncoder encoder) =>
+			byte[] payload = RootHarness.EncodeVector(adapter, static (ref TEncoder encoder) =>
 			{
 				encoder.WriteStartVector(3);
 				encoder.WriteValue("a");
@@ -106,7 +106,7 @@ internal sealed class StateSuite<TEncoder, TDecoder> : IConformanceSuite<TEncode
 				encoder.WriteEndVector();
 			});
 
-			adapter.Decode(payload, (ref TDecoder decoder) =>
+			RootHarness.DecodeVector(adapter, payload, (ref TDecoder decoder) =>
 			{
 				int? count = decoder.ReadStartVector();
 				AssertCount(adapter, count, 3, "a three-element vector");
@@ -154,7 +154,7 @@ internal sealed class StateSuite<TEncoder, TDecoder> : IConformanceSuite<TEncode
 
 		collector.Add("MapInsideVector", adapter =>
 		{
-			byte[] payload = adapter.Encode(static (ref TEncoder encoder) =>
+			byte[] payload = RootHarness.EncodeVector(adapter, static (ref TEncoder encoder) =>
 			{
 				encoder.WriteStartVector(2);
 				encoder.WriteStartMap(1);
@@ -168,7 +168,7 @@ internal sealed class StateSuite<TEncoder, TDecoder> : IConformanceSuite<TEncode
 				encoder.WriteEndVector();
 			});
 
-			adapter.Decode(payload, static (ref TDecoder decoder) =>
+			RootHarness.DecodeVector(adapter, payload, static (ref TDecoder decoder) =>
 			{
 				decoder.ReadStartVector();
 				for (int i = 1; i <= 2; i++)
@@ -191,7 +191,7 @@ internal sealed class StateSuite<TEncoder, TDecoder> : IConformanceSuite<TEncode
 			"The format cannot nest a vector directly inside a vector.",
 			adapter =>
 			{
-				byte[] payload = adapter.Encode(static (ref TEncoder encoder) =>
+				byte[] payload = RootHarness.EncodeVector(adapter, static (ref TEncoder encoder) =>
 				{
 					encoder.WriteStartVector(2);
 					encoder.WriteStartVector(1);
@@ -204,7 +204,7 @@ internal sealed class StateSuite<TEncoder, TDecoder> : IConformanceSuite<TEncode
 					encoder.WriteEndVector();
 				});
 
-				adapter.Decode(payload, static (ref TDecoder decoder) =>
+				RootHarness.DecodeVector(adapter, payload, static (ref TDecoder decoder) =>
 				{
 					decoder.ReadStartVector();
 					decoder.ReadStartVector();
@@ -279,9 +279,9 @@ internal sealed class StateSuite<TEncoder, TDecoder> : IConformanceSuite<TEncode
 
 		collector.Add("ReadingPastTheEndIsRejected", adapter =>
 		{
-			byte[] payload = ScalarHarness.Encode(adapter, static (ref TEncoder encoder) => encoder.WriteValue(1L));
+			byte[] payload = RootHarness.EncodeScalar(adapter, static (ref TEncoder encoder) => encoder.WriteValue(1L));
 			ConformanceAssert.FailsCleanly(
-				() => ScalarHarness.Decode(adapter, payload, static (ref TDecoder decoder) =>
+				() => RootHarness.DecodeScalar(adapter, payload, static (ref TDecoder decoder) =>
 				{
 					_ = decoder.ReadInt64();
 					return decoder.ReadInt64();

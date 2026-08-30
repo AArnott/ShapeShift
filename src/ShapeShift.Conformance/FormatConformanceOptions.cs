@@ -33,6 +33,26 @@ public sealed record FormatConformanceOptions
 	public bool SupportsRootScalars { get; init; } = true;
 
 	/// <summary>
+	/// Gets a value indicating whether a vector may be the entire document.
+	/// </summary>
+	/// <remarks>
+	/// An indentation-based format usually cannot: a document that is a bare list of lines is
+	/// indistinguishable from a single multi-line scalar, so such a format carries a map at the root and
+	/// the suite wraps root vectors accordingly.
+	/// </remarks>
+	public bool SupportsRootVectors { get; init; } = true;
+
+	/// <summary>
+	/// Gets a value indicating whether a vector may hold elements of differing shapes -- for example a
+	/// map followed by a scalar.
+	/// </summary>
+	/// <remarks>
+	/// A format that infers where a vector begins from the shape of its first element cannot always
+	/// recognize a later element of a different shape.
+	/// </remarks>
+	public bool SupportsHeterogeneousVectors { get; init; } = true;
+
+	/// <summary>
 	/// Gets a value indicating whether a map with no entries round-trips.
 	/// </summary>
 	public bool SupportsEmptyMaps { get; init; } = true;
@@ -138,6 +158,16 @@ public sealed record FormatConformanceOptions
 	/// <see cref="DecoderException"/> rather than coercing it.
 	/// </summary>
 	public bool RejectsTypeMismatches { get; init; } = true;
+
+	/// <summary>
+	/// Gets a value indicating whether a failure inside a member is reported as a
+	/// <see cref="ShapeShiftSerializationException"/> carrying the <see cref="ShapeShiftPath"/> to it.
+	/// </summary>
+	/// <remarks>
+	/// A format whose decoder discovers structural problems before the converter layer can attribute them
+	/// to a member reports the failure as a bare <see cref="DecoderException"/> instead.
+	/// </remarks>
+	public bool ReportsErrorPaths { get; init; } = true;
 
 	/// <summary>
 	/// Gets a value indicating whether the format supports
