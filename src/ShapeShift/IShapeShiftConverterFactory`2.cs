@@ -12,18 +12,18 @@ namespace ShapeShift;
 /// <para>
 /// A non-generic implementation of this interface is preferred when possible.
 /// </para>
-/// <code source="../../samples/cs/CustomConverterFactory.cs" region="NonGeneric" lang="C#" />
+/// <code source="../../samples/cs/CoreCustomization.cs" region="FactoryNonGeneric" lang="C#" />
 /// <para>
 /// When a generic context is required, implement <see cref="ITypeShapeFunc"/> on the same class
 /// and invoke into it after appropriate type checks.
 /// </para>
-/// <code source="../../samples/cs/CustomConverterFactory.cs" region="Generic" lang="C#" />
+/// <code source="../../samples/cs/CoreCustomization.cs" region="FactoryGeneric" lang="C#" />
 /// <para>
 /// When generic type parameters are required for sub-elements of the type to be converted
 /// (e.g. the element type of a collection), you can leverage a <see cref="TypeShapeVisitor"/> implementation
 /// to obtain the generic type parameters.
 /// </para>
-/// <code source="../../samples/cs/CustomConverterFactory.cs" region="Visitor" lang="C#" />
+/// <code source="../../samples/cs/CoreCustomization.cs" region="FactoryVisitor" lang="C#" />
 /// </example>
 public interface IShapeShiftConverterFactory<TEncoder, TDecoder>
 	where TEncoder : IEncoder, allows ref struct

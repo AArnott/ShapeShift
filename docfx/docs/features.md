@@ -29,6 +29,11 @@ version-tolerant choice. A format whose wire model rewards compactness may also
 offer an explicit positional mode with stricter versioning rules; see
 [MessagePack positional contracts](msgpack.md#positional-array-contracts).
 
+All of it is configured the same way in every format: immutably, on the
+serializer instance. See [Customizing the core](customization.md) for the naming,
+default-value, strictness, and security policies, and for custom converters and
+converter factories.
+
 ## Reference preservation
 
 `PreserveReferences` makes an object graph that shares objects stay a graph: an

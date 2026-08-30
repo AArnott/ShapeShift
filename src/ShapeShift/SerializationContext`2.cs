@@ -97,7 +97,7 @@ public struct SerializationContext<TEncoder, TDecoder>
 	/// <example>
 	/// To add, modify or remove a key in this state as applied to a <see cref="ShapeShiftSerializer{TEncoder, TDecoder}.StartingContext"/>,
 	/// capture and change the <see cref="SerializationContext{TEncoder, TDecoder}"/> as a local variable, then reassign it to the serializer.
-	/// <code source="../../samples/cs/ApplyingSerializationContext.cs" region="ModifyingStartingContextState" lang="C#" />
+	/// <code source="../../samples/cs/CoreCustomization.cs" region="ModifyingStartingContextState" lang="C#" />
 	/// </example>
 	public object? this[object key]
 	{

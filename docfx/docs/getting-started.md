@@ -13,4 +13,18 @@ Click on the badge to find its latest version and the instructions for consuming
 
 ## Usage
 
-TODO
+Pick a format package, annotate the types you serialize with PolyType's
+`GenerateShapeAttribute`, and create a serializer:
+
+[!code-csharp[JsonSerialization](../../samples/cs/JsonSerialization.cs#JsonSerialization)]
+
+From there:
+
+- [Features](features.md) surveys what every format shares.
+- [Customizing the core](customization.md) covers immutable serializer
+  configuration, the naming, default-value, strictness, and security policies,
+  and custom converters and converter factories.
+- [JSON](json.md) and [MessagePack](msgpack.md) document the format-specific
+  APIs and wire representations.
+- [Authoring a format package](format-authoring.md) explains how to add a
+  format of your own.

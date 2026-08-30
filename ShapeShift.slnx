@@ -42,6 +42,7 @@
     <Project Path="test/ShapeShift.Taml.Tests/ShapeShift.Taml.Tests.csproj" Id="f9c4086c-1418-40b9-9987-f10aa4c2a5b8" />
     <Project Path="test/ShapeShift.Tests/ShapeShift.Tests.csproj" />
     <Project Path="test/ShapeShift.Yaml.Tests/ShapeShift.Yaml.Tests.csproj" />
+    <Project Path="test/Samples.Tests/Samples.Tests.csproj" />
     <Project Path="test/Ubjson.Sample.Tests/Ubjson.Sample.Tests.csproj" />
   </Folder>
 </Solution>

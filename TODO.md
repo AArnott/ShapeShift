@@ -170,11 +170,19 @@ work can build on earlier abstractions.
   undemonstrated, the guide is anchored to a complete third-party-style package
   (`samples/ubjson`) that exercises all of them, with `ShapeShift.Taml` still
   serving as the minimal reference.
-- [ ] Add focused samples for core customization, JSON, MessagePack, streaming,
+- [x] Add focused samples for core customization, JSON, MessagePack, streaming,
   schema generation, unknown-data retention, and third-party format creation;
-  link them from docfx topics. The MessagePack, streaming, schema-generation,
-  unknown-data, and third-party format-creation samples exist and are linked;
-  core customization remains.
+  link them from docfx topics. The core customization sample is
+  `samples/cs/CoreCustomization.cs`, a single runnable walkthrough that replaced
+  the fragmented `CustomizingSerialization.cs`, `ApplyingSerializationContext.cs`,
+  and `CustomConverterFactory.cs` files, whose converter examples threw
+  `NotImplementedException` and therefore demonstrated nothing that could be run
+  or tested. It covers immutable configuration, the naming, default-value,
+  strictness, and security policies, converter state, a custom converter instance
+  that also describes its own contract, and all three converter factory patterns
+  with working implementations. It is published as
+  [Customizing the core](docfx/docs/customization.md) and executed by
+  `test/Samples.Tests`.
 - [ ] Consider separate ASP.NET Core MVC and SignalR integration packages after
   the JSON and MessagePack stream APIs stabilize. These integrations are
   applicable, but keeping framework dependencies out of the core format
