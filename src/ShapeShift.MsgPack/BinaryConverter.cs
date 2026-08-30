@@ -1,6 +1,8 @@
 // Copyright (c) Andrew Arnott. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+using ShapeShift.Schema;
+
 namespace ShapeShift.MsgPack;
 
 /// <summary>
@@ -42,4 +44,8 @@ public sealed class BinaryConverter : ShapeShiftConverter<byte[], MsgPackEncoder
 
 		encoder.WriteValue(value);
 	}
+
+	/// <inheritdoc/>
+	public override DataContract? GetContract(ContractContext<MsgPackEncoder, MsgPackDecoder> context)
+		=> new PrimitiveContract(typeof(byte[]), PrimitiveDataType.Binary);
 }

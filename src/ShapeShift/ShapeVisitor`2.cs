@@ -506,32 +506,14 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 	/// <exception cref="ShapeShiftSerializationException">Thrown if the prescribed converter has no default constructor.</exception>
 	private bool TryGetConverterFromAttribute(Type type, ITypeShape? typeShape, IGenericCustomAttributeProvider attributeProvider, [NotNullWhen(true)] out ConverterResult<TEncoder, TDecoder>? converter)
 	{
-		if (attributeProvider.GetCustomAttribute<ShapeShiftConverterAttribute>() is not { } customConverterAttribute)
+		if (this.owner.TryGetConverterFromAttribute(type, typeShape, attributeProvider, out ShapeShiftConverter<TEncoder, TDecoder>? attributeConverter))
 		{
-			converter = null;
-			return false;
-		}
-
-		Type converterType = customConverterAttribute.ConverterType;
-		if ((typeShape?.GetAssociatedTypeShape(converterType) as IObjectTypeShape)?.GetDefaultConstructor() is Func<object> converterFactory)
-		{
-			ShapeShiftConverter<TEncoder, TDecoder> intermediateConverter = (ShapeShiftConverter<TEncoder, TDecoder>)converterFactory();
-			if (this.owner.PreserveReferences != ReferencePreservationMode.Off)
-			{
-				intermediateConverter = ((IShapeShiftConverterInternal<TEncoder, TDecoder>)intermediateConverter).WrapWithReferencePreservation();
-			}
-
-			converter = ConverterResult.Ok(intermediateConverter);
+			converter = ConverterResult.Ok(attributeConverter);
 			return true;
 		}
 
-		if (converterType.GetConstructor(Type.EmptyTypes) is not ConstructorInfo ctor)
-		{
-			throw new ShapeShiftSerializationException($"{type.FullName} has {typeof(ShapeShiftConverterAttribute)} that refers to {customConverterAttribute.ConverterType.FullName} but that converter has no default constructor.");
-		}
-
-		converter = ConverterResult.Ok((ShapeShiftConverter<TEncoder, TDecoder>)ctor.Invoke(Array.Empty<object?>()));
-		return true;
+		converter = null;
+		return false;
 	}
 
 	/// <summary>

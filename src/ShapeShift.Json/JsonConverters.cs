@@ -5,6 +5,7 @@
 #pragma warning disable SA1649 // Closely related JSON primitive converters.
 
 using System.Text.Json.Nodes;
+using ShapeShift.Schema;
 
 namespace ShapeShift.Json;
 
@@ -40,6 +41,10 @@ public sealed class BinaryConverter : ShapeShiftConverter<byte[], JsonEncoder, J
 		encoder.WriteValue(value);
 	}
 
+	/// <inheritdoc/>
+	public override DataContract? GetContract(ContractContext<JsonEncoder, JsonDecoder> context)
+		=> new PrimitiveContract(typeof(byte[]), PrimitiveDataType.Binary);
+
 	private static void ValidateLength(int length, SerializationContext<JsonEncoder, JsonDecoder> context)
 	{
 		if (length > context.MaxBinaryLength)
@@ -61,6 +66,10 @@ public sealed class JsonElementConverter : ShapeShiftConverter<JsonElement, Json
 	/// <inheritdoc/>
 	public override void Write(ref JsonEncoder encoder, in JsonElement value, SerializationContext<JsonEncoder, JsonDecoder> context)
 		=> value.WriteTo(encoder.Writer);
+
+	/// <inheritdoc/>
+	public override DataContract? GetContract(ContractContext<JsonEncoder, JsonDecoder> context)
+		=> new DynamicContract(typeof(JsonElement));
 }
 
 /// <summary>
@@ -84,6 +93,10 @@ public sealed class JsonDocumentConverter : ShapeShiftConverter<JsonDocument, Js
 			value.WriteTo(encoder.Writer);
 		}
 	}
+
+	/// <inheritdoc/>
+	public override DataContract? GetContract(ContractContext<JsonEncoder, JsonDecoder> context)
+		=> new DynamicContract(typeof(JsonDocument));
 }
 
 /// <summary>
@@ -107,4 +120,8 @@ public sealed class JsonNodeConverter : ShapeShiftConverter<JsonNode, JsonEncode
 			value.WriteTo(encoder.Writer);
 		}
 	}
+
+	/// <inheritdoc/>
+	public override DataContract? GetContract(ContractContext<JsonEncoder, JsonDecoder> context)
+		=> new DynamicContract(typeof(JsonNode));
 }

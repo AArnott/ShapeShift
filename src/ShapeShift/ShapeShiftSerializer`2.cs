@@ -1,6 +1,8 @@
 // Copyright (c) Andrew Arnott. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+using ShapeShift.Schema;
+
 namespace ShapeShift;
 
 /// <summary>
@@ -94,6 +96,49 @@ public abstract record ShapeShiftSerializer<TEncoder, TDecoder> : IShapeShiftSer
 		Requires.NotNull(converterTypes);
 		return this with { configuration = this.configuration with { ConverterTypes = converterTypes } };
 	}
+
+	/// <summary>
+	/// Describes the serialized form of a type in a format-neutral way.
+	/// </summary>
+	/// <param name="typeShape">The shape of the type to describe.</param>
+	/// <returns>The contract describing how values of this type are written and read.</returns>
+	/// <exception cref="NotSupportedException">
+	/// Thrown when <see cref="PreserveReferences"/> is enabled, because reference preservation
+	/// replaces repeated values with references in a way that cannot be described statically.
+	/// </exception>
+	/// <remarks>
+	/// <para>
+	/// The returned contract reflects this serializer's configuration, including
+	/// <see cref="PropertyNamingPolicy"/>, <see cref="SerializeDefaultValues"/>,
+	/// <see cref="DeserializeDefaultValues"/>, <see cref="SerializeEnumValuesByName"/> and any
+	/// registered <see cref="Converters"/>.
+	/// </para>
+	/// <para>
+	/// Custom converters that do not override <see cref="ShapeShiftConverter{TEncoder, TDecoder}.GetContract"/>
+	/// are described with an <see cref="UndocumentedContract"/> instead of a guess.
+	/// </para>
+	/// </remarks>
+	public DataContract GetContract(ITypeShape typeShape)
+	{
+		Requires.NotNull(typeShape);
+		if (this.PreserveReferences != ReferencePreservationMode.Off)
+		{
+			throw new NotSupportedException($"Contracts cannot be described while {nameof(this.PreserveReferences)} is enabled.");
+		}
+
+		return this.ConverterCache.GetOrAddContract(typeShape);
+	}
+
+	/// <inheritdoc cref="GetContract(ITypeShape)"/>
+	/// <typeparam name="T">The type to describe.</typeparam>
+	public DataContract GetContract<T>()
+		where T : IShapeable<T> => this.GetContract(T.GetTypeShape());
+
+	/// <inheritdoc cref="GetContract(ITypeShape)"/>
+	/// <typeparam name="T">The type to describe.</typeparam>
+	/// <typeparam name="TProvider">The witness class that provides the shape for <typeparamref name="T"/>.</typeparam>
+	public DataContract GetContract<T, TProvider>()
+		where TProvider : IShapeable<T> => this.GetContract(TProvider.GetTypeShape());
 
 	public void Serialize<T>(ref TEncoder encoder, in T? value, ITypeShape<T> typeShape, CancellationToken cancellationToken = default)
 	{
