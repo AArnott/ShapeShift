@@ -170,3 +170,11 @@ policies, limits, targeted reads, and schema generation come from the shared
 layer. `ShapeShift.Conformance` verifies that a new pair honors the contracts
 that layer relies on. See
 [Authoring a format package](format-authoring.md).
+
+## Hosts and frameworks
+
+Format packages take no framework dependencies. ASP.NET Core and SignalR
+applications use the asynchronous pipe APIs directly, which keeps them
+trimming-safe and NativeAOT-safe; see [Host integration](host-integration.md),
+which also records why dedicated MVC and SignalR packages are deferred and what
+would change that.

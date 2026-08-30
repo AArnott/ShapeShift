@@ -183,10 +183,31 @@ work can build on earlier abstractions.
   with working implementations. It is published as
   [Customizing the core](docfx/docs/customization.md) and executed by
   `test/Samples.Tests`.
-- [ ] Consider separate ASP.NET Core MVC and SignalR integration packages after
+- [x] Consider separate ASP.NET Core MVC and SignalR integration packages after
   the JSON and MessagePack stream APIs stabilize. These integrations are
   applicable, but keeping framework dependencies out of the core format
   packages preserves trimming, NativeAOT, and deployment flexibility.
+  **Decision: deferred, with criteria.** The stream APIs are stable, but both
+  framework extension points are driven by runtime `Type` values
+  (`InputFormatterContext.ModelType`; `IHubProtocol.TryParseMessage` with
+  `IInvocationBinder.GetParameterTypes`, an `IReadOnlyList<Type>`) while every
+  public ShapeShift entry point is statically typed (`T : IShapeable<T>`, a
+  `TProvider` witness, or `ITypeShape<T>`), and the asynchronous stream APIs do
+  not even have `ITypeShape<T>` overloads. A NativeAOT-safe `Type`-driven facade
+  is buildable on `ITypeShapeProvider` plus `ITypeShape.Invoke`, but it must
+  settle provider selection, missing-shape behavior, and analyzer reporting;
+  those are core policy, so putting them in integration packages would fork the
+  answer per host and per format. SignalR additionally needs a full hub protocol
+  (the whole `HubMessage` envelope including the stateful-reconnect messages,
+  byte-compatible with the shipped JSON and MessagePack hub protocols, with no
+  public conformance corpus to prove it), not a serializer adapter. Layering a
+  framework-pinned package on a `0.1-alpha`, `net10.0`-only core inverts the
+  stability order. Deferring is cheap because such packages are purely additive
+  and applications integrate today by passing `HttpRequest.BodyReader` and
+  `HttpResponse.BodyWriter` to the existing asynchronous APIs. The decision, the
+  supported pattern, the blockers, and the four objective criteria that would
+  trigger implementation are published as
+  [Host integration](docfx/docs/host-integration.md).
 
 ## Features intentionally not copied directly
 
