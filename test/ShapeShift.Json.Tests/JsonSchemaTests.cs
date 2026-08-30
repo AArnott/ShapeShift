@@ -350,10 +350,10 @@ public partial class JsonSchemaTests : TestBase
 			new JsonSchemaOptions { Profile = JsonSchemaProfile.MessagePack })["properties"]!;
 
 		await Assert.That((int?)properties["Timestamp"]!["x-msgpack-extension"]).IsEqualTo(-1);
-		await Assert.That((int?)properties["Money"]!["x-msgpack-extension"]).IsEqualTo(-40);
-		await Assert.That((int?)properties["Big"]!["x-msgpack-extension"]).IsEqualTo(-41);
-		await Assert.That((int?)properties["Huge"]!["x-msgpack-extension"]).IsEqualTo(-43);
-		await Assert.That((int?)properties["Duration"]!["x-msgpack-extension"]).IsEqualTo(-44);
+		await Assert.That((int?)properties["Money"]!["x-msgpack-extension"]).IsEqualTo(100);
+		await Assert.That((int?)properties["Big"]!["x-msgpack-extension"]).IsEqualTo(101);
+		await Assert.That((int?)properties["Huge"]!["x-msgpack-extension"]).IsEqualTo(103);
+		await Assert.That((int?)properties["Duration"]!["x-msgpack-extension"]).IsEqualTo(104);
 	}
 
 	[Test]

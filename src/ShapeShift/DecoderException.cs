@@ -9,4 +9,14 @@ public class DecoderException : Exception
 		: base(message)
 	{
 	}
+
+	/// <summary>
+	/// Initializes a new instance of the <see cref="DecoderException"/> class.
+	/// </summary>
+	/// <param name="message">The message that describes the malformed input.</param>
+	/// <param name="innerException">The exception that revealed the input was malformed.</param>
+	public DecoderException(string message, Exception? innerException)
+		: base(message, innerException)
+	{
+	}
 }

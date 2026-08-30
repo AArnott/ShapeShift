@@ -9,12 +9,6 @@ namespace ShapeShift.MsgPack;
 /// <param name="output">The destination buffer.</param>
 public ref struct MsgPackEncoder(IBufferWriter<byte> output) : IEncoder
 {
-	internal const sbyte DecimalExtension = -40;
-	internal const sbyte Int128Extension = -41;
-	internal const sbyte UInt128Extension = -42;
-	internal const sbyte BigIntegerExtension = -43;
-	internal const sbyte TimeSpanExtension = -44;
-
 	/// <summary>
 	/// Gets the destination buffer.
 	/// </summary>
@@ -104,7 +98,7 @@ public ref struct MsgPackEncoder(IBufferWriter<byte> output) : IEncoder
 	{
 		Span<byte> payload = stackalloc byte[16];
 		BinaryPrimitives.WriteInt128BigEndian(payload, value);
-		this.WriteExtension(Int128Extension, payload);
+		this.WriteExtension(MsgPackExtensionCodes.Int128, payload);
 	}
 
 	/// <inheritdoc/>
@@ -112,7 +106,7 @@ public ref struct MsgPackEncoder(IBufferWriter<byte> output) : IEncoder
 	{
 		Span<byte> payload = stackalloc byte[16];
 		BinaryPrimitives.WriteUInt128BigEndian(payload, value);
-		this.WriteExtension(UInt128Extension, payload);
+		this.WriteExtension(MsgPackExtensionCodes.UInt128, payload);
 	}
 
 	/// <inheritdoc/>
@@ -146,7 +140,7 @@ public ref struct MsgPackEncoder(IBufferWriter<byte> output) : IEncoder
 			BinaryPrimitives.WriteInt32BigEndian(payload[(i * 4)..], bits[i]);
 		}
 
-		this.WriteExtension(DecimalExtension, payload);
+		this.WriteExtension(MsgPackExtensionCodes.Decimal, payload);
 	}
 
 	/// <inheritdoc/>
@@ -165,7 +159,7 @@ public ref struct MsgPackEncoder(IBufferWriter<byte> output) : IEncoder
 		Span<byte> payload = stackalloc byte[12];
 		BinaryPrimitives.WriteUInt32BigEndian(payload, nanoseconds);
 		BinaryPrimitives.WriteInt64BigEndian(payload[4..], seconds);
-		this.WriteExtension(-1, payload);
+		this.WriteExtension(MsgPackExtensionCodes.Timestamp, payload);
 	}
 
 	/// <inheritdoc/>
@@ -173,12 +167,12 @@ public ref struct MsgPackEncoder(IBufferWriter<byte> output) : IEncoder
 	{
 		Span<byte> payload = stackalloc byte[8];
 		BinaryPrimitives.WriteInt64BigEndian(payload, value.Ticks);
-		this.WriteExtension(TimeSpanExtension, payload);
+		this.WriteExtension(MsgPackExtensionCodes.TimeSpan, payload);
 	}
 
 	/// <inheritdoc/>
 	public void WriteValue(BigInteger value)
-		=> this.WriteExtension(BigIntegerExtension, value.ToByteArray(isUnsigned: false, isBigEndian: true));
+		=> this.WriteExtension(MsgPackExtensionCodes.BigInteger, value.ToByteArray(isUnsigned: false, isBigEndian: true));
 
 	/// <inheritdoc/>
 	public void WriteValue(string value)
@@ -197,14 +191,19 @@ public ref struct MsgPackEncoder(IBufferWriter<byte> output) : IEncoder
 		this.WriteBytes(value);
 	}
 
-	private static int RequireCount(int? count)
-		=> count is >= 0 ? count.Value : throw new ShapeShiftSerializationException("MessagePack containers require a known non-negative length.");
-
-	private void WriteArrayHeader(int count)
+	/// <summary>
+	/// Writes a MessagePack array header, after which exactly <paramref name="count"/> values must be written.
+	/// </summary>
+	/// <param name="count">The number of elements the array will contain.</param>
+	/// <remarks>
+	/// This is a low-level building block for custom converters that need to emit a MessagePack structure the
+	/// format-neutral <see cref="IEncoder"/> members do not describe.
+	/// </remarks>
+	public void WriteArrayHeader(int count)
 	{
 		if (count <= 15)
 		{
-			this.WriteByte((byte)(0x90 | count));
+			this.WriteByte((byte)(0x90 | RequireNonNegative(count)));
 		}
 		else if (count <= ushort.MaxValue)
 		{
@@ -216,11 +215,18 @@ public ref struct MsgPackEncoder(IBufferWriter<byte> output) : IEncoder
 		}
 	}
 
-	private void WriteMapHeader(int count)
+	/// <summary>
+	/// Writes a MessagePack map header, after which exactly <paramref name="count"/> key/value pairs must be written.
+	/// </summary>
+	/// <param name="count">The number of entries the map will contain.</param>
+	/// <remarks>
+	/// <inheritdoc cref="WriteArrayHeader(int)" path="/remarks"/>
+	/// </remarks>
+	public void WriteMapHeader(int count)
 	{
 		if (count <= 15)
 		{
-			this.WriteByte((byte)(0x80 | count));
+			this.WriteByte((byte)(0x80 | RequireNonNegative(count)));
 		}
 		else if (count <= ushort.MaxValue)
 		{
@@ -231,6 +237,71 @@ public ref struct MsgPackEncoder(IBufferWriter<byte> output) : IEncoder
 			this.WriteByteAndBigEndian(0xdf, checked((uint)count));
 		}
 	}
+
+	/// <summary>
+	/// Writes a MessagePack extension value, choosing the most compact of the fixext, ext8, ext16, and ext32 forms.
+	/// </summary>
+	/// <param name="typeCode">
+	/// The extension type code. Codes 0-127 are application specific; negative codes are reserved by the
+	/// MessagePack specification. See <see cref="MsgPackExtensionCodes"/> for the codes ShapeShift itself reserves,
+	/// which custom converters should avoid.
+	/// </param>
+	/// <param name="payload">The extension's payload.</param>
+	public void WriteExtension(sbyte typeCode, scoped ReadOnlySpan<byte> payload)
+	{
+		switch (payload.Length)
+		{
+			case 1:
+				this.WriteByte(0xd4);
+				break;
+			case 2:
+				this.WriteByte(0xd5);
+				break;
+			case 4:
+				this.WriteByte(0xd6);
+				break;
+			case 8:
+				this.WriteByte(0xd7);
+				break;
+			case 16:
+				this.WriteByte(0xd8);
+				break;
+			default:
+				if (payload.Length <= byte.MaxValue)
+				{
+					this.WriteByteAndBigEndian(0xc7, (byte)payload.Length);
+				}
+				else if (payload.Length <= ushort.MaxValue)
+				{
+					this.WriteByteAndBigEndian(0xc8, (ushort)payload.Length);
+				}
+				else
+				{
+					this.WriteByteAndBigEndian(0xc9, checked((uint)payload.Length));
+				}
+
+				break;
+		}
+
+		this.WriteByte(unchecked((byte)typeCode));
+		this.WriteBytes(payload);
+	}
+
+	/// <summary>
+	/// Copies already-encoded MessagePack bytes to the output verbatim.
+	/// </summary>
+	/// <param name="messagePack">One or more complete, well-formed MessagePack values.</param>
+	/// <remarks>
+	/// The caller is responsible for the bytes being valid MessagePack and for their count matching whatever
+	/// container header preceded them; this method does not validate them.
+	/// </remarks>
+	public void WriteRaw(scoped ReadOnlySpan<byte> messagePack) => this.WriteBytes(messagePack);
+
+	private static int RequireCount(int? count)
+		=> count is >= 0 ? count.Value : throw new ShapeShiftSerializationException("MessagePack containers require a known non-negative length.");
+
+	private static int RequireNonNegative(int count)
+		=> count >= 0 ? count : throw new ShapeShiftSerializationException("MessagePack containers require a known non-negative length.");
 
 	private void WriteString(scoped ReadOnlySpan<char> value)
 	{
@@ -275,46 +346,6 @@ public ref struct MsgPackEncoder(IBufferWriter<byte> output) : IEncoder
 		{
 			this.WriteByteAndBigEndian(0xc6, checked((uint)count));
 		}
-	}
-
-	private void WriteExtension(sbyte type, scoped ReadOnlySpan<byte> payload)
-	{
-		switch (payload.Length)
-		{
-			case 1:
-				this.WriteByte(0xd4);
-				break;
-			case 2:
-				this.WriteByte(0xd5);
-				break;
-			case 4:
-				this.WriteByte(0xd6);
-				break;
-			case 8:
-				this.WriteByte(0xd7);
-				break;
-			case 16:
-				this.WriteByte(0xd8);
-				break;
-			default:
-				if (payload.Length <= byte.MaxValue)
-				{
-					this.WriteByteAndBigEndian(0xc7, (byte)payload.Length);
-				}
-				else if (payload.Length <= ushort.MaxValue)
-				{
-					this.WriteByteAndBigEndian(0xc8, (ushort)payload.Length);
-				}
-				else
-				{
-					this.WriteByteAndBigEndian(0xc9, checked((uint)payload.Length));
-				}
-
-				break;
-		}
-
-		this.WriteByte(unchecked((byte)type));
-		this.WriteBytes(payload);
 	}
 
 	private void WriteByte(byte value)

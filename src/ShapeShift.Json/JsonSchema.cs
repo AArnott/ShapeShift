@@ -359,13 +359,13 @@ public static class JsonSchema
 					return IntegerText("0", ulong.MaxValue.ToString(CultureInfo.InvariantCulture));
 				case PrimitiveDataType.Int128:
 					JsonObject int128 = IntegerText(Int128.MinValue.ToString(CultureInfo.InvariantCulture), Int128.MaxValue.ToString(CultureInfo.InvariantCulture));
-					return this.Extension(int128, msgpack, -41, "Int128 is serialized as a big-endian 16-byte MessagePack extension.");
+					return this.Extension(int128, msgpack, 101, "Int128 is serialized as a big-endian 16-byte MessagePack extension.");
 				case PrimitiveDataType.UInt128:
 					JsonObject uint128 = IntegerText("0", UInt128.MaxValue.ToString(CultureInfo.InvariantCulture));
-					return this.Extension(uint128, msgpack, -42, "UInt128 is serialized as a big-endian 16-byte MessagePack extension.");
+					return this.Extension(uint128, msgpack, 102, "UInt128 is serialized as a big-endian 16-byte MessagePack extension.");
 				case PrimitiveDataType.BigInteger:
 					JsonObject bigInteger = new() { ["type"] = "integer" };
-					return this.Extension(bigInteger, msgpack, -43, "BigInteger is serialized as a big-endian two's complement MessagePack extension.");
+					return this.Extension(bigInteger, msgpack, 103, "BigInteger is serialized as a big-endian two's complement MessagePack extension.");
 				case PrimitiveDataType.Half:
 				case PrimitiveDataType.Single:
 				case PrimitiveDataType.Double:
@@ -373,7 +373,7 @@ public static class JsonSchema
 				case PrimitiveDataType.Decimal:
 					JsonObject dec = new() { ["type"] = "number" };
 					this.Comment(dec, "A decimal value. JSON preserves the full precision as a number literal.");
-					return this.Extension(dec, msgpack, -40, "decimal is serialized as a MessagePack extension carrying its four constituent 32-bit words.");
+					return this.Extension(dec, msgpack, 100, "decimal is serialized as a MessagePack extension carrying its four constituent 32-bit words.");
 				case PrimitiveDataType.DateTime:
 					JsonObject dateTime = new() { ["type"] = "string", ["format"] = "date-time" };
 					return this.Extension(dateTime, msgpack, -1, "DateTime is serialized as the standard MessagePack timestamp extension.");
@@ -401,7 +401,7 @@ public static class JsonSchema
 					if (msgpack)
 					{
 						timeSpan["type"] = "integer";
-						timeSpan["x-msgpack-extension"] = -44;
+						timeSpan["x-msgpack-extension"] = 104;
 						this.Comment(timeSpan, "MessagePack instead serializes the interval as a tick count carried by an extension.");
 					}
 
@@ -440,6 +440,11 @@ public static class JsonSchema
 
 		private JsonObject BuildObject(ObjectContract contract)
 		{
+			if (contract.Encoding == ObjectEncoding.Positional)
+			{
+				return this.BuildPositionalObject(contract);
+			}
+
 			JsonObject properties = new();
 			JsonArray required = new();
 			foreach (PropertyContract property in contract.Properties)
@@ -499,6 +504,74 @@ public static class JsonSchema
 			if (options.Profile == JsonSchemaProfile.MessagePack)
 			{
 				schema["x-msgpack-type"] = "map";
+			}
+
+			return schema;
+		}
+
+		private JsonObject BuildPositionalObject(ObjectContract contract)
+		{
+			// A positional contract is an array whose elements are identified by index, so the natural JSON Schema
+			// projection is prefixItems. Positions no member claims (retired ones, or gaps a contract left for
+			// future use) are described as nulls, because that is exactly what a writer emits for them.
+			Dictionary<int, PropertyContract> byPosition = new();
+			int highest = -1;
+			foreach (PropertyContract property in contract.Properties)
+			{
+				if (property.Position is not int position)
+				{
+					continue;
+				}
+
+				byPosition[position] = property;
+				highest = Math.Max(highest, position);
+			}
+
+			JsonArray prefixItems = new();
+			int lastRequired = -1;
+			for (int i = 0; i <= highest; i++)
+			{
+				if (!byPosition.TryGetValue(i, out PropertyContract? property))
+				{
+					JsonObject placeholder = new() { ["type"] = "null" };
+					this.Comment(placeholder, $"Position {i} is not used by this contract; a writer emits null and a reader ignores whatever it finds.");
+					prefixItems.Add(placeholder);
+					continue;
+				}
+
+				JsonObject elementSchema = this.Build(property.Type, asDefinition: false);
+				if (property.IsNullable)
+				{
+					elementSchema = AllowNull(elementSchema);
+				}
+
+				if (property.DefaultValue is { } defaultValue)
+				{
+					elementSchema["default"] = ToJsonNode(defaultValue);
+				}
+
+				elementSchema["title"] = property.Name;
+				if (property.IsRequired)
+				{
+					lastRequired = i;
+				}
+
+				prefixItems.Add(elementSchema);
+			}
+
+			JsonObject schema = new()
+			{
+				["type"] = "array",
+				["prefixItems"] = prefixItems,
+				["minItems"] = lastRequired + 1,
+			};
+			this.Comment(
+				schema,
+				"A positional contract: each element is identified by its index rather than by a property name. A shorter array leaves the remaining members at their default values; a longer one carries members this contract does not know about.");
+
+			if (options.Profile == JsonSchemaProfile.MessagePack)
+			{
+				schema["x-msgpack-type"] = "array";
 			}
 
 			return schema;

@@ -43,12 +43,12 @@ public partial class MsgPackSchemaTests : TestBase
 	{
 		JsonObject properties = (JsonObject)this.Schema<Exotic>()["properties"]!;
 
-		await Assert.That((int?)properties["Timestamp"]!["x-msgpack-extension"]).IsEqualTo(-1);
-		await Assert.That((int?)properties["Money"]!["x-msgpack-extension"]).IsEqualTo(-40);
-		await Assert.That((int?)properties["Signed"]!["x-msgpack-extension"]).IsEqualTo(-41);
-		await Assert.That((int?)properties["Unsigned"]!["x-msgpack-extension"]).IsEqualTo(-42);
-		await Assert.That((int?)properties["Huge"]!["x-msgpack-extension"]).IsEqualTo(-43);
-		await Assert.That((int?)properties["Duration"]!["x-msgpack-extension"]).IsEqualTo(-44);
+		await Assert.That((int?)properties["Timestamp"]!["x-msgpack-extension"]).IsEqualTo((int)MsgPackExtensionCodes.Timestamp);
+		await Assert.That((int?)properties["Money"]!["x-msgpack-extension"]).IsEqualTo((int)MsgPackExtensionCodes.Decimal);
+		await Assert.That((int?)properties["Signed"]!["x-msgpack-extension"]).IsEqualTo((int)MsgPackExtensionCodes.Int128);
+		await Assert.That((int?)properties["Unsigned"]!["x-msgpack-extension"]).IsEqualTo((int)MsgPackExtensionCodes.UInt128);
+		await Assert.That((int?)properties["Huge"]!["x-msgpack-extension"]).IsEqualTo((int)MsgPackExtensionCodes.BigInteger);
+		await Assert.That((int?)properties["Duration"]!["x-msgpack-extension"]).IsEqualTo((int)MsgPackExtensionCodes.TimeSpan);
 	}
 
 	[Test]
