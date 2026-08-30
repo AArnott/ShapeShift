@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+
+    <!--
+      The Roslyn workspace host used by the code fix tests relies on MEF composition,
+      so this test project is deliberately excluded from the NativeAOT test matrix.
+    -->
+    <PublishAot>false</PublishAot>
+    <IsAotCompatible>false</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ShapeShift\ShapeShift.csproj" />
+    <ProjectReference Include="..\..\src\ShapeShift.Json\ShapeShift.Json.csproj" />
+    <ProjectReference Include="..\..\src\ShapeShift.Analyzers\ShapeShift.Analyzers.csproj" />
+    <ProjectReference Include="..\..\src\ShapeShift.Analyzers.CodeFixes\ShapeShift.Analyzers.CodeFixes.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" />
+    <PackageReference Include="PolyType" />
+    <PackageReference Include="TUnit" />
+  </ItemGroup>
+
+</Project>

@@ -25,6 +25,8 @@
     <File Path="test/Directory.Build.targets" />
   </Folder>
   <Folder Name="/src/">
+    <Project Path="src/ShapeShift.Analyzers/ShapeShift.Analyzers.csproj" />
+    <Project Path="src/ShapeShift.Analyzers.CodeFixes/ShapeShift.Analyzers.CodeFixes.csproj" />
     <Project Path="src/ShapeShift.Json/ShapeShift.Json.csproj" />
     <Project Path="src/ShapeShift.MsgPack/ShapeShift.MsgPack.csproj" />
     <Project Path="src/ShapeShift.Taml/ShapeShift.Taml.csproj" Id="7f31bb72-652a-4705-905d-65a3728ac52f" />
@@ -32,6 +34,7 @@
     <Project Path="src/ShapeShift/ShapeShift.csproj" />
   </Folder>
   <Folder Name="/test/">
+    <Project Path="test/ShapeShift.Analyzers.Tests/ShapeShift.Analyzers.Tests.csproj" />
     <Project Path="test/ShapeShift.Json.Tests/ShapeShift.Json.Tests.csproj" />
     <Project Path="test/ShapeShift.MsgPack.Tests/ShapeShift.MsgPack.Tests.csproj" />
     <Project Path="test/ShapeShift.Taml.Tests/ShapeShift.Taml.Tests.csproj" Id="f9c4086c-1418-40b9-9987-f10aa4c2a5b8" />
