@@ -159,15 +159,22 @@ work can build on earlier abstractions.
 
 ## Ecosystem and extensibility
 
-- [ ] Publish a format-authoring guide based on `ShapeShift.Taml`, including
+- [x] Publish a format-authoring guide based on `ShapeShift.Taml`, including
   token semantics, decoder state invariants, error reporting, security limits,
   optimized scalar/binary hooks, async adapter guidance, NativeAOT rules, and
-  a conformance test kit that third-party format packages can reuse.
+  a conformance test kit that third-party format packages can reuse. The guide
+  is [Authoring a format package](docfx/docs/format-authoring.md); the reusable
+  kit is `ShapeShift.Conformance`, which every first-party format and the UBJSON
+  sample run. Because a guide that only quoted the smallest text format would
+  leave the binary-family, container-count, and boundary-scanner contracts
+  undemonstrated, the guide is anchored to a complete third-party-style package
+  (`samples/ubjson`) that exercises all of them, with `ShapeShift.Taml` still
+  serving as the minimal reference.
 - [ ] Add focused samples for core customization, JSON, MessagePack, streaming,
   schema generation, unknown-data retention, and third-party format creation;
   link them from docfx topics. The MessagePack, streaming, schema-generation,
-  and unknown-data samples exist and are linked; core customization and
-  third-party format creation remain.
+  unknown-data, and third-party format-creation samples exist and are linked;
+  core customization remains.
 - [ ] Consider separate ASP.NET Core MVC and SignalR integration packages after
   the JSON and MessagePack stream APIs stabilize. These integrations are
   applicable, but keeping framework dependencies out of the core format

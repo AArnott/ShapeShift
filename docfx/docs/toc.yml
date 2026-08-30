@@ -11,6 +11,8 @@ items:
   href: schema.md
 - name: Structural equality and hashing
   href: equality.md
+- name: Authoring a format package
+  href: format-authoring.md
 - name: Diagnostics
   href: diagnostics.md
 - name: Diagnostic IDs

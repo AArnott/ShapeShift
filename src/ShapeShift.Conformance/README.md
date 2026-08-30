@@ -53,5 +53,6 @@ public static IEnumerable<Func<ConformanceTestCase>> Cases() =>
         .Select(c => (Func<ConformanceTestCase>)(() => c));
 ```
 
-See the [format authoring guide](https://github.com/AArnott/ShapeShift) for the
-full contract that these tests enforce.
+See the format authoring guide (`docfx/docs/format-authoring.md`) for the full
+contract that these tests enforce, and `samples/ubjson` for a complete
+third-party format package that runs this kit.

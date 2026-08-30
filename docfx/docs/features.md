@@ -156,3 +156,12 @@ Every serialization failure carries a `ShapeShiftPath` breadcrumb that names the
 exact value that failed, and the ShapeShift package ships Roslyn analyzers that
 move common authoring mistakes forward to build time. Runtime behavior is
 correct without the analyzers. See [Diagnostics](diagnostics.md).
+
+## Third-party formats
+
+The core is format-neutral, so a new format package supplies only an `IEncoder`,
+an `IDecoder`, and a serializer that binds them together; objects, collections,
+policies, limits, targeted reads, and schema generation come from the shared
+layer. `ShapeShift.Conformance` verifies that a new pair honors the contracts
+that layer relies on. See
+[Authoring a format package](format-authoring.md).
