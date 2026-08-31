@@ -6,7 +6,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\ShapeShift.Json\ShapeShift.Json.csproj" />
     <ProjectReference Include="..\..\src\ShapeShift.Conformance\ShapeShift.Conformance.csproj" />
-    <ProjectReference Include="..\ShapeShift.Tests\ShapeShift.Tests.csproj" />
+    <ProjectReference Include="..\ShapeShift.Tests\ShapeShift.Tests.csproj" GlobalPropertiesToRemove="" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="TUnit" />
