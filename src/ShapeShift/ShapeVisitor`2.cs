@@ -69,7 +69,7 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 		ObjectConverter<TDeclaringType, TEncoder, TDecoder> converter;
 		if (constructorShape.Parameters is [])
 		{
-			Dictionary<string, ObjectPropertyReader<TDeclaringType, TEncoder, TDecoder>> propertyReaders = new(objectShape.Properties.Count);
+			Dictionary<string, ObjectPropertyReader<TDeclaringType, TEncoder, TDecoder>> propertyReaders = new(objectShape.Properties.Count, StringComparer.Ordinal);
 			Dictionary<string, ObjectPropertyWriter<TDeclaringType, TEncoder, TDecoder>> propertyWriters = new(objectShape.Properties.Count);
 			ExtensionDataProperty<TDeclaringType, TEncoder, TDecoder>? extensionData = null;
 			foreach (var property in objectShape.Properties)
@@ -107,7 +107,7 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 		}
 		else
 		{
-			Dictionary<string, ObjectPropertyReader<TArgumentState, TEncoder, TDecoder>> propertyReaders = new(constructorShape.Parameters.Count);
+			Dictionary<string, ObjectPropertyReader<TArgumentState, TEncoder, TDecoder>> propertyReaders = new(constructorShape.Parameters.Count, StringComparer.Ordinal);
 			Dictionary<string, ObjectPropertyWriter<TDeclaringType, TEncoder, TDecoder>> propertyWriters = new(objectShape.Properties.Count);
 			Dictionary<string, IParameterShape> parametersByName = constructorShape.Parameters.ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
 			foreach (var property in objectShape.Properties)

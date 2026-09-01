@@ -29,11 +29,12 @@ internal class ObjectConverterWithDefaultCtor<T, TEncoder, TDecoder>(Func<T> cto
 		decoder.ReadStartMap();
 		ulong encounteredKnownProperties = 0;
 		HashSet<string>? encounteredOtherProperties = null;
+		var propertyReaders = this.PropertyReaders.GetAlternateLookup<ReadOnlySpan<char>>();
 		while (decoder.NextTokenType != TokenType.EndMap)
 		{
 			ReadOnlySpan<char> propertyName = decoder.ReadPropertyName();
 
-			if (this.PropertyReaders.GetAlternateLookup<ReadOnlySpan<char>>().TryGetValue(propertyName, out var propertyReader))
+			if (propertyReaders.TryGetValue(propertyName, out var propertyReader))
 			{
 				if (propertyReader.Index < 64)
 				{

@@ -40,6 +40,14 @@ internal sealed record ObjectPropertyWriter<TDeclaringType, TEncoder, TDecoder>(
 	where TEncoder : IEncoder, allows ref struct
 	where TDecoder : IDecoder, allows ref struct;
 
+/// <summary>
+/// Associates a property reader with its position for duplicate-property detection.
+/// </summary>
+/// <typeparam name="TDeclaringType">The type that declares the property.</typeparam>
+/// <typeparam name="TEncoder">The encoder type.</typeparam>
+/// <typeparam name="TDecoder">The decoder type.</typeparam>
+/// <param name="Read">The delegate that reads and assigns the property value.</param>
+/// <param name="Index">The property's zero-based index in the contract.</param>
 internal sealed record ObjectPropertyReader<TDeclaringType, TEncoder, TDecoder>(
 	ReadProperty<TDeclaringType, TEncoder, TDecoder> Read,
 	int Index)
