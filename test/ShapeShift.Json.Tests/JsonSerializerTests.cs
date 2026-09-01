@@ -28,6 +28,40 @@ public partial class JsonSerializerTests : TestBase
 	}
 
 	[Test]
+	public async Task Strings_EscapeOnlyCharactersRequiredByRfc8259()
+	{
+		const string Input = "<>&+'/\u007F\u0085\u00E9\u2028\u2029\U0001F600";
+
+		string json = this.serializer.Serialize<string, Witness>(Input);
+
+		await Assert.That(json).IsEqualTo($"\"{Input}\"");
+		await Assert.That(this.serializer.Deserialize<string, Witness>(json)).IsEqualTo(Input);
+	}
+
+	[Test]
+	public async Task Strings_EscapeQuotationMarkReverseSolidusAndControls()
+	{
+		string input = $"\"\\{string.Concat(Enumerable.Range(0, 32).Select(static value => (char)value))}";
+
+		string json = this.serializer.Serialize<string, Witness>(input);
+
+		await Assert.That(json).StartsWith("\"\\\"\\\\");
+		await Assert.That(json[1..^1].Any(static value => value < ' ')).IsFalse();
+		await Assert.That(this.serializer.Deserialize<string, Witness>(json)).IsEqualTo(input);
+	}
+
+	[Test]
+	public async Task PropertyNames_UseRfc8259Escaping()
+	{
+		const string Name = "<\u00E9\u2028\u2029>";
+		ShapeShiftValue value = new ShapeShiftMap(new Dictionary<string, ShapeShiftValue> { [Name] = new ShapeShiftBoolean(true) });
+
+		string json = this.serializer.Serialize(value);
+
+		await Assert.That(json).IsEqualTo($"{{\"{Name}\":true}}");
+	}
+
+	[Test]
 	public async Task Object_RoundTrips()
 	{
 		Person value = new("Ada", 37, Status.Active);

@@ -28,6 +28,20 @@ PolyType's `GenerateShapeAttribute`:
 - Unknown-property capture and round trips through
   `ShapeShiftExtensionDataAttribute`.
 
+## String escaping
+
+ShapeShift emits the minimal escaping required by RFC 8259: quotation marks,
+reverse solidus (`\`), and the U+0000 through U+001F control characters are
+escaped. Other valid Unicode characters are written directly as UTF-8,
+including non-ASCII, HTML-sensitive, and U+2028/U+2029 characters.
+
+Consequently, JSON output is suitable as JSON data but must not be inserted
+unescaped into an HTML document or `<script>` element. Use an HTML-aware
+encoding layer when embedding JSON in HTML. `JsonSerializer` applies this
+policy automatically. Code that constructs a `Utf8JsonWriter` and
+`JsonEncoder` directly can select the same policy by assigning
+`JsonEncoder.Rfc8259StringEncoder` to `JsonWriterOptions.Encoder`.
+
 ## Wire representations
 
 JSON objects require string property names. Dictionaries with string keys are

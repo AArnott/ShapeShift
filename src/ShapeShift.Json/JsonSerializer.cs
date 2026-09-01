@@ -130,7 +130,11 @@ public sealed record JsonSerializer : ShapeShiftSerializer<JsonEncoder, JsonDeco
 		where TProvider : IShapeable<T>
 	{
 		ArgumentNullException.ThrowIfNull(destination);
-		using Utf8JsonWriter writer = new(destination, new JsonWriterOptions { Indented = this.Indented });
+		using Utf8JsonWriter writer = new(destination, new JsonWriterOptions
+		{
+			Indented = this.Indented,
+			Encoder = JsonEncoder.Rfc8259StringEncoder,
+		});
 		JsonEncoder encoder = new(writer, this.AllowNamedFloatingPointValues);
 		this.Serialize(ref encoder, value, TProvider.GetTypeShape(), cancellationToken);
 		writer.Flush();

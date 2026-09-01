@@ -11,6 +11,21 @@ namespace ShapeShift.Json;
 public ref struct JsonEncoder(Utf8JsonWriter writer, bool allowNamedFloatingPointValues = false) : IEncoder
 {
 	/// <summary>
+	/// Gets a string encoder that escapes exactly those characters required by RFC 8259.
+	/// </summary>
+	/// <remarks>
+	/// <para>
+	/// <see cref="JsonSerializer"/> uses this encoder automatically. Callers that construct their own
+	/// <see cref="Utf8JsonWriter"/> for use with <see cref="JsonEncoder"/> should assign this value to
+	/// <see cref="JsonWriterOptions.Encoder"/>.
+	/// </para>
+	/// <para>
+	/// Output produced with this encoder must be HTML-encoded before it is embedded in HTML.
+	/// </para>
+	/// </remarks>
+	public static System.Text.Encodings.Web.JavaScriptEncoder Rfc8259StringEncoder { get; } = new Rfc8259JavaScriptEncoder();
+
+	/// <summary>
 	/// Gets the underlying JSON writer for advanced custom converters.
 	/// </summary>
 	public Utf8JsonWriter Writer => writer;
