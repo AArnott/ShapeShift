@@ -6,6 +6,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\PooledByteBufferWriter.cs" Link="PooledByteBufferWriter.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\ShapeShift\ShapeShift.csproj" />
   </ItemGroup>
 </Project>
