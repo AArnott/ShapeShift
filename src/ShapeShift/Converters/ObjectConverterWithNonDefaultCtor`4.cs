@@ -8,7 +8,7 @@ internal class ObjectConverterWithNonDefaultCtor<T, TArgumentState, TEncoder, TD
 	where TEncoder : IEncoder, allows ref struct
 	where TDecoder : IDecoder, allows ref struct
 {
-	internal required IReadOnlyDictionary<string, ReadProperty<TArgumentState, TEncoder, TDecoder>> PropertyReaders { get; init; }
+	internal required Dictionary<string, ObjectPropertyReader<TArgumentState, TEncoder, TDecoder>> PropertyReaders { get; init; }
 
 	internal required IReadOnlyList<IParameterShape> Parameters { get; init; }
 
@@ -25,32 +25,51 @@ internal class ObjectConverterWithNonDefaultCtor<T, TArgumentState, TEncoder, TD
 		TArgumentState argState = argStateCtor();
 
 		decoder.ReadStartMap();
-		HashSet<string> encounteredProperties = new(StringComparer.Ordinal);
+		ulong encounteredKnownProperties = 0;
+		HashSet<string>? encounteredOtherProperties = null;
+		var propertyReaders = this.PropertyReaders.GetAlternateLookup<ReadOnlySpan<char>>();
 		while (decoder.NextTokenType != TokenType.EndMap)
 		{
-			string propertyName = decoder.ReadPropertyName().ToString();
-			if (!encounteredProperties.Add(propertyName))
-			{
-				throw new ShapeShiftSerializationException($"Property '{propertyName}' appears more than once while deserializing {typeof(T).FullName}.", null, new ShapeShiftPath(propertyName));
-			}
+			ReadOnlySpan<char> propertyName = decoder.ReadPropertyName();
 
-			if (this.PropertyReaders.TryGetValue(propertyName, out var propertyConverter))
+			if (propertyReaders.TryGetValue(propertyName, out var propertyConverter))
 			{
+				if (propertyConverter.Index < 64)
+				{
+					ulong bit = 1UL << propertyConverter.Index;
+					if ((encounteredKnownProperties & bit) != 0)
+					{
+						throw new ShapeShiftSerializationException($"Property '{propertyName}' appears more than once while deserializing {typeof(T).FullName}.", null, new ShapeShiftPath(propertyName.ToString()));
+					}
+
+					encounteredKnownProperties |= bit;
+				}
+				else if (!(encounteredOtherProperties ??= new(StringComparer.Ordinal)).Add(propertyName.ToString()))
+				{
+					throw new ShapeShiftSerializationException($"Property '{propertyName}' appears more than once while deserializing {typeof(T).FullName}.", null, new ShapeShiftPath(propertyName.ToString()));
+				}
+
 				try
 				{
-					propertyConverter(ref decoder, ref argState, context);
+					propertyConverter.Read(ref decoder, ref argState, context);
 				}
-				catch (ShapeShiftSerializationException ex) when (ex.AddEnclosingPathElement(propertyName))
+				catch (ShapeShiftSerializationException ex) when (ex.AddEnclosingPathElement(propertyName.ToString()))
 				{
 					throw;
 				}
 				catch (Exception ex) when (SerializationErrors.IsAugmentable(ex))
 				{
-					throw SerializationErrors.Wrap(ex, propertyName, typeof(T), serializing: false);
+					throw SerializationErrors.Wrap(ex, propertyName.ToString(), typeof(T), serializing: false);
 				}
 			}
 			else
 			{
+				string propertyNameString = propertyName.ToString();
+				if (!(encounteredOtherProperties ??= new(StringComparer.Ordinal)).Add(propertyNameString))
+				{
+					throw new ShapeShiftSerializationException($"Property '{propertyNameString}' appears more than once while deserializing {typeof(T).FullName}.", null, new ShapeShiftPath(propertyNameString));
+				}
+
 				decoder.Skip();
 			}
 		}

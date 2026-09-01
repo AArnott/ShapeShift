@@ -125,7 +125,7 @@ public sealed partial record MsgPackSerializer : ShapeShiftSerializer<MsgPackEnc
 	public byte[] Serialize<T, TProvider>(in T? value, CancellationToken cancellationToken = default)
 		where TProvider : IShapeable<T>
 	{
-		ArrayBufferWriter<byte> output = new();
+		using PooledByteBufferWriter output = new();
 		this.Serialize<T, TProvider>(output, value, cancellationToken);
 		return output.WrittenSpan.ToArray();
 	}
