@@ -10,17 +10,19 @@ namespace ShapeShift.Conformance.Suites;
 /// <typeparam name="TDecoder">The format's decoder type.</typeparam>
 /// <remarks>
 /// <para>
-/// <see cref="IDecoder.TryReadNull"/> is a <em>peek</em>: it reports whether the next token is
-/// <see cref="TokenType.Null"/> and leaves the decoder exactly where it was, whatever the answer.
-/// Every converter in ShapeShift relies on that, because the common shape of a nullable read is to
-/// ask, then hand the still-unconsumed token to whichever code path the answer selects.
+/// <see cref="IDecoder.TryReadNull"/> has conventional <c>Try</c> semantics: when the next token is
+/// <see cref="TokenType.Null"/> it consumes it and reports <see langword="true" />, and when it is
+/// anything else it reports <see langword="false" /> having consumed nothing. It is
+/// <see cref="IDecoder.ReadNull"/> without the throw.
 /// </para>
 /// <para>
-/// A decoder that consumed the token on a <see langword="true" /> answer would make the very common
-/// <c>if (decoder.TryReadNull()) { return null; }</c> pattern silently correct while breaking any
-/// converter that peeks first and delegates second. <see cref="IDecoder.ReadNull"/> is the consuming
-/// counterpart, and a decoder must override it, because the default interface implementation only
-/// validates.
+/// The peek is <see cref="IDecoder.NextTokenType"/>, which never consumes. A converter that wants to
+/// know whether a null is coming <em>and still hand the token to someone else</em> asks that instead.
+/// </para>
+/// <para>
+/// The cases below pin both halves down: a <see langword="true" /> answer must leave the decoder past
+/// the null -- including the bookkeeping that lets a length-prefixed container synthesize its end
+/// token -- and a <see langword="false" /> answer must leave it exactly where it was.
 /// </para>
 /// </remarks>
 internal sealed class NullSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder, TDecoder>
@@ -35,15 +37,58 @@ internal sealed class NullSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder
 	{
 		Requires.NotNull(collector);
 
-		collector.Add("TryReadNullDoesNotConsume", adapter =>
+		collector.Add("NextTokenTypeIsThePeekForNull", adapter =>
 		{
 			byte[] payload = RootHarness.EncodeScalar(adapter, static (ref TEncoder encoder) => encoder.WriteNull());
 			RootHarness.DecodeScalar(adapter, payload, (ref TDecoder decoder) =>
 			{
-				ConformanceAssert.True(decoder.TryReadNull(), "TryReadNull should report true for a null token.");
-				ConformanceAssert.True(decoder.TryReadNull(), "TryReadNull must not consume the null token, so a second call should also report true.");
-				ConformanceAssert.NextToken(TokenType.Null, ref decoder, "after two TryReadNull calls");
+				ConformanceAssert.NextToken(TokenType.Null, ref decoder, "a null document");
+				ConformanceAssert.NextToken(TokenType.Null, ref decoder, "a null document asked a second time");
+				ConformanceAssert.True(decoder.TryReadNull(), "TryReadNull should report true for the null NextTokenType just reported twice.");
 				return 0;
+			});
+		});
+
+		collector.Add("TryReadNullConsumesTheNull", adapter =>
+		{
+			byte[] payload = RootHarness.EncodeVector(adapter, static (ref TEncoder encoder) =>
+			{
+				encoder.WriteStartVector(2);
+				encoder.WriteNull();
+				encoder.WriteValue(5L);
+				encoder.WriteEndVector();
+			});
+
+			RootHarness.DecodeVector(adapter, payload, (ref TDecoder decoder) =>
+			{
+				decoder.ReadStartVector();
+				ConformanceAssert.True(decoder.TryReadNull(), "The first element is null.");
+				ConformanceAssert.False(decoder.TryReadNull(), "A true TryReadNull must consume the null, so the next element is no longer a null.");
+				ConformanceAssert.Equal(5L, decoder.ReadInt64(), "the element following a consumed null");
+				decoder.ReadEndVector();
+			});
+		});
+
+		collector.Add("TryReadNullConsumesTrailingNull", adapter =>
+		{
+			// A null consumed as the last element of a container is where a decoder that forgets to run
+			// its per-value bookkeeping shows up: a length-prefixed format must still be able to
+			// synthesize the end token it never wrote.
+			byte[] payload = RootHarness.EncodeVector(adapter, static (ref TEncoder encoder) =>
+			{
+				encoder.WriteStartVector(2);
+				encoder.WriteValue(5L);
+				encoder.WriteNull();
+				encoder.WriteEndVector();
+			});
+
+			RootHarness.DecodeVector(adapter, payload, (ref TDecoder decoder) =>
+			{
+				decoder.ReadStartVector();
+				ConformanceAssert.Equal(5L, decoder.ReadInt64(), "the first element");
+				ConformanceAssert.True(decoder.TryReadNull(), "The trailing element is null.");
+				ConformanceAssert.NextToken(TokenType.EndVector, ref decoder, "after a trailing null was consumed by TryReadNull");
+				decoder.ReadEndVector();
 			});
 		});
 
@@ -60,7 +105,6 @@ internal sealed class NullSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder
 			RootHarness.DecodeVector(adapter, payload, (ref TDecoder decoder) =>
 			{
 				decoder.ReadStartVector();
-				ConformanceAssert.True(decoder.TryReadNull(), "The first element is null.");
 				decoder.ReadNull();
 				ConformanceAssert.False(decoder.TryReadNull(), "ReadNull must consume the null token, so the next element is no longer a null.");
 				ConformanceAssert.Equal(5L, decoder.ReadInt64(), "the element following a null");
@@ -77,6 +121,27 @@ internal sealed class NullSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder
 				ConformanceAssert.False(decoder.TryReadNull(), "TryReadNull must not consume anything when it reports false.");
 				ConformanceAssert.Equal("text", decoder.ReadString(), "the string that follows two false TryReadNull calls");
 				return 0;
+			});
+		});
+
+		collector.Add("FalseTryReadNullLeavesContainersReadable", adapter =>
+		{
+			// A false answer must not disturb the decoder even when the next token opens a container,
+			// which is the shape a nullable object read takes.
+			byte[] payload = RootHarness.EncodeVector(adapter, static (ref TEncoder encoder) =>
+			{
+				encoder.WriteStartVector(1);
+				encoder.WriteValue(7L);
+				encoder.WriteEndVector();
+			});
+
+			RootHarness.DecodeVector(adapter, payload, (ref TDecoder decoder) =>
+			{
+				ConformanceAssert.False(decoder.TryReadNull(), "TryReadNull should report false for the start of a vector.");
+				ConformanceAssert.NextToken(TokenType.StartVector, ref decoder, "after a false TryReadNull");
+				decoder.ReadStartVector();
+				ConformanceAssert.Equal(7L, decoder.ReadInt64(), "the only element");
+				decoder.ReadEndVector();
 			});
 		});
 
@@ -109,7 +174,6 @@ internal sealed class NullSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder
 				decoder.ReadStartMap();
 				ConformanceAssert.Equal("missing", decoder.ReadPropertyName().ToString(), "the first map key");
 				ConformanceAssert.True(decoder.TryReadNull(), "The first map value is null.");
-				decoder.ReadNull();
 				ConformanceAssert.Equal("present", decoder.ReadPropertyName().ToString(), "the second map key");
 				ConformanceAssert.False(decoder.TryReadNull(), "The second map value is not null.");
 				ConformanceAssert.Equal("here", decoder.ReadString(), "the second map value");

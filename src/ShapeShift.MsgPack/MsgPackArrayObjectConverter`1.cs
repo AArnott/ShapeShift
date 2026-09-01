@@ -180,7 +180,6 @@ internal sealed class MsgPackArrayObjectConverterWithDefaultCtor<T>(Func<T> cons
 	{
 		if (decoder.TryReadNull())
 		{
-			decoder.ReadNull();
 			return default;
 		}
 
@@ -236,7 +235,6 @@ internal sealed class MsgPackArrayObjectConverterWithCtor<T, TArgumentState>(Fun
 	{
 		if (decoder.TryReadNull())
 		{
-			decoder.ReadNull();
 			return default;
 		}
 

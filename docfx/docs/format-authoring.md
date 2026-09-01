@@ -23,6 +23,7 @@ every build.
 | `IEncoder` implementation | Yes | Writes the data model to the wire. |
 | `IDecoder` implementation | Yes | Reads the data model from the wire. |
 | `ShapeShiftSerializer<TEncoder, TDecoder>` subclass | Yes | Binds the two together and offers buffer shapes natural to the format. |
+| Format-specific encoder/decoder methods | Optional | Native representations the shared interfaces do not expose. See [Primitives the shared interfaces do not expose](#primitives-the-shared-interfaces-do-not-expose). |
 | Format-specific converters | Usually | Types the format represents natively, such as byte arrays. |
 | `IValueBoundaryScanner` implementation | For async APIs | Recognizes one complete top-level value in a growing buffer. |
 | `IReferencePreservingSerializer<TEncoder, TDecoder>` | Optional | An unambiguous back-reference token, if the format has one. |
@@ -30,6 +31,13 @@ every build.
 
 Nothing else is needed. In particular, a format package never implements
 object mapping, member naming, versioning policy, or `ShapeShiftValue`.
+
+`IEncoder` and `IDecoder` are deliberately small, and a format is not limited to
+them: a format's own encoder and decoder may declare whatever public members its
+wire format deserves, and its own converters — which name the concrete encoder
+and decoder types — can call them. That is how a native representation the
+shared vocabulary cannot express gets used without every other format having to
+grow a concept it does not have.
 
 ## The data model
 
@@ -84,33 +92,54 @@ for a `long`, including a narrower one.
 
 [!code-csharp[NextTokenType](../../samples/ubjson/UbjsonDecoder.cs#DecoderNextTokenType)]
 
-## `TryReadNull` does not consume
+## `TryReadNull` consumes; `NextTokenType` is the peek
 
-`IDecoder.TryReadNull` is a **peek**, whatever it answers. `IDecoder.ReadNull`
-is the consuming counterpart, and every decoder must override it, because the
-default interface implementation only validates.
+`IDecoder.TryReadNull` has the conventional `Try` semantics: it is `ReadNull`
+without the throw.
 
-This trips up nearly every first implementation, because the most common calling
-pattern hides the bug:
+- Next token is `Null`: **consume it** and return `true`.
+- Next token is anything else: return `false` having **consumed nothing**.
+
+So the common shape of a nullable read is one call, and a `true` answer must not
+be followed by `ReadNull`:
 
 ```cs
 if (decoder.TryReadNull())
 {
-    decoder.ReadNull();   // an implementation that consumed in TryReadNull
-    return null;          // still looks correct here
+    return null;   // the null is already consumed
 }
 ```
 
-The pattern that breaks is the one that peeks and then *delegates*, which is
-what optional values, unions, reference preservation, and every nullable
-wrapper do:
+`NextTokenType` is the peek — it never consumes, whatever the answer. A converter
+that needs to know a null is coming *and still hand the token to somebody else*
+asks that instead:
 
 ```cs
-// The inner converter must still see the null token if there is one.
-return decoder.TryReadNull() ? this.ReadNone(ref decoder) : inner.Read(ref decoder, context);
+// This converter delegates the token rather than reading it, so it must not consume.
+if (decoder.NextTokenType == TokenType.Null)
+{
+    return this.ReadNoneWithoutConsuming(ref decoder);
+}
+
+return inner.Read(ref decoder, context);
 ```
 
+Two consequences worth pinning down in your own tests, because a decoder that
+gets either wrong still passes the naive round-trip:
+
+1. A `true` answer must run whatever per-value bookkeeping the format needs. A
+   null consumed as the **last** element of a length-prefixed container is the
+   case that catches a missed frame update: the synthesized `EndVector` will not
+   appear if the count was not decremented.
+2. A `false` answer must leave the decoder byte-for-byte where it was, including
+   when the next token opens a container.
+
 [!code-csharp[TryReadNull](../../samples/ubjson/UbjsonDecoder.cs#DecoderNull)]
+
+`IDecoder.ReadNull` has a default implementation written in terms of
+`TryReadNull`, so it is correct as inherited. Decoders still declare their own —
+partly for a better error message, and partly because they have no choice: see
+[Adding to the token vocabulary](#adding-to-the-token-vocabulary).
 
 ## Decoder end-state invariants
 
@@ -255,6 +284,138 @@ which is why `WritePropertyName` is a distinct operation:
 
 [!code-csharp[PropertyName](../../samples/ubjson/UbjsonEncoder.cs#EncoderPropertyName)]
 
+## Primitives the shared interfaces do not expose
+
+The previous section is about types the format has *no* native representation
+for. This one is the opposite case: the format has a **better** representation
+than the shared vocabulary can name.
+
+UBJSON is a real example. It has a `C` type — one marker byte plus one ASCII
+byte — for a single character. `IEncoder` has no `char` member, so the shared
+`char` converter writes a one-character string, which in UBJSON costs four bytes
+instead of two and tells a reader less than the payload actually knows.
+
+The answer is **not** to add `char` to `IEncoder`. It is three small pieces that
+live entirely inside the format package.
+
+### 1. A format-specific encoder method
+
+Declare it on your concrete encoder. It is public API of your package, not of
+ShapeShift:
+
+[!code-csharp[NativeChar](../../samples/ubjson/UbjsonEncoder.cs#EncoderNativeChar)]
+
+### 2. A format-specific decoder method
+
+Give it the same `Try` shape as `TryReadNull`: consume on `true`, consume
+nothing on `false`. Reporting `false` rather than throwing is what lets the
+converter fall back to the shared representation, so a payload written by some
+other implementation of your format still reads:
+
+[!code-csharp[NativeChar](../../samples/ubjson/UbjsonDecoder.cs#DecoderNativeChar)]
+
+### 3. A converter over the concrete encoder and decoder
+
+`ShapeShiftConverter<T, TEncoder, TDecoder>` does not require `TEncoder` and
+`TDecoder` to be type parameters. Name your own types and the converter can call
+anything they declare — including members no interface knows about. Register it
+in the serializer's constructor, where it takes precedence over the shared
+layer's converter for the same type:
+
+[!code-csharp[NativeCharConverter](../../samples/ubjson/UbjsonCharConverter.cs#NativeCharConverter)]
+
+```cs
+public UbjsonSerializer()
+{
+    this.Converters = [new UbjsonBinaryConverter(), new UbjsonCharConverter()];
+}
+```
+
+Note that `GetContract` still has to be honest. A format-specific
+representation is not an excuse to leave the schema projection guessing.
+
+This pattern costs other formats nothing, needs no new token, and is
+NativeAOT-safe: the converter is a non-generic class instantiated by the code
+that registers it, so nothing is constructed reflectively on the serialization
+path.
+
+`ShapeShift.MsgPack` uses the same shape at a larger scale. Its reserved
+extension codes for `decimal`, `Int128`, `TimeSpan`, and reference preservation
+are reached through format-specific `MsgPackEncoder`/`MsgPackDecoder` members
+such as `TryPeekExtensionHeader`, not through anything in `IEncoder`.
+
+### When the format-specific representation is *all* there is
+
+The `char` example has a lossless fallback in the shared vocabulary, because
+`C` and a one-character string denote the same value. Not every case does. A
+type that the shared layer has no converter for at all — `System.Guid` is the
+obvious one — is simply a type your format package chooses to support, by
+registering a converter for it the same way. Say so in your package README,
+including the exact wire encoding, because a reader written against your format
+by somebody else has no other way to find out.
+
+## Adding to the token vocabulary
+
+The question behind all of the above is: what happens when a primitive turns out
+to be broadly useful and ShapeShift wants it in `IEncoder`/`IDecoder` so that
+*every* format can offer it?
+
+The honest answer is that it is a breaking change, and the usual escape hatch
+does not work here.
+
+**Adding a required (abstract) interface member breaks every format package,**
+at compile time and at run time. That is uncontroversial and it is not going to
+happen outside a major version.
+
+**Adding a member with a default implementation does not soften it,** because
+ShapeShift's encoders and decoders are `ref` structs. C# does not let a `ref`
+struct inherit a default interface method:
+
+```
+error CS9245: 'IThing.ReadExtra()' cannot implement interface member
+'IThing.ReadExtra()' for ref struct 'OldFormat'
+```
+
+and an already-compiled `ref` struct formatter fails at run time rather than
+silently picking the default up, because the default implementation would have
+to be dispatched on a boxed receiver:
+
+```
+System.InvalidProgramException: Cannot create boxed ByRef-like values.
+```
+
+Both of those are measured, not assumed. The same addition *is* source- and
+binary-compatible for a formatter written as a `class`, but `ref` struct is the
+conventional and recommended shape, so that is cold comfort.
+
+For the same reason, a "capability interface" that shared, format-neutral code
+tries to detect at run time does not work either: a
+`where TEncoder : IEncoder, allows ref struct` type parameter cannot be tested
+against or converted to another interface without boxing.
+
+That leaves the policy ShapeShift actually follows:
+
+1. **Format-specific converters are the supported extension point**, and they
+   are not a stopgap. They are how a format claims a representation, today and
+   after any future vocabulary change. The capability is expressed by
+   *registration* — the serializer that knows about the type registers the
+   converter — rather than by run-time type tests that `ref` structs cannot
+   support.
+2. **A new primitive that becomes broadly useful is added in a major version**,
+   with the addition and the required edit for format authors listed in the
+   release notes. `IEncoder`/`IDecoder` are deliberately small so that this is
+   rare.
+3. **Until then, the shared layer expresses the value in existing tokens.** A
+   format that has something better registers a converter and wins locally; a
+   format that does not keeps working unchanged. Both payloads remain readable
+   by the other's reader whenever the native form has a lossless equivalent in
+   the shared vocabulary — which is exactly why the decoder method above
+   reports `false` instead of throwing.
+
+The practical rule for a format author: if you want the native representation,
+write the three pieces above. Do not wait for the interface to grow, and do not
+petition for a token that only your format can produce.
+
 ## Asynchronous adapters
 
 Decoders are `ref` structs. They cannot live across an `await`, so a partially
@@ -298,13 +459,17 @@ The synchronous streaming APIs — `ShapeShiftSequenceReader<T>` and
 
 ## Converters, contracts, and schema
 
-A format package supplies converters only for types it represents natively. Each
-one is registered in the serializer's constructor:
+A format package supplies converters only for types it represents natively —
+whether because the shared layer cannot represent them at all, or because the
+format can do better than the shared vocabulary, as
+[the previous section](#primitives-the-shared-interfaces-do-not-expose)
+describes. Each one is registered in the serializer's constructor, where it takes
+precedence over the shared layer's converter for the same type:
 
 ```cs
 public UbjsonSerializer()
 {
-    this.Converters = [new UbjsonBinaryConverter()];
+    this.Converters = [new UbjsonBinaryConverter(), new UbjsonCharConverter()];
 }
 ```
 
@@ -343,8 +508,8 @@ NativeAOT-ready. For a format package that means:
 ## Running the conformance kit
 
 `ShapeShift.Conformance` verifies an encoder/decoder pair against everything
-above: token semantics, the non-consuming `TryReadNull`, container state,
-`Skip`, path traversal, every primitive width, binary and dynamic values,
+above: token semantics, the consume-on-true `TryReadNull` contract, container
+state, `Skip`, path traversal, every primitive width, binary and dynamic values,
 malformed and truncated input (including a byte-flipping fuzz pass), the
 security limits, converter and policy interactions, and the boundary scanner.
 
@@ -397,7 +562,9 @@ Before publishing:
 
 - [ ] `NextTokenType` peeks, never consumes, and reports `EndDocument` at the end
       of the input.
-- [ ] `TryReadNull` peeks; `ReadNull` is overridden and consumes.
+- [ ] `TryReadNull` consumes the null when it answers `true` — including the
+      per-value bookkeeping a synthesized end token depends on — and consumes
+      nothing when it answers `false`.
 - [ ] Every read consumes exactly one token and leaves the decoder on the next.
 - [ ] Length-prefixed containers synthesize their end tokens.
 - [ ] A container count, if reported, is always exact.
@@ -410,6 +577,11 @@ Before publishing:
 - [ ] Types with no native representation have a documented encoding.
 - [ ] `ReadDynamicNumber` preserves the payload's width; `ReadCharSpan` avoids an
       allocation; binary hooks are implemented if the format has a binary family.
+- [ ] Any native representation the shared interfaces cannot name is reached
+      through a format-specific encoder/decoder method and a converter over the
+      concrete encoder and decoder — never by asking for a new shared token. Its
+      decoder method reports `false` rather than throwing when the value arrived
+      in the shared representation instead.
 - [ ] Format-specific converters enforce the context limits and override
       `GetContract`.
 - [ ] A boundary scanner exists if the package offers async APIs, and it never

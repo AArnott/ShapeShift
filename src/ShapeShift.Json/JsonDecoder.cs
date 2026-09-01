@@ -72,7 +72,16 @@ public ref struct JsonDecoder : IDecoder
 	private readonly JsonTokenType CurrentTokenType => this.hasToken ? this.reader.TokenType : JsonTokenType.None;
 
 	/// <inheritdoc/>
-	public readonly bool TryReadNull() => this.NextTokenType == TokenType.Null;
+	public bool TryReadNull()
+	{
+		if (this.NextTokenType != TokenType.Null)
+		{
+			return false;
+		}
+
+		this.ReadNull();
+		return true;
+	}
 
 	/// <inheritdoc/>
 	public int? ReadStartMap()

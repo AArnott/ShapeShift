@@ -315,7 +315,6 @@ public sealed class EmbeddedDocumentConverter<T> : ShapeShiftConverter<T, JsonEn
     {
         if (decoder.TryReadNull())
         {
-            decoder.ReadNull();
             return default;
         }
 
@@ -375,7 +374,6 @@ public sealed class NullTolerantListConverter<TElement> : ShapeShiftConverter<Li
     {
         if (decoder.TryReadNull())
         {
-            decoder.ReadNull();
             return [];
         }
 

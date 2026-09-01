@@ -19,7 +19,6 @@ public sealed class BinaryConverter : ShapeShiftConverter<byte[], JsonEncoder, J
 	{
 		if (decoder.TryReadNull())
 		{
-			decoder.ReadNull();
 			return null;
 		}
 

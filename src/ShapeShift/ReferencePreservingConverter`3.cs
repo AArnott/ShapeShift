@@ -1,4 +1,4 @@
-﻿// Copyright (c) Andrew Arnott. All rights reserved.
+// Copyright (c) Andrew Arnott. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 #pragma warning disable NBMsgPack031 // NotExactlyOneStructure -- we're doing advanced stuff.
@@ -22,7 +22,6 @@ internal class ReferencePreservingConverter<T, TEncoder, TDecoder>(ShapeShiftCon
 	{
 		if (reader.TryReadNull())
 		{
-			reader.ReadNull();
 			return default;
 		}
 

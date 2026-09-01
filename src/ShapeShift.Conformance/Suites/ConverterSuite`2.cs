@@ -233,7 +233,6 @@ internal sealed class ConverterSuite<TEncoder, TDecoder> : IConformanceSuite<TEn
 		{
 			if (decoder.TryReadNull())
 			{
-				decoder.ReadNull();
 				return null;
 			}
 
@@ -264,7 +263,6 @@ internal sealed class ConverterSuite<TEncoder, TDecoder> : IConformanceSuite<TEn
 		{
 			if (decoder.TryReadNull())
 			{
-				decoder.ReadNull();
 				return null;
 			}
 

@@ -46,14 +46,25 @@ public interface IDecoder
 	public TokenType NextTokenType { get; }
 
 	/// <summary>
-	/// Reports whether the next token is a null, <em>without consuming it</em>.
+	/// Consumes the next token if -- and only if -- it is a null.
 	/// </summary>
-	/// <returns><see langword="true" /> when the next token is <see cref="TokenType.Null"/>.</returns>
+	/// <returns>
+	/// <see langword="true" /> when the next token was <see cref="TokenType.Null"/> and has now been
+	/// consumed; <see langword="false" /> when it was anything else, in which case nothing was consumed
+	/// and the decoder is left exactly where it was.
+	/// </returns>
+	/// <exception cref="DecoderException">Thrown when the next bytes are not a recognizable token.</exception>
 	/// <remarks>
-	/// This is a peek, whatever the answer. Converters ask, and then hand the still-unconsumed token to
-	/// whichever code path the answer selects, so a decoder that consumed the token on a
-	/// <see langword="true" /> answer would break every converter that peeks first and delegates second.
-	/// <see cref="ReadNull"/> is the consuming counterpart.
+	/// <para>
+	/// These are the conventional <c>Try</c> semantics: this is <see cref="ReadNull"/> without the throw.
+	/// A <see langword="true" /> answer means the null is gone, so the caller must not follow it with
+	/// <see cref="ReadNull"/>.
+	/// </para>
+	/// <para>
+	/// A converter that needs to know whether a null is coming <em>without</em> consuming it -- because
+	/// it intends to hand the token to another converter -- asks <see cref="NextTokenType"/> instead,
+	/// which is the peek.
+	/// </para>
 	/// </remarks>
 	public bool TryReadNull();
 
@@ -116,8 +127,9 @@ public interface IDecoder
 	/// </summary>
 	/// <exception cref="DecoderException">Thrown when the next token is not <see cref="TokenType.Null"/>.</exception>
 	/// <remarks>
-	/// The default implementation only validates; every decoder must override it so that the token is
-	/// actually consumed.
+	/// The default implementation defers to <see cref="TryReadNull"/>, which consumes the token, and
+	/// throws when it reports <see langword="false" />. A decoder overrides it only to produce a more
+	/// precise error message.
 	/// </remarks>
 	public void ReadNull()
 	{

@@ -57,7 +57,13 @@ public ref struct TamlDecoder(TextReader reader) : IDecoder
 
 	public bool TryReadNull()
 	{
-		return this.NextTokenType == TokenType.Null;
+		if (this.NextTokenType != TokenType.Null)
+		{
+			return false;
+		}
+
+		this.ReadNull();
+		return true;
 	}
 
 	public int? ReadStartMap()

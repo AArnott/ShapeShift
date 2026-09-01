@@ -60,7 +60,6 @@ internal sealed class UnionConverter<TUnion, TEncoder, TDecoder>(
 	{
 		if (decoder.TryReadNull())
 		{
-			decoder.ReadNull();
 			return default;
 		}
 
@@ -73,7 +72,6 @@ internal sealed class UnionConverter<TUnion, TEncoder, TDecoder>(
 		ShapeShiftConverter<TUnion, TEncoder, TDecoder> converter;
 		if (decoder.TryReadNull())
 		{
-			decoder.ReadNull();
 			converter = baseConverter;
 		}
 		else if (decoder.NextTokenType == TokenType.Number)

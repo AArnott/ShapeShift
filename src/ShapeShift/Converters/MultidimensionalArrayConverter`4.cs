@@ -24,7 +24,6 @@ internal sealed class MultidimensionalArrayConverter<TArray, TElement, TEncoder,
 	{
 		if (decoder.TryReadNull())
 		{
-			decoder.ReadNull();
 			return default;
 		}
 

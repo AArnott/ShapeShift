@@ -13,7 +13,6 @@ internal class ObjectConverterWithDefaultCtor<T, TEncoder, TDecoder>(Func<T> cto
 	{
 		if (decoder.TryReadNull())
 		{
-			decoder.ReadNull();
 			return default;
 		}
 

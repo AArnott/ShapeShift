@@ -28,7 +28,6 @@ public sealed class UbjsonBinaryConverter : ShapeShiftConverter<byte[], UbjsonEn
     {
         if (decoder.TryReadNull())
         {
-            decoder.ReadNull();
             return null;
         }
 

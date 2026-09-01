@@ -32,10 +32,13 @@ public record UbjsonSerializer : ShapeShiftSerializer<UbjsonEncoder, UbjsonDecod
     /// <remarks>
     /// The format's own converters are registered here. Everything else -- objects, collections,
     /// enums, unions, surrogates, dynamic values -- comes from the shared, format-neutral layer.
+    /// A converter registered here wins over the shared layer's converter for the same type, which
+    /// is how a format claims a primitive it can represent better than the shared token vocabulary
+    /// can. <see cref="UbjsonCharConverter"/> is that case.
     /// </remarks>
     public UbjsonSerializer()
     {
-        this.Converters = [new UbjsonBinaryConverter()];
+        this.Converters = [new UbjsonBinaryConverter(), new UbjsonCharConverter()];
     }
 
     /// <summary>

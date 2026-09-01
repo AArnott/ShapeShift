@@ -18,7 +18,6 @@ internal class ObjectConverterWithNonDefaultCtor<T, TArgumentState, TEncoder, TD
 	{
 		if (decoder.TryReadNull())
 		{
-			decoder.ReadNull();
 			return default;
 		}
 

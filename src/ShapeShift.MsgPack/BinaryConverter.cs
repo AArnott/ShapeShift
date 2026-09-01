@@ -15,7 +15,6 @@ public sealed class BinaryConverter : ShapeShiftConverter<byte[], MsgPackEncoder
 	{
 		if (decoder.TryReadNull())
 		{
-			decoder.ReadNull();
 			return null;
 		}
 

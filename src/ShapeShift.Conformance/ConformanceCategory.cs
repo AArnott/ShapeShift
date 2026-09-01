@@ -15,7 +15,7 @@ public enum ConformanceCategory
 	/// <summary>The <see cref="IDecoder.NextTokenType"/> a decoder reports for each kind of value.</summary>
 	Tokens = 0x1,
 
-	/// <summary>The non-consuming <see cref="IDecoder.TryReadNull"/> invariant and null handling generally.</summary>
+	/// <summary>The <see cref="IDecoder.TryReadNull"/> consume-on-true contract and null handling generally.</summary>
 	Null = 0x2,
 
 	/// <summary>Container start/end token pairing and the decoder state each transition leaves behind.</summary>

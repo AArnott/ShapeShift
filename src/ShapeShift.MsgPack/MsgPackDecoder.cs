@@ -130,7 +130,16 @@ public ref struct MsgPackDecoder : IDecoder
 	}
 
 	/// <inheritdoc/>
-	public readonly bool TryReadNull() => this.NextTokenType == TokenType.Null;
+	public bool TryReadNull()
+	{
+		if (this.NextTokenType != TokenType.Null)
+		{
+			return false;
+		}
+
+		this.ReadNull();
+		return true;
+	}
 
 	/// <inheritdoc/>
 	public int? ReadStartMap()

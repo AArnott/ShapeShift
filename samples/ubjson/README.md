@@ -11,9 +11,10 @@ It exists to be read alongside the
 | --- | --- |
 | `UbjsonMarkers.cs` | Keeping the wire alphabet in one place so the encoder and decoder cannot disagree. |
 | `UbjsonEncoder.cs` | An `IEncoder`: a `ref struct` that projects the ShapeShift data model onto one wire format. |
-| `UbjsonDecoder.cs` | An `IDecoder`: `NextTokenType`, the non-consuming `TryReadNull`, container frames, synthesized end tokens, allocation-free `Skip`, and bounds checks on every length. |
+| `UbjsonDecoder.cs` | An `IDecoder`: `NextTokenType`, the consume-on-true `TryReadNull`, container frames, synthesized end tokens, allocation-free `Skip`, and bounds checks on every length. |
 | `UbjsonSerializer.cs` | Binding `ShapeShiftSerializer<TEncoder, TDecoder>` to those types and offering natural buffer shapes. |
 | `UbjsonBinaryConverter.cs` | A format-specific converter, including its `GetContract` schema hook and its `MaxBinaryLength` enforcement. |
+| `UbjsonCharConverter.cs` | Supporting a primitive whose native representation (`C`) the shared `IEncoder`/`IDecoder` vocabulary does not expose, without changing that vocabulary. |
 | `UbjsonValueBoundaryScanner.cs` | An `IValueBoundaryScanner`, which is all a format needs in order to gain asynchronous stream and pipe APIs. |
 | `UbjsonConformanceAdapter.cs` | Running `ShapeShift.Conformance`, declaring the format's limitations, and adding format-specific cases. |
 | `UbjsonSamples.cs` | Using the finished package. |
@@ -34,6 +35,11 @@ It exists to be read alongside the
   that becomes a `null` is silent data loss.
 * **A container whose declared element type is itself a container (`$[`) is rejected**
   rather than half-supported.
+* **`char` uses UBJSON's native `C` type** — two bytes rather than the four a
+  one-character string costs — through `UbjsonEncoder.WriteChar` and
+  `UbjsonDecoder.TryReadChar`. A character that arrives as an ordinary `S` string,
+  or one above U+007F that `C` cannot carry, still round-trips through the shared
+  string representation.
 
 ## Running it
 

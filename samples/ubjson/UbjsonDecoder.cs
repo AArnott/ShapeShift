@@ -131,10 +131,20 @@ public ref struct UbjsonDecoder : IDecoder
     #region DecoderNull
     /// <inheritdoc/>
     /// <remarks>
-    /// This is a <em>peek</em>. It never consumes, whatever it answers; <see cref="ReadNull"/> is the
-    /// consuming counterpart.
+    /// Conventional <c>Try</c> semantics: a <see langword="true" /> answer means the null token has
+    /// been consumed. Code that needs to know what is coming <em>without</em> consuming it asks
+    /// <see cref="NextTokenType"/>.
     /// </remarks>
-    public bool TryReadNull() => this.NextTokenType == TokenType.Null;
+    public bool TryReadNull()
+    {
+        if (this.NextTokenType != TokenType.Null)
+        {
+            return false;
+        }
+
+        this.ReadNull();
+        return true;
+    }
 
     /// <inheritdoc/>
     public void ReadNull()
@@ -371,6 +381,66 @@ public ref struct UbjsonDecoder : IDecoder
 
     /// <inheritdoc/>
     public ReadOnlySpan<char> ReadCharSpan() => this.ReadString();
+
+    #region DecoderNativeChar
+    /// <summary>
+    /// Consumes the next value if -- and only if -- it is UBJSON's native <c>C</c> character.
+    /// </summary>
+    /// <param name="value">Receives the character.</param>
+    /// <returns>
+    /// <see langword="true" /> when a <c>C</c> value was consumed; <see langword="false" /> when the
+    /// next value is anything else, in which case nothing was consumed.
+    /// </returns>
+    /// <exception cref="DecoderException">Thrown when a <c>C</c> marker carries a non-ASCII byte.</exception>
+    /// <remarks>
+    /// <para>
+    /// A format-specific <em>decoder</em> method mirrors the format-specific encoder method, and takes
+    /// the same <c>Try</c> shape as <see cref="TryReadNull"/>: consume on <see langword="true" />,
+    /// consume nothing on <see langword="false" />.
+    /// </para>
+    /// <para>
+    /// Reporting <see langword="false" /> rather than throwing is what lets
+    /// <see cref="UbjsonCharConverter"/> fall back to <see cref="ReadCharSpan"/>, so a payload written
+    /// by an implementation that used an ordinary <c>S</c> string still reads. A format-specific
+    /// representation should never make the format unable to read the representation it replaced.
+    /// </para>
+    /// <para>
+    /// Note the <see cref="NextTokenType"/> gate. Consulting the peek first is what keeps the frame
+    /// states out -- an exhausted counted container, a key slot, the end of the input -- in which the
+    /// raw marker byte is not the start of a value at all. A format-specific <c>Try</c> method that
+    /// reads the wire directly without that gate will happily consume its neighbor's bytes.
+    /// </para>
+    /// </remarks>
+    public bool TryReadChar(out char value)
+    {
+        value = default;
+        if (this.NextTokenType != TokenType.String)
+        {
+            return false;
+        }
+
+        // NextTokenType has already skipped no-ops and proven a value begins here, so the effective
+        // marker is either the frame's declared element type or the byte at the current position.
+        byte marker = this.IsInTypedContainer
+            ? this.frames[this.depth - 1].ElementType
+            : this.source[this.position];
+        if (marker != UbjsonMarkers.Char)
+        {
+            return false;
+        }
+
+        _ = this.BeginValue();
+        byte payload = this.TakeBytes(1)[0];
+        if (payload > 0x7F)
+        {
+            throw new DecoderException($"UBJSON's char type carries one ASCII byte, but 0x{payload:X2} was found at offset {this.position - 1}.");
+        }
+
+        value = (char)payload;
+        this.ValueRead();
+        return true;
+    }
+    #endregion
 
     /// <inheritdoc/>
     /// <remarks>

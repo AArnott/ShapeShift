@@ -49,7 +49,6 @@ internal sealed class DictionaryConverter<TDictionary, TKey, TValue, TEncoder, T
 	{
 		if (decoder.TryReadNull())
 		{
-			decoder.ReadNull();
 			return default;
 		}
 

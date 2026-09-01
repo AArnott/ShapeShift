@@ -58,7 +58,13 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 	/// <inheritdoc/>
 	public bool TryReadNull()
 	{
-		return this.NextTokenType == TokenType.Null;
+		if (this.NextTokenType != TokenType.Null)
+		{
+			return false;
+		}
+
+		this.ReadNull();
+		return true;
 	}
 
 	/// <inheritdoc/>

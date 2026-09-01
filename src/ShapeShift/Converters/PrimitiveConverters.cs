@@ -188,7 +188,6 @@ internal class StringConverter<TEncoder, TDecoder> : ShapeShiftConverter<string,
 	{
 		if (decoder.TryReadNull())
 		{
-			decoder.ReadNull();
 			return null;
 		}
 
@@ -229,7 +228,6 @@ internal class InterningStringConverter<TEncoder, TDecoder> : ShapeShiftConverte
 	{
 		if (decoder.TryReadNull())
 		{
-			decoder.ReadNull();
 			return null;
 		}
 

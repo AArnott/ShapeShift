@@ -5,10 +5,11 @@ A conformance kit for authors of third-party ShapeShift format packages.
 ## Features
 
 * Verifies an `IEncoder`/`IDecoder` pair against the contracts that ShapeShift's
-  format-agnostic converter layer relies on: token semantics, the non-consuming
-  `TryReadNull` invariant, container/end-token state rules, `Skip` and
-  `ShapeShiftPath` traversal, every primitive width, binary and dynamic values,
-  malformed and truncated input, security limits, and converter interactions.
+  format-agnostic converter layer relies on: token semantics, the
+  consume-on-true `TryReadNull` contract, container/end-token state rules, `Skip`
+  and `ShapeShiftPath` traversal, every primitive width, binary and dynamic
+  values, malformed and truncated input, security limits, and converter
+  interactions.
 * No test framework dependency. The suite is a list of named, runnable test
   cases, so it drops into TUnit, xUnit, NUnit, MSTest, or a console app.
 * Capability-driven: a format declares what it can represent and inapplicable

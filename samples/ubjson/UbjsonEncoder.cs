@@ -229,6 +229,37 @@ public ref struct UbjsonEncoder(IBufferWriter<byte> writer) : IEncoder
     }
     #endregion
 
+    #region EncoderNativeChar
+    /// <summary>
+    /// Writes a single ASCII character using UBJSON's native <c>C</c> marker.
+    /// </summary>
+    /// <param name="value">The character to write. It must be in the ASCII range.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="value"/> is not ASCII.</exception>
+    /// <remarks>
+    /// <para>
+    /// This is a <em>format-specific</em> encoder method, deliberately not a member of
+    /// <see cref="IEncoder"/>. UBJSON's <c>C</c> is two bytes on the wire where the shared vocabulary's
+    /// nearest equivalent -- a one-character string -- costs four (<c>S</c>, a length marker, the
+    /// length, and the byte). Nothing in the shared token vocabulary can name the distinction, and no
+    /// other format is obliged to grow a concept because UBJSON has one.
+    /// </para>
+    /// <para>
+    /// The type that reaches for it is <see cref="UbjsonCharConverter"/>, which is typed over the
+    /// concrete <see cref="UbjsonEncoder"/> and so can call anything this type declares.
+    /// </para>
+    /// </remarks>
+    public void WriteChar(char value)
+    {
+        if (value > 0x7F)
+        {
+            throw new ArgumentOutOfRangeException(nameof(value), "UBJSON's char type carries one ASCII byte.");
+        }
+
+        this.WriteMarker(UbjsonMarkers.Char);
+        this.GetSpan(1)[0] = (byte)value;
+    }
+    #endregion
+
     private Span<byte> GetSpan(int length)
     {
         Span<byte> span = this.writer.GetSpan(length)[..length];
