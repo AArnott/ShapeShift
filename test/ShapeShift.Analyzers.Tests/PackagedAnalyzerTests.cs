@@ -5,6 +5,7 @@ using System.Collections.Immutable;
 using System.Composition.Hosting;
 using System.IO.Compression;
 using System.Reflection;
+using System.Runtime.Loader;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.Diagnostics;
@@ -43,6 +44,7 @@ public class PackagedAnalyzerTests
 			await Assert.That(analyzers.Length).IsEqualTo(5);
 
 			DiagnosticAnalyzer wireNameAnalyzer = analyzers.Single(analyzer => analyzer.GetType().Name == nameof(WireNameAnalyzer));
+			await Assert.That(loader.GetSourcePath(wireNameAnalyzer.GetType().Assembly)).IsEqualTo(analyzerPath);
 			ImmutableArray<Diagnostic> diagnostics = await AnalyzerHarness.GetDiagnosticsAsync(
 				wireNameAnalyzer,
 				TestSources.Source("""
@@ -57,6 +59,7 @@ public class PackagedAnalyzerTests
 			await TestSources.AssertIdsAsync(diagnostics, "SHIFT006");
 
 			Assembly codeFixAssembly = loader.LoadFromPath(codeFixPath);
+			await Assert.That(loader.GetSourcePath(codeFixAssembly)).IsEqualTo(codeFixPath);
 			using CompositionHost container = new ContainerConfiguration()
 				.WithAssembly(codeFixAssembly)
 				.CreateContainer();
@@ -98,12 +101,46 @@ public class PackagedAnalyzerTests
 
 	private sealed class PackageAnalyzerAssemblyLoader : IAnalyzerAssemblyLoader
 	{
+		private readonly Dictionary<Assembly, string> sourcePaths = [];
+		private readonly PackageAssemblyLoadContext loadContext = new();
+
 		/// <inheritdoc/>
-		public void AddDependencyLocation(string fullPath)
+		public void AddDependencyLocation(string fullPath) => this.loadContext.AddDependencyLocation(fullPath);
+
+		/// <inheritdoc/>
+		public Assembly LoadFromPath(string fullPath)
 		{
+			Assembly assembly = this.loadContext.LoadPackageAssembly(fullPath);
+			this.sourcePaths[assembly] = fullPath;
+			return assembly;
+		}
+
+		internal string GetSourcePath(Assembly assembly) => this.sourcePaths[assembly];
+	}
+
+	private sealed class PackageAssemblyLoadContext()
+		: AssemblyLoadContext(nameof(PackageAssemblyLoadContext), isCollectible: true)
+	{
+		private readonly Dictionary<string, string> dependencyLocations = new(StringComparer.OrdinalIgnoreCase);
+
+		internal void AddDependencyLocation(string fullPath)
+			=> this.dependencyLocations[AssemblyName.GetAssemblyName(fullPath).Name!] = fullPath;
+
+		internal Assembly LoadPackageAssembly(string fullPath)
+		{
+			using FileStream stream = File.OpenRead(fullPath);
+			return this.LoadFromStream(stream);
 		}
 
 		/// <inheritdoc/>
-		public Assembly LoadFromPath(string fullPath) => System.Reflection.Assembly.LoadFrom(fullPath);
+		protected override Assembly? Load(AssemblyName assemblyName)
+		{
+			if (assemblyName.Name is not null && this.dependencyLocations.TryGetValue(assemblyName.Name, out string? dependencyLocation))
+			{
+				return this.LoadPackageAssembly(dependencyLocation);
+			}
+
+			return Default.Assemblies.FirstOrDefault(assembly => AssemblyName.ReferenceMatchesDefinition(assembly.GetName(), assemblyName));
+		}
 	}
 }
