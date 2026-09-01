@@ -8,6 +8,7 @@ Click on the badge to find its latest version and the instructions for consuming
 [![ShapeShift NuGet package](https://img.shields.io/nuget/v/ShapeShift.svg?label=ShapeShift)](https://www.nuget.org/packages/ShapeShift)<br />
 [![ShapeShift.Json NuGet package](https://img.shields.io/nuget/v/ShapeShift.Json.svg?label=ShapeShift.Json)](https://www.nuget.org/packages/ShapeShift.Json)<br />
 [![ShapeShift.MsgPack NuGet package](https://img.shields.io/nuget/v/ShapeShift.MsgPack.svg?label=ShapeShift.MsgPack)](https://www.nuget.org/packages/ShapeShift.MsgPack)<br />
+[![ShapeShift.Cbor NuGet package](https://img.shields.io/nuget/v/ShapeShift.Cbor.svg?label=ShapeShift.Cbor)](https://www.nuget.org/packages/ShapeShift.Cbor)<br />
 [![ShapeShift.Yaml NuGet package](https://img.shields.io/nuget/v/ShapeShift.Yaml.svg?label=ShapeShift.Yaml)](https://www.nuget.org/packages/ShapeShift.Yaml)<br />
 [![ShapeShift.Taml NuGet package](https://img.shields.io/nuget/v/ShapeShift.Taml.svg?label=ShapeShift.Taml)](https://www.nuget.org/packages/ShapeShift.Taml)<br />
 
@@ -24,7 +25,7 @@ From there:
 - [Customizing the core](customization.md) covers immutable serializer
   configuration, the naming, default-value, strictness, and security policies,
   and custom converters and converter factories.
-- [JSON](json.md) and [MessagePack](msgpack.md) document the format-specific
-  APIs and wire representations.
+- [JSON](json.md), [MessagePack](msgpack.md), and [CBOR](cbor.md) document the
+  format-specific APIs and wire representations.
 - [Authoring a format package](format-authoring.md) explains how to add a
   format of your own.
