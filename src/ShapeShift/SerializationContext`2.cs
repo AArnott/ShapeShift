@@ -31,6 +31,27 @@ public struct SerializationContext<TEncoder, TDecoder>
 	public int MaxDepth { get; set; } = 64;
 
 	/// <summary>
+	/// Gets or sets the maximum number of elements allowed in a collection during serialization or deserialization.
+	/// </summary>
+	/// <value>The default value is 1,000,000.</value>
+	/// <remarks>
+	/// This limit protects against payloads that attempt to allocate or populate unreasonably large collections.
+	/// </remarks>
+	public int MaxCollectionLength { get; set; } = 1_000_000;
+
+	/// <summary>
+	/// Gets or sets the maximum number of characters allowed in a string.
+	/// </summary>
+	/// <value>The default value is 16,777,216.</value>
+	public int MaxStringLength { get; set; } = 16 * 1024 * 1024;
+
+	/// <summary>
+	/// Gets or sets the maximum number of bytes allowed in a binary value.
+	/// </summary>
+	/// <value>The default value is 64 MiB.</value>
+	public int MaxBinaryLength { get; set; } = 64 * 1024 * 1024;
+
+	/// <summary>
 	/// Gets a cancellation token that can be used to cancel the serialization operation.
 	/// </summary>
 	/// <remarks>
@@ -76,7 +97,7 @@ public struct SerializationContext<TEncoder, TDecoder>
 	/// <example>
 	/// To add, modify or remove a key in this state as applied to a <see cref="ShapeShiftSerializer{TEncoder, TDecoder}.StartingContext"/>,
 	/// capture and change the <see cref="SerializationContext{TEncoder, TDecoder}"/> as a local variable, then reassign it to the serializer.
-	/// <code source="../../samples/cs/ApplyingSerializationContext.cs" region="ModifyingStartingContextState" lang="C#" />
+	/// <code source="../../samples/cs/CoreCustomization.cs" region="ModifyingStartingContextState" lang="C#" />
 	/// </example>
 	public object? this[object key]
 	{

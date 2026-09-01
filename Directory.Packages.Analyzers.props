@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <!--
+    These versions support the .NET 10.0.100 SDK / Roslyn 4.14 compiler baseline.
+    Analyzer and code-fix assemblies load inside the compiler or IDE process, so their
+    complete dependency closure must remain compatible with that oldest supported host.
+    See https://learn.microsoft.com/visualstudio/extensibility/roslyn-version-support.
+  -->
+  <PropertyGroup>
+    <CodeAnalysisVersionForAnalyzers>4.14.0</CodeAnalysisVersionForAnalyzers>
+    <!-- Apply compatibility pins even when a package is referenced only transitively. -->
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.CodeAnalysis.Common" Version="$(CodeAnalysisVersionForAnalyzers)" />
+    <PackageVersion Update="Microsoft.CodeAnalysis.CSharp" Version="$(CodeAnalysisVersionForAnalyzers)" />
+    <PackageVersion Update="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="$(CodeAnalysisVersionForAnalyzers)" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.Common" Version="$(CodeAnalysisVersionForAnalyzers)" />
+    <PackageVersion Include="Microsoft.Bcl.AsyncInterfaces" Version="9.0.0" />
+    <PackageVersion Include="System.Collections.Immutable" Version="9.0.0" />
+    <PackageVersion Include="System.Composition" Version="9.0.0" />
+    <PackageVersion Include="System.Composition.AttributedModel" Version="9.0.0" />
+    <PackageVersion Include="System.Composition.Convention" Version="9.0.0" />
+    <PackageVersion Include="System.Composition.Hosting" Version="9.0.0" />
+    <PackageVersion Include="System.Composition.Runtime" Version="9.0.0" />
+    <PackageVersion Include="System.Composition.TypedParts" Version="9.0.0" />
+    <PackageVersion Include="System.IO.Pipelines" Version="9.0.0" />
+    <PackageVersion Include="System.Memory" Version="4.5.5" />
+    <PackageVersion Include="System.Numerics.Vectors" Version="4.5.0" />
+    <PackageVersion Include="System.Reflection.Metadata" Version="9.0.0" />
+    <PackageVersion Include="System.Runtime.CompilerServices.Unsafe" Version="6.0.0" />
+    <PackageVersion Include="System.Text.Encoding.CodePages" Version="7.0.0" />
+    <PackageVersion Include="System.Threading.Channels" Version="7.0.0" />
+    <PackageVersion Include="System.Threading.Tasks.Extensions" Version="4.5.4" />
+  </ItemGroup>
+</Project>

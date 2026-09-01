@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net10.0</TargetFrameworks>
+  </PropertyGroup>
+  <Import Project="../AOT.props" />
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\samples\ubjson\Ubjson.Sample.csproj" />
+    <ProjectReference Include="..\..\src\ShapeShift.Conformance\ShapeShift.Conformance.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="TUnit" />
+  </ItemGroup>
+
+</Project>

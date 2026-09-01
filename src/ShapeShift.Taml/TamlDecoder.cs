@@ -13,7 +13,7 @@ namespace ShapeShift.Taml;
 /// <param name="reader">The underlying text reader from which to get the TAML.</param>
 public ref struct TamlDecoder(TextReader reader) : IDecoder
 {
-	private const NumberStyles FloatingPointStyle = NumberStyles.Float | NumberStyles.AllowHexSpecifier;
+	private const NumberStyles FloatingPointStyle = NumberStyles.Float;
 	private const NumberStyles IntegerPointStyle = NumberStyles.Integer;
 
 	private readonly string text = reader.ReadToEnd();
@@ -36,18 +36,34 @@ public ref struct TamlDecoder(TextReader reader) : IDecoder
 		Vector,
 	}
 
+	/// <inheritdoc/>
+	/// <remarks>
+	/// Reports <see cref="TokenType.EndDocument"/> once the input is exhausted rather than throwing, so
+	/// callers may always ask what comes next -- which is exactly what a loop that reads until a container
+	/// or document ends needs to do.
+	/// </remarks>
 	public TokenType NextTokenType
 	{
 		get
 		{
-			this.EnsureBufferedToken();
+			if (!this.TryEnsureBufferedToken())
+			{
+				return TokenType.EndDocument;
+			}
+
 			return this.bufferedToken.Type;
 		}
 	}
 
 	public bool TryReadNull()
 	{
-		return this.NextTokenType == TokenType.Null;
+		if (this.NextTokenType != TokenType.Null)
+		{
+			return false;
+		}
+
+		this.ReadNull();
+		return true;
 	}
 
 	public int? ReadStartMap()
@@ -59,8 +75,9 @@ public ref struct TamlDecoder(TextReader reader) : IDecoder
 		}
 
 		int indent = this.bufferedToken.ContainerIndent;
+		bool isVectorItem = this.bufferedToken.IsVectorItemMap;
 		this.ConsumeBufferedToken();
-		this.Push(ContainerKind.Map, indent);
+		this.Push(ContainerKind.Map, indent, isVectorItem);
 		return null;
 	}
 
@@ -247,8 +264,8 @@ public ref struct TamlDecoder(TextReader reader) : IDecoder
 
 	public DateTime ReadDateTime()
 	{
-		ReadOnlySpan<char> token = this.ReadToken(TokenType.Number);
-		if (!DateTime.TryParse(token, CultureInfo.InvariantCulture, out DateTime value))
+		ReadOnlySpan<char> token = this.ReadToken(TokenType.String);
+		if (!DateTime.TryParse(token, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out DateTime value))
 		{
 			throw new DecoderException($"Invalid DateTime value: {token.ToString()}.");
 		}
@@ -279,6 +296,82 @@ public ref struct TamlDecoder(TextReader reader) : IDecoder
 		return this.UnescapeString(token);
 	}
 
+	public byte[] ReadByteArray() => throw new NotSupportedException("TAML binary values are not supported.");
+
+	public ShapeShiftNumber ReadDynamicNumber() => new ShapeShiftDecimal(this.ReadDecimal());
+
+	/// <summary>
+	/// Determines whether an unquoted scalar should be classified as <see cref="TokenType.Number"/>.
+	/// </summary>
+	/// <param name="span">The trimmed scalar text.</param>
+	/// <returns><see langword="true" /> when the text is a decimal number in the round-trip form the encoder writes.</returns>
+	/// <remarks>
+	/// This recognizes the same shapes .NET's <see cref="NumberStyles.Float"/> parsing accepts -- an optional sign,
+	/// digits with an optional fractional part, and an optional exponent -- because the encoder writes every
+	/// numeric type with its invariant round-trip form. Recognizing only whole numbers would classify a
+	/// <see cref="double"/> or <see cref="decimal"/> as a string, and the matching read would then fail on a
+	/// value this decoder itself had written.
+	/// </remarks>
+	internal static bool LooksLikeNumberCore(ReadOnlySpan<char> span)
+	{
+		if (span.IsEmpty)
+		{
+			return false;
+		}
+
+		int i = 0;
+		if (span[i] is '-' or '+')
+		{
+			i++;
+		}
+
+		int integerDigits = 0;
+		while (i < span.Length && char.IsAsciiDigit(span[i]))
+		{
+			i++;
+			integerDigits++;
+		}
+
+		int fractionDigits = 0;
+		if (i < span.Length && span[i] == '.')
+		{
+			i++;
+			while (i < span.Length && char.IsAsciiDigit(span[i]))
+			{
+				i++;
+				fractionDigits++;
+			}
+		}
+
+		if (integerDigits == 0 && fractionDigits == 0)
+		{
+			return false;
+		}
+
+		if (i < span.Length && (span[i] is 'e' or 'E'))
+		{
+			i++;
+			if (i < span.Length && span[i] is '-' or '+')
+			{
+				i++;
+			}
+
+			int exponentDigits = 0;
+			while (i < span.Length && char.IsAsciiDigit(span[i]))
+			{
+				i++;
+				exponentDigits++;
+			}
+
+			if (exponentDigits == 0)
+			{
+				return false;
+			}
+		}
+
+		return i == span.Length;
+	}
+
 	private ReadOnlySpan<char> ReadToken(TokenType expectedType)
 	{
 		this.EnsureBufferedToken();
@@ -294,26 +387,35 @@ public ref struct TamlDecoder(TextReader reader) : IDecoder
 
 	private void EnsureBufferedToken()
 	{
+		if (!this.TryEnsureBufferedToken())
+		{
+			throw new DecoderException("Unexpected end of TAML input.");
+		}
+	}
+
+	private bool TryEnsureBufferedToken()
+	{
 		if (this.hasBufferedToken)
 		{
-			return;
+			return true;
 		}
 
 		if (this.queuedTokenCount > 0)
 		{
 			this.bufferedToken = this.DequeueToken();
 			this.hasBufferedToken = true;
-			return;
+			return true;
 		}
 
 		this.EnqueueNextTokens();
 		if (this.queuedTokenCount == 0)
 		{
-			throw new DecoderException("Unexpected end of TAML input.");
+			return false;
 		}
 
 		this.bufferedToken = this.DequeueToken();
 		this.hasBufferedToken = true;
+		return true;
 	}
 
 	private void ConsumeBufferedToken()
@@ -344,13 +446,14 @@ public ref struct TamlDecoder(TextReader reader) : IDecoder
 		this.queuedTokens[this.queuedTokenCount++] = token;
 	}
 
-	private void EnqueueSyntheticStart(TokenType startType, int indent)
+	private void EnqueueSyntheticStart(TokenType startType, int indent, bool isVectorItemMap = false)
 	{
 		this.Enqueue(new Token
 		{
 			Type = startType,
 			IsSynthetic = true,
 			ContainerIndent = indent,
+			IsVectorItemMap = isVectorItemMap,
 		});
 	}
 
@@ -375,6 +478,21 @@ public ref struct TamlDecoder(TextReader reader) : IDecoder
 			return;
 		}
 
+		// A map that is an element of a vector shares the vector's indentation, so indentation alone can
+		// never end it. The encoder separates consecutive elements with a blank line for exactly this
+		// reason, so a blank line at the element's own indentation is what closes one element and lets the
+		// next begin.
+		if (nextLineStart >= 0 &&
+			this.containerDepth > 0 &&
+			this.containers[this.containerDepth - 1] is { Kind: ContainerKind.Map, IsVectorItem: true, Indent: var itemIndent } &&
+			nextIndent <= itemIndent &&
+			this.HasBlankLineBefore(this.scanOffset, nextLineStart))
+		{
+			this.EnqueueSyntheticEndForTopContainer();
+			this.Pop();
+			return;
+		}
+
 		if (nextLineStart < 0)
 		{
 			return;
@@ -390,7 +508,8 @@ public ref struct TamlDecoder(TextReader reader) : IDecoder
 			}
 
 			int lineEndNoNewline = this.GetLineEndNoNewline(lineStart);
-			if (this.TrySplitKeyValue(lineStart, lineEndNoNewline, indent, out _, out _, out _, out _))
+			if (this.TrySplitKeyValue(lineStart, lineEndNoNewline, indent, out _, out _, out _, out _) ||
+				this.IsKeyWithNestedValue(lineStart, lineEndNoNewline, indent))
 			{
 				this.rootContainerEmitted = true;
 				this.EnqueueSyntheticStart(TokenType.StartMap, indent);
@@ -422,28 +541,35 @@ public ref struct TamlDecoder(TextReader reader) : IDecoder
 		ContainerFrame top = this.containers[this.containerDepth - 1];
 		if (top.Kind == ContainerKind.Map)
 		{
-			if (!this.TrySplitKeyValue(start, lineEndNoNewline2, currentIndent, out int keyStart, out int keyLength, out int valueStart, out int valueLength))
+			if (this.TrySplitKeyValue(start, lineEndNoNewline2, currentIndent, out int keyStart, out int keyLength, out int valueStart, out int valueLength))
 			{
-				throw new DecoderException("Expected a key-value pair.");
+				this.Enqueue(new Token { Type = TokenType.PropertyName, Start = keyStart, Length = keyLength, IsSynthetic = false });
+
+				if (valueLength > 0)
+				{
+					this.EnqueueScalarToken(valueStart, valueStart + valueLength);
+				}
+				else
+				{
+					this.EnqueueNestedValueStartOrScalar(currentIndent);
+				}
+
+				return;
 			}
 
-			this.Enqueue(new Token { Type = TokenType.PropertyName, Start = keyStart, Length = keyLength, IsSynthetic = false });
-
-			if (valueLength > 0)
+			if (this.TrySplitKeyOnly(start, lineEndNoNewline2, currentIndent, out keyStart, out keyLength))
 			{
-				this.EnqueueScalarToken(valueStart, valueStart + valueLength);
-			}
-			else
-			{
+				this.Enqueue(new Token { Type = TokenType.PropertyName, Start = keyStart, Length = keyLength, IsSynthetic = false });
 				this.EnqueueNestedValueStartOrScalar(currentIndent);
+				return;
 			}
 
-			return;
+			throw new DecoderException("Expected a key-value pair.");
 		}
 
 		if (this.TrySplitKeyValue(start, lineEndNoNewline2, currentIndent, out int itemKeyStart, out int itemKeyLength, out int itemValueStart, out int itemValueLength))
 		{
-			this.EnqueueSyntheticStart(TokenType.StartMap, currentIndent);
+			this.EnqueueSyntheticStart(TokenType.StartMap, currentIndent, isVectorItemMap: true);
 			this.Enqueue(new Token { Type = TokenType.PropertyName, Start = itemKeyStart, Length = itemKeyLength, IsSynthetic = false });
 
 			if (itemValueLength > 0)
@@ -458,7 +584,89 @@ public ref struct TamlDecoder(TextReader reader) : IDecoder
 			return;
 		}
 
+		if (this.TrySplitKeyOnly(start, lineEndNoNewline2, currentIndent, out itemKeyStart, out itemKeyLength))
+		{
+			this.EnqueueSyntheticStart(TokenType.StartMap, currentIndent, isVectorItemMap: true);
+			this.Enqueue(new Token { Type = TokenType.PropertyName, Start = itemKeyStart, Length = itemKeyLength, IsSynthetic = false });
+			this.EnqueueNestedValueStartOrScalar(currentIndent);
+			return;
+		}
+
 		this.EnqueueScalarToken(start + currentIndent, lineEndNoNewline2);
+	}
+
+	/// <summary>
+	/// Determines whether a blank line separates two positions in the document.
+	/// </summary>
+	/// <param name="from">The offset to start looking from, which is just past the last consumed line.</param>
+	/// <param name="nextLineStart">The offset of the next significant line.</param>
+	/// <returns><see langword="true" /> when at least one blank line lies between them.</returns>
+	private bool HasBlankLineBefore(int from, int nextLineStart)
+	{
+		for (int i = from; i < nextLineStart && i < this.text.Length;)
+		{
+			int lineEnd = this.GetLineEndNoNewline(i);
+			ReadOnlySpan<char> line = this.text.AsSpan(i, Math.Min(lineEnd, nextLineStart) - i);
+			if (line.Trim().IsEmpty)
+			{
+				return true;
+			}
+
+			i = this.AdvanceToAfterLine(i);
+		}
+
+		return false;
+	}
+
+	/// <summary>
+	/// Determines whether a line is a key whose value is the indented block that follows it.
+	/// </summary>
+	/// <param name="lineStart">The offset of the line's first character, including its indentation.</param>
+	/// <param name="lineEndNoNewline">The offset just past the line's last character, excluding any newline.</param>
+	/// <param name="indent">The line's indentation level.</param>
+	/// <returns><see langword="true" /> when the line names a key whose value is nested beneath it.</returns>
+	/// <remarks>
+	/// A key with a scalar value is written as <c>key TAB value</c>. A key whose value is a map or vector has
+	/// nothing to put after the separator, so the separator is omitted and the value is carried entirely by the
+	/// deeper indentation of the lines that follow. Recognizing that shape is what lets a document contain a
+	/// nested container at all.
+	/// </remarks>
+	private bool IsKeyWithNestedValue(int lineStart, int lineEndNoNewline, int indent)
+		=> this.TrySplitKeyOnly(lineStart, lineEndNoNewline, indent, out _, out _);
+
+	private bool TrySplitKeyOnly(int lineStart, int lineEndNoNewline, int indent, out int keyStart, out int keyLength)
+	{
+		keyStart = 0;
+		keyLength = 0;
+
+		int contentStart = lineStart + indent;
+		if (contentStart >= lineEndNoNewline)
+		{
+			return false;
+		}
+
+		if (this.text.IndexOf('\t', contentStart, lineEndNoNewline - contentStart) >= 0)
+		{
+			// The line carries a separator, so it is an ordinary key-value pair rather than a bare key.
+			return false;
+		}
+
+		int afterLine = this.AdvanceToAfterLine(lineStart);
+		if (this.FindNextSignificantLineStart(afterLine, out int childIndent) < 0 || childIndent <= indent)
+		{
+			// Nothing is nested beneath this line, so it is a scalar (or a vector item), not a key.
+			return false;
+		}
+
+		(int ks, int ke) = this.Trim(contentStart, lineEndNoNewline);
+		if (ks >= ke)
+		{
+			return false;
+		}
+
+		keyStart = ks;
+		keyLength = ke - ks;
+		return true;
 	}
 
 	private void EnqueueNestedValueStartOrScalar(int parentIndent)
@@ -485,6 +693,12 @@ public ref struct TamlDecoder(TextReader reader) : IDecoder
 				return;
 			}
 
+			this.EnqueueSyntheticStart(TokenType.StartMap, childIndent);
+			return;
+		}
+
+		if (this.IsKeyWithNestedValue(childLineStart, childLineEndNoNewline, childIndent))
+		{
 			this.EnqueueSyntheticStart(TokenType.StartMap, childIndent);
 			return;
 		}
@@ -519,34 +733,7 @@ public ref struct TamlDecoder(TextReader reader) : IDecoder
 		this.Enqueue(new Token { Type = TokenType.String, Start = trimmedStart, Length = length, IsSynthetic = false });
 	}
 
-	private bool LooksLikeNumber(ReadOnlySpan<char> span)
-	{
-		if (span.IsEmpty)
-		{
-			return false;
-		}
-
-		int i = 0;
-		if (span[0] == '-')
-		{
-			if (span.Length == 1)
-			{
-				return false;
-			}
-
-			i = 1;
-		}
-
-		for (; i < span.Length; i++)
-		{
-			if (!char.IsAsciiDigit(span[i]))
-			{
-				return false;
-			}
-		}
-
-		return true;
-	}
+	private bool LooksLikeNumber(ReadOnlySpan<char> span) => LooksLikeNumberCore(span);
 
 	private int FindNextSignificantLineStart(int from, out int indent)
 	{
@@ -726,14 +913,14 @@ public ref struct TamlDecoder(TextReader reader) : IDecoder
 		return token.ToString();
 	}
 
-	private void Push(ContainerKind kind, int indent)
+	private void Push(ContainerKind kind, int indent, bool isVectorItem = false)
 	{
 		if (this.containerDepth == this.containers.Length)
 		{
 			Array.Resize(ref this.containers, this.containers.Length * 2);
 		}
 
-		this.containers[this.containerDepth++] = new ContainerFrame { Kind = kind, Indent = indent };
+		this.containers[this.containerDepth++] = new ContainerFrame { Kind = kind, Indent = indent, IsVectorItem = isVectorItem };
 	}
 
 	private void Pop() => this.containerDepth--;
@@ -829,6 +1016,7 @@ public ref struct TamlDecoder(TextReader reader) : IDecoder
 	{
 		public ContainerKind Kind;
 		public int Indent;
+		public bool IsVectorItem;
 	}
 
 	private struct Token
@@ -838,5 +1026,6 @@ public ref struct TamlDecoder(TextReader reader) : IDecoder
 		public int Length;
 		public int ContainerIndent;
 		public bool IsSynthetic;
+		public bool IsVectorItemMap;
 	}
 }

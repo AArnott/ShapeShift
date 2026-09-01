@@ -4,6 +4,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using ShapeShift.Converters;
+using ShapeShift.Schema;
 
 namespace ShapeShift;
 
@@ -30,10 +31,17 @@ internal class ConverterCache<TEncoder, TDecoder>(SerializerConfiguration<TEncod
 	where TDecoder : IDecoder, allows ref struct
 {
 	/// <summary>
+	/// The gate that guards <see cref="contractVisitor"/>, which is not thread-safe.
+	/// </summary>
+	private readonly object contractGate = new();
+
+	/// <summary>
 	/// An optimization that avoids the dictionary lookup to start serialization
 	/// when the caller repeatedly serializes the same type.
 	/// </summary>
 	private object? lastConverter;
+
+	private ContractVisitor<TEncoder, TDecoder>? contractVisitor;
 
 	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.PreserveReferences"/>
 	internal ReferencePreservationMode PreserveReferences => configuration.PreserveReferences;
@@ -43,6 +51,15 @@ internal class ConverterCache<TEncoder, TDecoder>(SerializerConfiguration<TEncod
 
 	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.PropertyNamingPolicy"/>
 	internal ShapeShiftNamingPolicy? PropertyNamingPolicy => configuration.PropertyNamingPolicy;
+
+	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.SerializeDefaultValues"/>
+	internal SerializeDefaultValuesPolicy SerializeDefaultValues => configuration.SerializeDefaultValues;
+
+	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.DeserializeDefaultValues"/>
+	internal DeserializeDefaultValuesPolicy DeserializeDefaultValues => configuration.DeserializeDefaultValues;
+
+	/// <inheritdoc cref="SerializerConfiguration{TEncoder, TDecoder}.SerializeEnumValuesByName"/>
+	internal bool SerializeEnumValuesByName => configuration.SerializeEnumValuesByName;
 
 	/// <summary>
 	/// Gets all the converters this instance knows about so far.
@@ -189,6 +206,64 @@ internal class ConverterCache<TEncoder, TDecoder>(SerializerConfiguration<TEncod
 		}
 
 		return converter is not null;
+	}
+
+	/// <summary>
+	/// Activates a converter for the given shape if a <see cref="ShapeShiftConverterAttribute"/> is present on the type or member.
+	/// </summary>
+	/// <param name="type">The type to be converted.</param>
+	/// <param name="typeShape">The shape of the type to be serialized.</param>
+	/// <param name="attributeProvider">
+	/// The source of the attributes.
+	/// This will typically be the attributes on the type itself, but may be the attributes on the requesting property or parameter.
+	/// </param>
+	/// <param name="converter">Receives the converter, if applicable.</param>
+	/// <returns>A value indicating whether a converter was found.</returns>
+	/// <exception cref="ShapeShiftSerializationException">Thrown if the prescribed converter has no default constructor.</exception>
+	internal bool TryGetConverterFromAttribute(Type type, ITypeShape? typeShape, IGenericCustomAttributeProvider attributeProvider, [NotNullWhen(true)] out ShapeShiftConverter<TEncoder, TDecoder>? converter)
+	{
+		if (attributeProvider.GetCustomAttribute<ShapeShiftConverterAttribute>() is not { } customConverterAttribute)
+		{
+			converter = null;
+			return false;
+		}
+
+		Type converterType = customConverterAttribute.ConverterType;
+		if ((typeShape?.GetAssociatedTypeShape(converterType) as IObjectTypeShape)?.GetDefaultConstructor() is Func<object> converterFactory)
+		{
+			converter = (ShapeShiftConverter<TEncoder, TDecoder>)converterFactory();
+			if (this.PreserveReferences != ReferencePreservationMode.Off)
+			{
+				converter = ((IShapeShiftConverterInternal<TEncoder, TDecoder>)converter).WrapWithReferencePreservation();
+			}
+
+			return true;
+		}
+
+		if (converterType.GetConstructor(Type.EmptyTypes) is not ConstructorInfo ctor)
+		{
+			throw new ShapeShiftSerializationException($"{type.FullName} has {typeof(ShapeShiftConverterAttribute)} that refers to {customConverterAttribute.ConverterType.FullName} but that converter has no default constructor.");
+		}
+
+		converter = (ShapeShiftConverter<TEncoder, TDecoder>)ctor.Invoke(Array.Empty<object?>());
+		return true;
+	}
+
+	/// <summary>
+	/// Gets the contract that describes the serialized form of a type.
+	/// </summary>
+	/// <param name="shape">The shape of the type to describe.</param>
+	/// <returns>The contract.</returns>
+	/// <remarks>
+	/// Contracts are cached, so repeated requests for the same shape return the same instance.
+	/// </remarks>
+	internal DataContract GetOrAddContract(ITypeShape shape)
+	{
+		lock (this.contractGate)
+		{
+			this.contractVisitor ??= new(this);
+			return this.contractVisitor.GetContract(shape);
+		}
 	}
 
 	/// <summary>

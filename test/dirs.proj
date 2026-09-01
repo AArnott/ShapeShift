@@ -1,7 +1,12 @@
 <Project Sdk="Microsoft.Build.Traversal">
   <ItemGroup>
+    <ProjectReference Include="ShapeShift.Analyzers.Tests\ShapeShift.Analyzers.Tests.csproj" Test="true" />
     <MultiRIDProjectReference Include="ShapeShift.Tests\ShapeShift.Tests.csproj" TargetFramework="net10.0" />
+    <MultiRIDProjectReference Include="ShapeShift.Json.Tests\ShapeShift.Json.Tests.csproj" TargetFramework="net10.0" />
+    <MultiRIDProjectReference Include="ShapeShift.MsgPack.Tests\ShapeShift.MsgPack.Tests.csproj" TargetFramework="net10.0" />
     <MultiRIDProjectReference Include="ShapeShift.Yaml.Tests\ShapeShift.Yaml.Tests.csproj" TargetFramework="net10.0" />
     <MultiRIDProjectReference Include="ShapeShift.Taml.Tests\ShapeShift.Taml.Tests.csproj" TargetFramework="net10.0" />
+    <MultiRIDProjectReference Include="Samples.Tests\Samples.Tests.csproj" TargetFramework="net10.0" />
+    <MultiRIDProjectReference Include="Ubjson.Sample.Tests\Ubjson.Sample.Tests.csproj" TargetFramework="net10.0" />
   </ItemGroup>
 </Project>

@@ -8,6 +8,16 @@
     <PackageReference Include="Microsoft.VisualStudio.Validation" />
     <PackageReference Include="PolyType" />
   </ItemGroup>
+  <ItemGroup Label="Analyzers packed into this package">
+    <ProjectReference Include="..\ShapeShift.Analyzers\ShapeShift.Analyzers.csproj" ReferenceOutputAssembly="false" OutputItemType="ShapeShiftAnalyzerPackFile" PrivateAssets="all" />
+    <ProjectReference Include="..\ShapeShift.Analyzers.CodeFixes\ShapeShift.Analyzers.CodeFixes.csproj" ReferenceOutputAssembly="false" OutputItemType="ShapeShiftAnalyzerPackFile" PrivateAssets="all" />
+  </ItemGroup>
+  <Target Name="PackShapeShiftAnalyzers" DependsOnTargets="ResolveProjectReferences" BeforeTargets="_GetPackageFiles">
+    <Error Condition="'@(ShapeShiftAnalyzerPackFile)'==''" Text="The ShapeShift analyzers were not resolved, so they would be missing from the package." />
+    <ItemGroup>
+      <None Include="@(ShapeShiftAnalyzerPackFile)" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    </ItemGroup>
+  </Target>
   <ItemGroup>
     <None Update="Converters\IntConverters.tt">
       <Generator>TextTemplatingFileGenerator</Generator>

@@ -113,6 +113,7 @@ internal class DateTimeOffsetConverter<TEncoder, TDecoder> : ShapeShiftConverter
 
 		DateTime utcDateTime = decoder.ReadDateTime();
 		short offsetMinutes = decoder.ReadInt16();
+		decoder.ReadEndVector();
 
 		// We construct the offset very carefully so that it knows it's being initialized with UTC time
 		// *and* that we want the time expressed in the offset specified.
@@ -187,11 +188,12 @@ internal class StringConverter<TEncoder, TDecoder> : ShapeShiftConverter<string,
 	{
 		if (decoder.TryReadNull())
 		{
-			decoder.ReadNull();
 			return null;
 		}
 
-		return decoder.ReadString();
+		string value = decoder.ReadString();
+		ValidateStringLength(value.Length, context);
+		return value;
 	}
 
 	/// <inheritdoc/>
@@ -203,7 +205,16 @@ internal class StringConverter<TEncoder, TDecoder> : ShapeShiftConverter<string,
 		}
 		else
 		{
+			ValidateStringLength(value.Length, context);
 			encoder.WriteValue(value);
+		}
+	}
+
+	private static void ValidateStringLength(int length, SerializationContext<TEncoder, TDecoder> context)
+	{
+		if (length > context.MaxStringLength)
+		{
+			throw new ShapeShiftSerializationException($"String length {length} exceeds the configured maximum of {context.MaxStringLength}.");
 		}
 	}
 }
@@ -217,11 +228,11 @@ internal class InterningStringConverter<TEncoder, TDecoder> : ShapeShiftConverte
 	{
 		if (decoder.TryReadNull())
 		{
-			decoder.ReadNull();
 			return null;
 		}
 
 		ReadOnlySpan<char> span = decoder.ReadCharSpan();
+		ValidateStringLength(span.Length, context);
 		return Strings.WeakIntern(span);
 	}
 
@@ -234,7 +245,16 @@ internal class InterningStringConverter<TEncoder, TDecoder> : ShapeShiftConverte
 		}
 		else
 		{
+			ValidateStringLength(value.Length, context);
 			encoder.WriteValue(value);
+		}
+	}
+
+	private static void ValidateStringLength(int length, SerializationContext<TEncoder, TDecoder> context)
+	{
+		if (length > context.MaxStringLength)
+		{
+			throw new ShapeShiftSerializationException($"String length {length} exceeds the configured maximum of {context.MaxStringLength}.");
 		}
 	}
 }

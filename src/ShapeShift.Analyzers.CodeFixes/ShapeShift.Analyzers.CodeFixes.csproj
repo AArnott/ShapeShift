@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\AnalyzerCompatibility.props" />
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+
+    <!-- Honor this code-fix project's version.json so every commit has a unique assembly identity. -->
+    <GitVersionBaseDirectory>$(MSBuildProjectDirectory)</GitVersionBaseDirectory>
+
+    <!-- Code fixes ship inside the ShapeShift package rather than as a package of their own. -->
+    <IsPackable>false</IsPackable>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <EnablePackageValidation>false</EnablePackageValidation>
+
+    <!-- Roslyn loads code fixes without a deps file, so do not copy dependencies next to the output. -->
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <RootNamespace>ShapeShift.Analyzers</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ShapeShift.Analyzers\ShapeShift.Analyzers.csproj" />
+  </ItemGroup>
+</Project>

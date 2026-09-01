@@ -3,3 +3,19 @@ items:
   href: features.md
 - name: Getting Started
   href: getting-started.md
+- name: Customizing the core
+  href: customization.md
+- name: JSON
+  href: json.md
+- name: MessagePack
+  href: msgpack.md
+- name: Schema and contract inspection
+  href: schema.md
+- name: Structural equality and hashing
+  href: equality.md
+- name: Authoring a format package
+  href: format-authoring.md
+- name: Host integration
+  href: host-integration.md
+- name: Diagnostics
+  href: diagnostics.md

@@ -194,6 +194,10 @@ public ref struct YamlEncoder(TextWriter writer) : IEncoder
 		this.WriteStringScalar(value.ToString(), includeTrailingNewline: true);
 	}
 
+	/// <inheritdoc/>
+	public void WriteValue(scoped ReadOnlySpan<byte> value)
+		=> throw new NotSupportedException("YAML binary values are not yet supported.");
+
 	private void WriteStartContainer(ContainerKind kind)
 	{
 		if (this.pendingPropertyValue)
@@ -363,6 +367,18 @@ public ref struct YamlEncoder(TextWriter writer) : IEncoder
 			{
 				return true;
 			}
+		}
+
+		// A bare scalar that reads back as a null, a boolean, or a number would not return
+		// TokenType.String, and the string read that follows would fail on text this encoder had itself
+		// produced. Quoting keeps the value a string.
+		if (value.Equals("~".AsSpan(), StringComparison.Ordinal) ||
+			value.Equals("null".AsSpan(), StringComparison.OrdinalIgnoreCase) ||
+			value.Equals("true".AsSpan(), StringComparison.OrdinalIgnoreCase) ||
+			value.Equals("false".AsSpan(), StringComparison.OrdinalIgnoreCase) ||
+			YamlDecoder.LooksLikeNumberCore(value))
+		{
+			return true;
 		}
 
 		return false;
