@@ -1,1 +1,1 @@
-ShapeShift*.dll
+**/ShapeShift*.dll
