@@ -41,7 +41,7 @@ public class ContractSupportAnalyzerTests
 
 		await TestSources.AssertIdsAsync(diagnostics, "SHIFT008");
 		await Assert.That(diagnostics[0].GetMessage()).Contains("more than one extension-data member");
-		await Assert.That(diagnostics[0].Descriptor.HelpLinkUri).IsEqualTo("https://aarnott.github.io/ShapeShift/docs/analyzers/SHIFT008.html");
+		await Assert.That(diagnostics[0].Descriptor.HelpLinkUri).IsEqualTo("https://aarnott.github.io/ShapeShift/analyzers/SHIFT008.html");
 	}
 
 	[Test]

@@ -43,7 +43,7 @@ public class WireNameAnalyzerTests
 
 		await TestSources.AssertIdsAsync(diagnostics, "SHIFT005");
 		await Assert.That(diagnostics[0].GetMessage()).Contains("'Name'");
-		await Assert.That(diagnostics[0].Descriptor.HelpLinkUri).IsEqualTo("https://aarnott.github.io/ShapeShift/docs/analyzers/SHIFT005.html");
+		await Assert.That(diagnostics[0].Descriptor.HelpLinkUri).IsEqualTo("https://aarnott.github.io/ShapeShift/analyzers/SHIFT005.html");
 	}
 
 	[Test]

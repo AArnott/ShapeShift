@@ -1,6 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\AnalyzerCompatibility.props" />
+
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+
+    <!-- Honor this code-fix project's version.json so every commit has a unique assembly identity. -->
+    <GitVersionBaseDirectory>$(MSBuildProjectDirectory)</GitVersionBaseDirectory>
 
     <!-- Code fixes ship inside the ShapeShift package rather than as a package of their own. -->
     <IsPackable>false</IsPackable>

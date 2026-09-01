@@ -27,7 +27,7 @@ public class ReflectionActivationAnalyzerTests
 		await TestSources.AssertIdsAsync(diagnostics, "SHIFT007");
 		await Assert.That(diagnostics[0].Severity).IsEqualTo(DiagnosticSeverity.Info);
 		await Assert.That(diagnostics[0].GetMessage()).Contains("WithReflectionConverterTypes");
-		await Assert.That(diagnostics[0].Descriptor.HelpLinkUri).IsEqualTo("https://aarnott.github.io/ShapeShift/docs/analyzers/SHIFT007.html");
+		await Assert.That(diagnostics[0].Descriptor.HelpLinkUri).IsEqualTo("https://aarnott.github.io/ShapeShift/analyzers/SHIFT007.html");
 	}
 
 	[Test]

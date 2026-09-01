@@ -63,7 +63,7 @@ public class ConverterAttributeAnalyzerTests
 
 		await TestSources.AssertIdsAsync(diagnostics, "SHIFT001");
 		await Assert.That(diagnostics[0].GetMessage()).Contains("NotAConverter");
-		await Assert.That(diagnostics[0].Descriptor.HelpLinkUri).IsEqualTo("https://aarnott.github.io/ShapeShift/docs/analyzers/SHIFT001.html");
+		await Assert.That(diagnostics[0].Descriptor.HelpLinkUri).IsEqualTo("https://aarnott.github.io/ShapeShift/analyzers/SHIFT001.html");
 	}
 
 	[Test]

@@ -34,7 +34,7 @@ public static class Diagnostics
 	/// <summary>
 	/// The base URL of the documentation topic published for each diagnostic ID.
 	/// </summary>
-	public const string HelpLinkBase = "https://aarnott.github.io/ShapeShift/docs/analyzers/";
+	public const string HelpLinkBase = "https://aarnott.github.io/ShapeShift/analyzers/";
 
 	/// <summary>
 	/// SHIFT001: the type named by <c>ShapeShiftConverterAttribute</c> is not a ShapeShift converter.

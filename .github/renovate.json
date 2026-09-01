@@ -22,6 +22,12 @@
 			"groupName": "Microsoft Testing Platform"
 		},
 		{
+			"matchFileNames": [
+				"Directory.Packages.Analyzers.props"
+			],
+			"enabled": false
+		},
+		{
 			"matchDatasources": [
 				"dotnet-version",
 				"docker"
