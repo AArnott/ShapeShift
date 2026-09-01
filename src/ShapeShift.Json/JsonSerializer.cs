@@ -92,7 +92,7 @@ public sealed record JsonSerializer : ShapeShiftSerializer<JsonEncoder, JsonDeco
 	public byte[] SerializeToUtf8Bytes<T, TProvider>(in T? value, CancellationToken cancellationToken = default)
 		where TProvider : IShapeable<T>
 	{
-		ArrayBufferWriter<byte> buffer = new();
+		using PooledByteBufferWriter buffer = new();
 		this.Serialize<T, TProvider>(buffer, value, cancellationToken);
 		return buffer.WrittenSpan.ToArray();
 	}
