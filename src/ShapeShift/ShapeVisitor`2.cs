@@ -69,7 +69,7 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 		ObjectConverter<TDeclaringType, TEncoder, TDecoder> converter;
 		if (constructorShape.Parameters is [])
 		{
-			Dictionary<string, ReadProperty<TDeclaringType, TEncoder, TDecoder>> propertyReaders = new(objectShape.Properties.Count);
+			Dictionary<string, ObjectPropertyReader<TDeclaringType, TEncoder, TDecoder>> propertyReaders = new(objectShape.Properties.Count);
 			Dictionary<string, ObjectPropertyWriter<TDeclaringType, TEncoder, TDecoder>> propertyWriters = new(objectShape.Properties.Count);
 			ExtensionDataProperty<TDeclaringType, TEncoder, TDecoder>? extensionData = null;
 			foreach (var property in objectShape.Properties)
@@ -89,7 +89,7 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 				var converters = (PropertyConverter<TDeclaringType, TEncoder, TDecoder>)property.Accept(this)!;
 				if (converters.Read is not null)
 				{
-					propertyReaders.Add(name, converters.Read);
+					propertyReaders.Add(name, new(converters.Read, propertyReaders.Count));
 				}
 
 				if (converters.Write is not null)
@@ -107,7 +107,7 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 		}
 		else
 		{
-			Dictionary<string, ReadProperty<TArgumentState, TEncoder, TDecoder>> propertyReaders = new(constructorShape.Parameters.Count);
+			Dictionary<string, ObjectPropertyReader<TArgumentState, TEncoder, TDecoder>> propertyReaders = new(constructorShape.Parameters.Count);
 			Dictionary<string, ObjectPropertyWriter<TDeclaringType, TEncoder, TDecoder>> propertyWriters = new(objectShape.Properties.Count);
 			Dictionary<string, IParameterShape> parametersByName = constructorShape.Parameters.ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
 			foreach (var property in objectShape.Properties)
@@ -130,7 +130,7 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 			{
 				string name = this.owner.GetSerializedPropertyName(parameter.Name, parameter.AttributeProvider);
 				var propertyReader = (ReadProperty<TArgumentState, TEncoder, TDecoder>)parameter.Accept(this, parameter)!;
-				propertyReaders.Add(name, propertyReader);
+				propertyReaders.Add(name, new(propertyReader, propertyReaders.Count));
 			}
 
 			converter = new ObjectConverterWithNonDefaultCtor<TDeclaringType, TArgumentState, TEncoder, TDecoder>(constructorShape.GetArgumentStateConstructor(), constructorShape.GetParameterizedConstructor())

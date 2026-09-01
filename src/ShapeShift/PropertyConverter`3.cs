@@ -40,6 +40,12 @@ internal sealed record ObjectPropertyWriter<TDeclaringType, TEncoder, TDecoder>(
 	where TEncoder : IEncoder, allows ref struct
 	where TDecoder : IDecoder, allows ref struct;
 
+internal sealed record ObjectPropertyReader<TDeclaringType, TEncoder, TDecoder>(
+	ReadProperty<TDeclaringType, TEncoder, TDecoder> Read,
+	int Index)
+	where TEncoder : IEncoder, allows ref struct
+	where TDecoder : IDecoder, allows ref struct;
+
 internal sealed record ExtensionDataProperty<TDeclaringType, TEncoder, TDecoder>(
 	Func<TDeclaringType, IReadOnlyDictionary<string, ShapeShiftValue>?> GetValues,
 	ReadExtensionData<TDeclaringType, TEncoder, TDecoder> Read)
