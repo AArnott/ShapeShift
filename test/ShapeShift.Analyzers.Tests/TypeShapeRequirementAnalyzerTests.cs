@@ -15,18 +15,18 @@ namespace ShapeShift.Analyzers.Tests;
 /// </remarks>
 public class TypeShapeRequirementAnalyzerTests
 {
-	private const string ShapedPerson = """
+	private const string ShapedPerson = /* lang=c#-test */ """
 		public partial class Person : IShapeable<Person>
 		{
 			static ITypeShape<Person> IShapeable<Person>.GetTypeShape() => throw new NotImplementedException();
 		}
 		""";
 
-	private const string PlainPerson = """
+	private const string PlainPerson = /* lang=c#-test */ """
 		public partial class Person { }
 		""";
 
-	private const string Witness = """
+	private const string Witness = /* lang=c#-test */ """
 		public partial class Witness : IShapeable<Person>
 		{
 			static ITypeShape<Person> IShapeable<Person>.GetTypeShape() => throw new NotImplementedException();
@@ -63,6 +63,8 @@ public class TypeShapeRequirementAnalyzerTests
 			"CS0311");
 
 		await TestSources.AssertIdsAsync(diagnostics, "SHIFT004");
+		await Assert.That(diagnostics[0].GetMessage())
+			.IsEqualTo("'Person' does not provide a source-generated shape for 'Person'; apply [GenerateShape] to 'Person' or pass a witness class annotated with [GenerateShapeFor<Person>]");
 		await Assert.That(diagnostics[0].GetMessage()).Contains("Person");
 		await Assert.That(diagnostics[0].Descriptor.HelpLinkUri).IsEqualTo("https://aarnott.github.io/ShapeShift/analyzers/SHIFT004.html");
 		await Assert.That(diagnostics[0].Properties.ContainsKey(TypeShapeRequirementAnalyzer.MissingShapeTypeIdProperty)).IsTrue();
@@ -145,7 +147,7 @@ public class TypeShapeRequirementAnalyzerTests
 
 			public class Caller
 			{
-				public Person? Run(JsonSerializer serializer, string json) => serializer.Deserialize<Person>(json);
+				public Person? Run(JsonSerializer serializer, string json) => serializer.Deserialize<[|Person|]>(json);
 			}
 			""",
 			"CS0311");
@@ -172,6 +174,145 @@ public class TypeShapeRequirementAnalyzerTests
 		await Assert.That(text).IsEqualTo("Person");
 	}
 
-	private static Task<ImmutableArray<Diagnostic>> AnalyzeAsync(string body, params string[] expectedCompilerErrorIds)
+	[Test]
+	public async Task AddGenerateShape_AddsAttributeAndPartialModifier()
+	{
+		string? fixedSource = await AnalyzerHarness.ApplyFixAsync(
+			new TypeShapeRequirementAnalyzer(),
+			new AddGenerateShapeCodeFixProvider(),
+			TestSources.Source("""
+				public class Person { }
+
+				public class Caller
+				{
+					public string Run(JsonSerializer serializer, Person person) => serializer.Serialize(person);
+				}
+				"""),
+			"CS0311");
+
+		const string ExpectedBody = /* lang=c#-test */ """
+			[PolyType.GenerateShape]
+			public partial class Person
+			{ }
+
+			public class Caller
+			{
+				public string Run(JsonSerializer serializer, Person person) => serializer.Serialize(person);
+			}
+			""";
+		await Assert.That(fixedSource).IsNotNull();
+		await Assert.That(TestSources.NormalizeLineEndings(fixedSource!))
+			.IsEqualTo(TestSources.NormalizeLineEndings(TestSources.Source(ExpectedBody)).Replace("\t", "    ", StringComparison.Ordinal));
+	}
+
+	[Test]
+	public async Task AddGenerateShape_KeepsExistingPartialModifier()
+	{
+		string? fixedSource = await AnalyzerHarness.ApplyFixAsync(
+			new TypeShapeRequirementAnalyzer(),
+			new AddGenerateShapeCodeFixProvider(),
+			TestSources.Source("""
+				public partial class Person { }
+
+				public class Caller
+				{
+					public string Run(JsonSerializer serializer, Person person) => serializer.Serialize(person);
+				}
+				"""),
+			"CS0311");
+
+		await Assert.That(fixedSource).IsNotNull();
+		await Assert.That(fixedSource!).Contains("[PolyType.GenerateShape]");
+		await Assert.That(fixedSource!.Split("partial").Length - 1).IsEqualTo(1);
+	}
+
+	[Test]
+	public async Task AddGenerateShape_PreservesExistingAttributes()
+	{
+		string? fixedSource = await AnalyzerHarness.ApplyFixAsync(
+			new TypeShapeRequirementAnalyzer(),
+			new AddGenerateShapeCodeFixProvider(),
+			TestSources.Source("""
+				[System.Obsolete]
+				public class Person { }
+
+				public class Caller
+				{
+					public string Run(JsonSerializer serializer, Person person) => serializer.Serialize(person);
+				}
+				"""),
+			"CS0311",
+			"CS0612",
+			"CS0618");
+
+		await Assert.That(fixedSource).IsNotNull();
+		await Assert.That(fixedSource!).Contains("[System.Obsolete]");
+		await Assert.That(fixedSource!).Contains("[PolyType.GenerateShape]");
+	}
+
+	[Test]
+	public async Task AddGenerateShape_NotOfferedForTypesOutsideTheSolution()
+	{
+		string? fixedSource = await AnalyzerHarness.ApplyFixAsync(
+			new TypeShapeRequirementAnalyzer(),
+			new AddGenerateShapeCodeFixProvider(),
+			TestSources.Source("""
+				public class Caller
+				{
+					public string Run(JsonSerializer serializer, Uri value) => serializer.Serialize(value);
+				}
+				"""),
+			"CS0311");
+
+		await Assert.That(fixedSource).IsNull();
+	}
+
+	[Test]
+	public async Task AddGenerateShape_FixAllUpdatesDistinctTypes()
+	{
+		string? fixedSource = await AnalyzerHarness.ApplyFixAllAsync(
+			new TypeShapeRequirementAnalyzer(),
+			new AddGenerateShapeCodeFixProvider(),
+			TestSources.Source("""
+				public class Person { }
+
+				public class Address { }
+
+				public class Caller
+				{
+					public string WritePerson(JsonSerializer serializer, Person value) => serializer.Serialize(value);
+
+					public string WriteAddress(JsonSerializer serializer, Address value) => serializer.Serialize(value);
+				}
+				"""),
+			"CS0311");
+
+		await Assert.That(fixedSource).IsNotNull();
+		await Assert.That(fixedSource!.Split("[PolyType.GenerateShape]").Length - 1).IsEqualTo(2);
+		await Assert.That(fixedSource!).Contains("public partial class Person");
+		await Assert.That(fixedSource!).Contains("public partial class Address");
+	}
+
+	[Test]
+	public async Task GeneratedMissingShapeCall_ReportsNothing()
+	{
+		ImmutableArray<Diagnostic> diagnostics = await AnalyzerHarness.GetGeneratedCodeDiagnosticsAsync(
+			new TypeShapeRequirementAnalyzer(),
+			TestSources.Source($$"""
+				{{PlainPerson}}
+
+				public class Caller
+				{
+					public Person? Run(JsonSerializer serializer, string json) => serializer.Deserialize<Person>(json);
+				}
+				"""),
+			"CS0311");
+
+		await TestSources.AssertIdsAsync(diagnostics);
+	}
+
+	private static Task<ImmutableArray<Diagnostic>> AnalyzeAsync(
+		[System.Diagnostics.CodeAnalysis.StringSyntax("c#-test")] string body,
+		params string[] expectedCompilerErrorIds)
 		=> AnalyzerHarness.GetDiagnosticsAsync(new TypeShapeRequirementAnalyzer(), TestSources.Source(body), expectedCompilerErrorIds);
 }

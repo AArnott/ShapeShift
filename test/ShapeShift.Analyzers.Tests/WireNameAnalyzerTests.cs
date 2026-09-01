@@ -37,12 +37,13 @@ public class WireNameAnalyzerTests
 				public string? Name { get; set; }
 
 				[PropertyShape(Name = "Name")]
-				public string? Alias { get; set; }
+				public string? [|Alias|] { get; set; }
 			}
 			""");
 
 		await TestSources.AssertIdsAsync(diagnostics, "SHIFT005");
-		await Assert.That(diagnostics[0].GetMessage()).Contains("'Name'");
+		await Assert.That(diagnostics[0].GetMessage())
+			.IsEqualTo("'Name' and 'Alias' are both serialized as 'Name'");
 		await Assert.That(diagnostics[0].Descriptor.HelpLinkUri).IsEqualTo("https://aarnott.github.io/ShapeShift/analyzers/SHIFT005.html");
 	}
 
@@ -127,13 +128,14 @@ public class WireNameAnalyzerTests
 			{
 				public int Id { get; set; }
 
-				public int ID { get; set; }
+				public int [|ID|] { get; set; }
 			}
 			""");
 
 		await TestSources.AssertIdsAsync(diagnostics, "SHIFT006");
 		await Assert.That(diagnostics[0].Severity).IsEqualTo(DiagnosticSeverity.Info);
-		await Assert.That(diagnostics[0].GetMessage()).Contains("naming policy");
+		await Assert.That(diagnostics[0].GetMessage())
+			.IsEqualTo("'Id' and 'ID' differ only by letter casing, so they both serialize as 'id' once a ShapeShift naming policy is applied");
 	}
 
 	[Test]
@@ -204,6 +206,25 @@ public class WireNameAnalyzerTests
 		await TestSources.AssertIdsAsync(diagnostics);
 	}
 
-	private static Task<ImmutableArray<Diagnostic>> AnalyzeAsync(string body)
+	[Test]
+	public async Task GeneratedWireNameCollision_ReportsNothing()
+	{
+		ImmutableArray<Diagnostic> diagnostics = await AnalyzerHarness.GetGeneratedCodeDiagnosticsAsync(
+			new WireNameAnalyzer(),
+			TestSources.Source("""
+				[GenerateShape]
+				public partial class Person
+				{
+					public int Id { get; set; }
+
+					public int ID { get; set; }
+				}
+				"""));
+
+		await TestSources.AssertIdsAsync(diagnostics);
+	}
+
+	private static Task<ImmutableArray<Diagnostic>> AnalyzeAsync(
+		[System.Diagnostics.CodeAnalysis.StringSyntax("c#-test")] string body)
 		=> AnalyzerHarness.GetDiagnosticsAsync(new WireNameAnalyzer(), TestSources.Source(body));
 }

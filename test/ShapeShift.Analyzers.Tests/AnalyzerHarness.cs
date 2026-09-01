@@ -2,6 +2,8 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
@@ -35,18 +37,22 @@ internal static class AnalyzerHarness
 	/// <returns>The diagnostics reported by <paramref name="analyzer"/>, ordered by source position.</returns>
 	internal static async Task<ImmutableArray<Diagnostic>> GetDiagnosticsAsync(
 		DiagnosticAnalyzer analyzer,
-		string source,
+		[StringSyntax("c#-test")] string source,
 		params string[] expectedCompilerErrorIds)
-	{
-		(_, Document document) = CreateDocument(source);
-		Compilation compilation = await GetCompilationAsync(document);
-		AssertNoUnexpectedCompilerErrors(compilation, expectedCompilerErrorIds);
+		=> await GetDiagnosticsAsync(analyzer, source, "Test.cs", expectedCompilerErrorIds);
 
-		CompilationWithAnalyzers withAnalyzers = compilation.WithAnalyzers([analyzer]);
-
-		ImmutableArray<Diagnostic> diagnostics = await withAnalyzers.GetAnalyzerDiagnosticsAsync(CancellationToken.None);
-		return [.. diagnostics.OrderBy(d => d.Location.SourceSpan.Start).ThenBy(d => d.Id, StringComparer.Ordinal)];
-	}
+	/// <summary>
+	/// Runs an analyzer over a generated source file and returns the diagnostics it reported.
+	/// </summary>
+	/// <param name="analyzer">The analyzer to run.</param>
+	/// <param name="source">The generated C# source to analyze.</param>
+	/// <param name="expectedCompilerErrorIds">Compiler error IDs the source is expected to produce, if any.</param>
+	/// <returns>The diagnostics reported by <paramref name="analyzer"/>.</returns>
+	internal static async Task<ImmutableArray<Diagnostic>> GetGeneratedCodeDiagnosticsAsync(
+		DiagnosticAnalyzer analyzer,
+		[StringSyntax("c#-test")] string source,
+		params string[] expectedCompilerErrorIds)
+		=> await GetDiagnosticsAsync(analyzer, source, "Test.g.cs", expectedCompilerErrorIds);
 
 	/// <summary>
 	/// Runs an analyzer and applies the first code fix offered for the first diagnostic.
@@ -59,7 +65,7 @@ internal static class AnalyzerHarness
 	internal static async Task<string?> ApplyFixAsync(
 		DiagnosticAnalyzer analyzer,
 		CodeFixProvider codeFix,
-		string source,
+		[StringSyntax("c#-test")] string source,
 		params string[] expectedCompilerErrorIds)
 	{
 		(AdhocWorkspace workspace, Document document) = CreateDocument(source);
@@ -93,7 +99,88 @@ internal static class AnalyzerHarness
 		}
 	}
 
-	private static (AdhocWorkspace Workspace, Document Document) CreateDocument(string source)
+	/// <summary>
+	/// Applies a code fix provider's document-scoped Fix All operation.
+	/// </summary>
+	/// <param name="analyzer">The analyzer that produces the diagnostics.</param>
+	/// <param name="codeFix">The code fix provider under test.</param>
+	/// <param name="source">The C# source to analyze and fix.</param>
+	/// <param name="expectedCompilerErrorIds">Compiler error IDs the source is expected to produce, if any.</param>
+	/// <returns>The source text after Fix All, or <see langword="null" /> when no fix was offered.</returns>
+	internal static async Task<string?> ApplyFixAllAsync(
+		DiagnosticAnalyzer analyzer,
+		CodeFixProvider codeFix,
+		[StringSyntax("c#-test")] string source,
+		params string[] expectedCompilerErrorIds)
+	{
+		(AdhocWorkspace workspace, Document document) = CreateDocument(source);
+		using (workspace)
+		{
+			Compilation compilation = await GetCompilationAsync(document);
+			AssertNoUnexpectedCompilerErrors(compilation, expectedCompilerErrorIds);
+
+			AnalyzerDiagnosticProvider diagnosticProvider = new(analyzer);
+			Diagnostic[] diagnostics = [.. await diagnosticProvider.GetDocumentDiagnosticsAsync(document, CancellationToken.None)];
+			if (diagnostics.FirstOrDefault(d => codeFix.FixableDiagnosticIds.Contains(d.Id)) is not { } diagnostic)
+			{
+				return null;
+			}
+
+			List<CodeAction> actions = [];
+			CodeFixContext codeFixContext = new(document, diagnostic, (action, _) => actions.Add(action), CancellationToken.None);
+			await codeFix.RegisterCodeFixesAsync(codeFixContext);
+			if (actions is not [{ EquivalenceKey: { } equivalenceKey }, ..])
+			{
+				return null;
+			}
+
+			FixAllProvider fixAllProvider = codeFix.GetFixAllProvider() ?? throw new InvalidOperationException("The provider does not support Fix All.");
+			FixAllContext fixAllContext = new(
+				document,
+				codeFix,
+				FixAllScope.Document,
+				equivalenceKey,
+				codeFix.FixableDiagnosticIds,
+				diagnosticProvider,
+				CancellationToken.None);
+			CodeAction fixAllAction = await fixAllProvider.GetFixAsync(fixAllContext)
+				?? throw new InvalidOperationException("The Fix All provider returned no action.");
+			ImmutableArray<CodeActionOperation> operations = await fixAllAction.GetOperationsAsync(CancellationToken.None);
+			Solution changed = operations.OfType<ApplyChangesOperation>().Single().ChangedSolution;
+			Document changedDocument = changed.GetDocument(document.Id)!;
+			Document formatted = await Formatter.FormatAsync(changedDocument);
+			return (await formatted.GetTextAsync()).ToString();
+		}
+	}
+
+	private static async Task<ImmutableArray<Diagnostic>> GetDiagnosticsAsync(
+		DiagnosticAnalyzer analyzer,
+		[StringSyntax("c#-test")] string source,
+		string fileName,
+		string[] expectedCompilerErrorIds)
+	{
+		(source, TextSpan? expectedSpan) = RemoveMarkup(source);
+		(_, Document document) = CreateDocument(source, fileName);
+		Compilation compilation = await GetCompilationAsync(document);
+		AssertNoUnexpectedCompilerErrors(compilation, expectedCompilerErrorIds);
+
+		CompilationWithAnalyzers withAnalyzers = compilation.WithAnalyzers([analyzer]);
+
+		ImmutableArray<Diagnostic> diagnostics = await withAnalyzers.GetAnalyzerDiagnosticsAsync(CancellationToken.None);
+		diagnostics = [.. diagnostics.OrderBy(d => d.Location.SourceSpan.Start).ThenBy(d => d.Id, StringComparer.Ordinal)];
+		if (expectedSpan is { } span &&
+			(diagnostics.Length != 1 || diagnostics[0].Location.SourceSpan != span))
+		{
+			throw new InvalidOperationException(
+				$"Expected one diagnostic at {span}, but found: {string.Join(", ", diagnostics.Select(d => $"{d.Id}@{d.Location.SourceSpan}"))}");
+		}
+
+		return diagnostics;
+	}
+
+	private static (AdhocWorkspace Workspace, Document Document) CreateDocument(
+		[StringSyntax("c#-test")] string source,
+		string fileName = "Test.cs")
 	{
 		AdhocWorkspace workspace = new();
 		ProjectId projectId = ProjectId.CreateNewId();
@@ -106,7 +193,7 @@ internal static class AnalyzerHarness
 			.WithParseOptions(new CSharpParseOptions(LanguageVersion.Latest));
 
 		Project project = workspace.AddProject(projectInfo);
-		return (workspace, workspace.AddDocument(project.Id, "Test.cs", SourceText.From(source)));
+		return (workspace, workspace.AddDocument(project.Id, fileName, SourceText.From(source)));
 	}
 
 	private static async Task<Compilation> GetCompilationAsync(Document document)
@@ -128,17 +215,87 @@ internal static class AnalyzerHarness
 	{
 		ImmutableArray<MetadataReference>.Builder builder = ImmutableArray.CreateBuilder<MetadataReference>();
 		HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
-		if (AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") is string trusted)
+		string runtimeDirectory = RuntimeEnvironment.GetRuntimeDirectory();
+		DirectoryInfo? dotnetRoot = Directory.GetParent(runtimeDirectory)?.Parent?.Parent?.Parent;
+		string referenceDirectory = Path.Combine(
+			dotnetRoot?.FullName ?? throw new InvalidOperationException("Could not locate the dotnet installation."),
+			"packs",
+			"Microsoft.NETCore.App.Ref",
+			Path.GetFileName(Path.TrimEndingDirectorySeparator(runtimeDirectory)),
+			"ref",
+			$"net{Environment.Version.Major}.0");
+		if (!Directory.Exists(referenceDirectory))
 		{
-			foreach (string path in trusted.Split(Path.PathSeparator))
-			{
-				if (path.Length > 0 && seen.Add(Path.GetFileNameWithoutExtension(path)) && File.Exists(path))
-				{
-					builder.Add(MetadataReference.CreateFromFile(path));
-				}
-			}
+			throw new DirectoryNotFoundException($"Could not locate reference assemblies at '{referenceDirectory}'.");
 		}
 
+		foreach (string path in Directory.EnumerateFiles(referenceDirectory, "*.dll"))
+		{
+			AddReference(path);
+		}
+
+		AddReference(typeof(ShapeShiftSerializer<,>).Assembly.Location);
+		AddReference(typeof(ShapeShift.Json.JsonSerializer).Assembly.Location);
+		AddReference(typeof(PolyType.IShapeable<>).Assembly.Location);
 		return builder.ToImmutable();
+
+		void AddReference(string path)
+		{
+			if (seen.Add(Path.GetFileNameWithoutExtension(path)))
+			{
+				builder.Add(MetadataReference.CreateFromFile(path));
+			}
+		}
+	}
+
+	private static (string Source, TextSpan? ExpectedSpan) RemoveMarkup([StringSyntax("c#-test")] string source)
+	{
+		int start = source.IndexOf("[|", StringComparison.Ordinal);
+		if (start < 0)
+		{
+			return (source, null);
+		}
+
+		int end = source.IndexOf("|]", start + 2, StringComparison.Ordinal);
+		if (end < 0 || source.IndexOf("[|", start + 2, StringComparison.Ordinal) >= 0)
+		{
+			throw new ArgumentException("Source must contain exactly one complete [|...|] diagnostic span.", nameof(source));
+		}
+
+		string unmarked = source.Remove(end, 2).Remove(start, 2);
+		return (unmarked, new TextSpan(start, end - start - 2));
+	}
+
+	private sealed class AnalyzerDiagnosticProvider(DiagnosticAnalyzer analyzer) : FixAllContext.DiagnosticProvider
+	{
+		/// <inheritdoc/>
+		public override async Task<IEnumerable<Diagnostic>> GetDocumentDiagnosticsAsync(
+			Document document,
+			CancellationToken cancellationToken)
+		{
+			SyntaxTree tree = await document.GetSyntaxTreeAsync(cancellationToken)
+				?? throw new InvalidOperationException("The document has no syntax tree.");
+			return (await this.GetDiagnosticsAsync(document.Project, cancellationToken))
+				.Where(diagnostic => diagnostic.Location.SourceTree == tree);
+		}
+
+		/// <inheritdoc/>
+		public override async Task<IEnumerable<Diagnostic>> GetProjectDiagnosticsAsync(
+			Project project,
+			CancellationToken cancellationToken)
+			=> (await this.GetDiagnosticsAsync(project, cancellationToken)).Where(diagnostic => diagnostic.Location == Location.None);
+
+		/// <inheritdoc/>
+		public override Task<IEnumerable<Diagnostic>> GetAllDiagnosticsAsync(
+			Project project,
+			CancellationToken cancellationToken)
+			=> this.GetDiagnosticsAsync(project, cancellationToken);
+
+		private async Task<IEnumerable<Diagnostic>> GetDiagnosticsAsync(Project project, CancellationToken cancellationToken)
+		{
+			Compilation compilation = await project.GetCompilationAsync(cancellationToken)
+				?? throw new InvalidOperationException("The project has no compilation.");
+			return await compilation.WithAnalyzers([analyzer]).GetAnalyzerDiagnosticsAsync(cancellationToken);
+		}
 	}
 }

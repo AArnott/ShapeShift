@@ -19,14 +19,15 @@ public class ReflectionActivationAnalyzerTests
 			{
 				#pragma warning disable IL2026, IL3050
 				public object Run(JsonSerializer serializer, ConverterTypeCollection types)
-					=> serializer.WithReflectionConverterTypes(types);
+					=> [|serializer.WithReflectionConverterTypes(types)|];
 				#pragma warning restore IL2026, IL3050
 			}
 			""");
 
 		await TestSources.AssertIdsAsync(diagnostics, "SHIFT007");
 		await Assert.That(diagnostics[0].Severity).IsEqualTo(DiagnosticSeverity.Info);
-		await Assert.That(diagnostics[0].GetMessage()).Contains("WithReflectionConverterTypes");
+		await Assert.That(diagnostics[0].GetMessage())
+			.IsEqualTo("'ShapeShiftSerializer.WithReflectionConverterTypes' activates types through reflection; prefer converter instances, converter factories and source-generated shapes in trimmed or NativeAOT applications");
 		await Assert.That(diagnostics[0].Descriptor.HelpLinkUri).IsEqualTo("https://aarnott.github.io/ShapeShift/analyzers/SHIFT007.html");
 	}
 
@@ -84,6 +85,25 @@ public class ReflectionActivationAnalyzerTests
 		await TestSources.AssertIdsAsync(diagnostics);
 	}
 
-	private static Task<ImmutableArray<Diagnostic>> AnalyzeAsync(string body)
+	[Test]
+	public async Task GeneratedReflectionActivation_ReportsNothing()
+	{
+		ImmutableArray<Diagnostic> diagnostics = await AnalyzerHarness.GetGeneratedCodeDiagnosticsAsync(
+			new ReflectionActivationAnalyzer(),
+			TestSources.Source("""
+				public class Caller
+				{
+					#pragma warning disable IL2026, IL3050
+					public object Run(JsonSerializer serializer, ConverterTypeCollection types)
+						=> serializer.WithReflectionConverterTypes(types);
+					#pragma warning restore IL2026, IL3050
+				}
+				"""));
+
+		await TestSources.AssertIdsAsync(diagnostics);
+	}
+
+	private static Task<ImmutableArray<Diagnostic>> AnalyzeAsync(
+		[System.Diagnostics.CodeAnalysis.StringSyntax("c#-test")] string body)
 		=> AnalyzerHarness.GetDiagnosticsAsync(new ReflectionActivationAnalyzer(), TestSources.Source(body));
 }

@@ -34,13 +34,14 @@ public class ContractSupportAnalyzerTests
 				[ShapeShiftExtensionData]
 				public Dictionary<string, ShapeShiftValue> First { get; } = new();
 
-				[ShapeShiftExtensionData]
+				[[|ShapeShiftExtensionData|]]
 				public Dictionary<string, ShapeShiftValue> Second { get; } = new();
 			}
 			""");
 
 		await TestSources.AssertIdsAsync(diagnostics, "SHIFT008");
-		await Assert.That(diagnostics[0].GetMessage()).Contains("more than one extension-data member");
+		await Assert.That(diagnostics[0].GetMessage())
+			.IsEqualTo("'Extensible' declares more than one extension-data member. ShapeShift supports at most one.");
 		await Assert.That(diagnostics[0].Descriptor.HelpLinkUri).IsEqualTo("https://aarnott.github.io/ShapeShift/analyzers/SHIFT008.html");
 	}
 
@@ -139,6 +140,23 @@ public class ContractSupportAnalyzerTests
 		await TestSources.AssertIdsAsync(diagnostics);
 	}
 
-	private static Task<ImmutableArray<Diagnostic>> AnalyzeAsync(string body)
+	[Test]
+	public async Task GeneratedUnsupportedContract_ReportsNothing()
+	{
+		ImmutableArray<Diagnostic> diagnostics = await AnalyzerHarness.GetGeneratedCodeDiagnosticsAsync(
+			new ContractSupportAnalyzer(),
+			TestSources.Source("""
+				public class Extensible
+				{
+					[ShapeShiftExtensionData]
+					public Dictionary<string, string> Extra { get; } = new();
+				}
+				"""));
+
+		await TestSources.AssertIdsAsync(diagnostics);
+	}
+
+	private static Task<ImmutableArray<Diagnostic>> AnalyzeAsync(
+		[System.Diagnostics.CodeAnalysis.StringSyntax("c#-test")] string body)
 		=> AnalyzerHarness.GetDiagnosticsAsync(new ContractSupportAnalyzer(), TestSources.Source(body));
 }

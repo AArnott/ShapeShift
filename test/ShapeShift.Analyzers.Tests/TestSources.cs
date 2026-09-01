@@ -2,6 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.CodeAnalysis;
 
 namespace ShapeShift.Analyzers.Tests;
@@ -18,7 +19,7 @@ internal static class TestSources
 	/// <summary>
 	/// The using directives that every analyzer test source starts with.
 	/// </summary>
-	internal const string Usings = """
+	internal const string Usings = /* lang=c#-test */ """
 		using System;
 		using System.Collections.Generic;
 		using PolyType;
@@ -45,5 +46,13 @@ internal static class TestSources
 	/// </summary>
 	/// <param name="body">The declarations under test.</param>
 	/// <returns>A complete compilation unit.</returns>
-	internal static string Source(string body) => Usings + body;
+	internal static string Source([StringSyntax("c#-test")] string body) => Usings + body;
+
+	/// <summary>
+	/// Normalizes source text line endings for cross-platform exact comparisons.
+	/// </summary>
+	/// <param name="source">The source text.</param>
+	/// <returns>The source text with LF line endings.</returns>
+	internal static string NormalizeLineEndings([StringSyntax("c#-test")] string source)
+		=> source.Replace("\r\n", "\n", StringComparison.Ordinal);
 }

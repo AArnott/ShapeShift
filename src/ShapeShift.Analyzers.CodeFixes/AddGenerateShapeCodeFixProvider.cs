@@ -25,6 +25,7 @@ namespace ShapeShift.Analyzers;
 [Shared]
 public sealed class AddGenerateShapeCodeFixProvider : CodeFixProvider
 {
+	private const string CodeActionEquivalenceKey = nameof(AddGenerateShapeCodeFixProvider);
 	private const string GenerateShapeAttributeName = "PolyType.GenerateShape";
 
 	/// <inheritdoc/>
@@ -67,7 +68,7 @@ public sealed class AddGenerateShapeCodeFixProvider : CodeFixProvider
 				CodeAction.Create(
 					$"Apply [GenerateShape] to '{type.Name}'",
 					cancellationToken => ApplyAsync(solution, targetDocumentId, reference, cancellationToken),
-					equivalenceKey: $"{nameof(AddGenerateShapeCodeFixProvider)}:{declarationId}"),
+					equivalenceKey: CodeActionEquivalenceKey),
 				diagnostic);
 		}
 	}

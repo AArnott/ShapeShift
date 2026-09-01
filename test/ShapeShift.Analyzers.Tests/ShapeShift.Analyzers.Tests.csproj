@@ -24,4 +24,15 @@
     <PackageReference Include="TUnit" />
   </ItemGroup>
 
+  <Target Name="PackShapeShiftForAnalyzerTests" AfterTargets="Build" Condition="'$(DesignTimeBuild)' != 'true'">
+    <PropertyGroup>
+      <AnalyzerPackageTestOutput>$(BaseIntermediateOutputPath)package-under-test\</AnalyzerPackageTestOutput>
+    </PropertyGroup>
+    <MSBuild
+      Projects="..\..\src\ShapeShift\ShapeShift.csproj"
+      Targets="Pack"
+      BuildInParallel="false"
+      Properties="Configuration=$(Configuration);BuildProjectReferences=false;PackageOutputPath=$(AnalyzerPackageTestOutput)" />
+  </Target>
+
 </Project>
