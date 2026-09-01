@@ -151,7 +151,9 @@ internal sealed class ContractVisitor<TEncoder, TDecoder>(ConverterCache<TEncode
 		}
 
 		List<EnumMemberContract> members = new(enumShape.Members.Count);
-		foreach (KeyValuePair<string, TUnderlying> member in enumShape.Members)
+		foreach (KeyValuePair<string, TUnderlying> member in enumShape.Members
+			.OrderBy(member => member.Value)
+			.ThenBy(member => member.Key, StringComparer.Ordinal))
 		{
 			members.Add(new(member.Key, ToNumericValue(member.Value)));
 		}
