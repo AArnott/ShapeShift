@@ -187,6 +187,12 @@ provoke an enormous allocation or overflow a counter.
 See [Targeted and streaming deserialization](features.md#targeted-and-streaming-deserialization)
 for the format-neutral `ShapeShiftPath`, `TrySeek`, fragment deserialization,
 and sequence/document reader APIs, all of which `MsgPackDecoder` supports.
+Prefer `GetPath` with a typed expression --
+`serializer.GetPath((Envelope e) => e.Owner.Name)`. A type that declares
+`[MsgPackArrayContract]` contributes the `[MsgPackKey]` positions of its
+members as vector indices rather than property names, so the same expression
+keeps working when a type moves between map and positional encoding. Build a
+`ShapeShiftPath` by hand for payload-driven locations instead.
 
 Unlike JSON, MessagePack values are self-delimiting by design: a buffer
 containing several concatenated top-level values is already a valid stream

@@ -30,6 +30,26 @@ public sealed class PropertyContract(string name, DataContract type)
 	public string? DeclaredName { get; init; }
 
 	/// <summary>
+	/// Gets the name of the CLR property or field that this entry was derived from.
+	/// </summary>
+	/// <value>
+	/// The CLR member name, or <see langword="null" /> when this entry does not come from a member that
+	/// a caller could name in C# (for example a constructor parameter that has no matching property).
+	/// </value>
+	/// <remarks>
+	/// <para>
+	/// This is the only name on this type that is never influenced by a <c>PropertyShapeAttribute.Name</c>
+	/// alias or by <see cref="ShapeShiftNamingPolicy"/>. It exists so that a CLR member reached through an
+	/// expression such as <c>person =&gt; person.Address.City</c> can be matched to the entry that describes
+	/// it, whose <see cref="Name"/> then supplies the name that actually appears in the payload.
+	/// </para>
+	/// <para>
+	/// Use <see cref="DeclaredName"/> instead when you want the name the shape declares, alias included.
+	/// </para>
+	/// </remarks>
+	public string? MemberName { get; init; }
+
+	/// <summary>
 	/// Gets a value indicating whether the deserializer requires this property to be present in the payload.
 	/// </summary>
 	public bool IsRequired { get; init; }
@@ -84,6 +104,29 @@ public sealed class PropertyContract(string name, DataContract type)
 	/// and members may only be appended after the highest position already in use.
 	/// </remarks>
 	public int? Position { get; init; }
+
+	/// <summary>
+	/// Gets the name of the CLR property or field that a property shape represents, ignoring any
+	/// <c>PropertyShapeAttribute.Name</c> alias.
+	/// </summary>
+	/// <param name="property">The property shape to inspect.</param>
+	/// <returns>
+	/// The CLR member name, or <see langword="null" /> when the shape does not expose the underlying member
+	/// (as is the case for tuple elements synthesized by some shape providers).
+	/// </returns>
+	/// <remarks>
+	/// Format packages that build their own <see cref="ObjectContract"/> should populate
+	/// <see cref="MemberName"/> from this method so that expression-based paths work with their contracts.
+	/// The underlying member is only consulted when an alias is present, because without one the shape's
+	/// own name is already the CLR member name.
+	/// </remarks>
+	public static string? GetMemberName(IPropertyShape property)
+	{
+		Requires.NotNull(property);
+		return property.AttributeProvider.GetCustomAttribute<PropertyShapeAttribute>() is { Name: not null }
+			? property.MemberInfo?.Name
+			: property.Name;
+	}
 
 	/// <inheritdoc/>
 	public override string ToString() => $"{this.Name}: {this.Type}";

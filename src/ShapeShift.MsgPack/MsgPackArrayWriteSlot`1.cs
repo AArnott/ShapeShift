@@ -63,6 +63,9 @@ internal sealed record MsgPackArrayReadSlot<TState>(string Name, ReadArrayElemen
 /// <param name="Type">The shape of the member's type.</param>
 internal sealed record MsgPackArraySlotDescription(int Position, string Name, ITypeShape Type)
 {
+	/// <inheritdoc cref="Schema.PropertyContract.MemberName"/>
+	internal string? MemberName { get; init; }
+
 	/// <inheritdoc cref="Schema.PropertyContract.IsRequired"/>
 	internal bool IsRequired { get; init; }
 

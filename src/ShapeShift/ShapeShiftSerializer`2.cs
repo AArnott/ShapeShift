@@ -1,6 +1,7 @@
 // Copyright (c) Andrew Arnott. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+using System.Linq.Expressions;
 using ShapeShift.Schema;
 
 namespace ShapeShift;
@@ -154,6 +155,80 @@ public abstract record ShapeShiftSerializer<TEncoder, TDecoder> : IShapeShiftSer
 	/// <typeparam name="TProvider">The witness class that provides the shape for <typeparamref name="T"/>.</typeparam>
 	public DataContract GetContract<T, TProvider>()
 		where TProvider : IShapeable<T> => this.GetContract(TProvider.GetTypeShape());
+
+	/// <summary>
+	/// Translates an expression that walks CLR members into the <see cref="ShapeShiftPath"/> that locates
+	/// the same value in a document this serializer reads or writes.
+	/// </summary>
+	/// <typeparam name="TRoot">The type at the root of the document.</typeparam>
+	/// <typeparam name="TValue">The type of the value the expression selects.</typeparam>
+	/// <param name="path">
+	/// An expression whose single parameter is the root of the document, e.g. <c>person =&gt; person.Address.City</c>.
+	/// </param>
+	/// <param name="typeShape">The shape of <typeparamref name="TRoot"/>.</param>
+	/// <returns>The path to the selected value, ready to pass to <see cref="TryDeserializeFragment{T}(ref TDecoder, ShapeShiftPath, ITypeShape{T}, out T, CancellationToken)"/> or the <c>TrySeek</c> decoder extension member.</returns>
+	/// <exception cref="ArgumentException">
+	/// Thrown when a step of <paramref name="path"/> names something that is not part of the serialized
+	/// contract, such as a member the shape ignores or an extension-data member. The message quotes the
+	/// failing step.
+	/// </exception>
+	/// <exception cref="NotSupportedException">
+	/// Thrown when a step of <paramref name="path"/> uses a construct with no path equivalent (a method call,
+	/// a computed index, or a conversion that changes which contract applies), or reaches a value whose
+	/// representation is not described — for example one produced by a custom converter that does not
+	/// override <see cref="ShapeShiftConverter{TEncoder, TDecoder}.GetContract"/>. The message quotes the
+	/// failing step. Also thrown when <see cref="PreserveReferences"/> is enabled, for the reason
+	/// <see cref="GetContract(ITypeShape)"/> documents.
+	/// </exception>
+	/// <remarks>
+	/// <para>
+	/// The path is resolved against this serializer's own contract for <typeparamref name="TRoot"/>, so the
+	/// caller never has to know the serialized names: <see cref="PropertyNamingPolicy"/> and any
+	/// <c>PropertyShapeAttribute.Name</c> alias are applied for them, and a positionally encoded object
+	/// (such as a MessagePack array contract) contributes indexes instead of names.
+	/// </para>
+	/// <para>The expression is only inspected — never compiled — so this is safe for trimming and NativeAOT.</para>
+	/// <para>These expression forms are supported:</para>
+	/// <list type="bullet">
+	/// <item><description>The parameter itself (<c>x =&gt; x</c>), which is <see cref="ShapeShiftPath.Root"/>.</description></item>
+	/// <item><description>Member access, to any depth (<c>x =&gt; x.Address.City</c>), including through the null-forgiving operator.</description></item>
+	/// <item><description>Constant, non-negative indexes into arrays and lists (<c>x =&gt; x.Tags[1]</c>).</description></item>
+	/// <item><description>Constant string keys into string-keyed dictionaries (<c>x =&gt; x.Attributes["hue"]</c>).</description></item>
+	/// <item><description><see cref="Nullable{T}.Value"/>, and boxing or widening reference conversions, both of which are stepped over.</description></item>
+	/// </list>
+	/// <para>
+	/// Anything else — computed indexes, method calls, narrowing or user-defined conversions, and dictionaries
+	/// whose keys are not strings — is rejected rather than guessed at. Build a <see cref="ShapeShiftPath"/>
+	/// directly for those, and for locations that only exist in a particular payload (an index chosen at
+	/// runtime, or a property no .NET type declares).
+	/// </para>
+	/// <para>
+	/// Targeted deserialization keeps taking a <see cref="ShapeShiftPath"/> rather than gaining an expression
+	/// overload of its own on every input type. A fragment API is already generic over the fragment's type and
+	/// its shape provider; adding a root type and root shape provider to each one would multiply the overloads
+	/// on every serializer without expressing anything that
+	/// <c>serializer.TryDeserializeFragment&lt;City, Witness&gt;(json, serializer.GetPath((Person p) =&gt; p.Address.City), out City? city)</c>
+	/// does not already say. Computing the path once and reusing it is also cheaper, since a path is
+	/// immutable and independent of the payload.
+	/// </para>
+	/// </remarks>
+	public ShapeShiftPath GetPath<TRoot, TValue>(Expression<Func<TRoot, TValue>> path, ITypeShape<TRoot> typeShape)
+	{
+		Requires.NotNull(path);
+		Requires.NotNull(typeShape);
+		return ExpressionPathTranslator.Translate(path, this.GetContract(typeShape), nameof(path));
+	}
+
+	/// <inheritdoc cref="GetPath{TRoot, TValue}(Expression{Func{TRoot, TValue}}, ITypeShape{TRoot})"/>
+	public ShapeShiftPath GetPath<TRoot, TValue>(Expression<Func<TRoot, TValue>> path)
+		where TRoot : IShapeable<TRoot> => this.GetPath(path, TRoot.GetTypeShape());
+
+	/// <inheritdoc cref="GetPath{TRoot, TValue}(Expression{Func{TRoot, TValue}}, ITypeShape{TRoot})" path="/*[not(self::typeparam)]"/>
+	/// <typeparam name="TRoot">The type at the root of the document.</typeparam>
+	/// <typeparam name="TValue">The type of the value the expression selects.</typeparam>
+	/// <typeparam name="TProvider">The witness class that provides the shape for <typeparamref name="TRoot"/>.</typeparam>
+	public ShapeShiftPath GetPath<TRoot, TValue, TProvider>(Expression<Func<TRoot, TValue>> path)
+		where TProvider : IShapeable<TRoot> => this.GetPath(path, TProvider.GetTypeShape());
 
 	public void Serialize<T>(ref TEncoder encoder, in T? value, ITypeShape<T> typeShape, CancellationToken cancellationToken = default)
 	{

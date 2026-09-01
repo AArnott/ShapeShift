@@ -104,6 +104,7 @@ internal abstract class MsgPackArrayObjectConverter<T> : ShapeShiftConverter<T, 
 				properties.Add(new PropertyContract(description.Name, context.GetContract(description.Type))
 				{
 					DeclaredName = description.Name,
+					MemberName = description.MemberName,
 					Position = description.Position,
 					IsRequired = description.IsRequired,
 					IsNullable = description.IsNullable,

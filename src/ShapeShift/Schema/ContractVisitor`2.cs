@@ -350,6 +350,7 @@ internal sealed class ContractVisitor<TEncoder, TDecoder>(ConverterCache<TEncode
 		return new(name, this.GetContractForMember(property.PropertyType, property.AttributeProvider))
 		{
 			DeclaredName = property.Name,
+			MemberName = PropertyContract.GetMemberName(property),
 			IsReadable = property.HasGetter,
 			IsWritable = parameterized ? parameter is not null : property.HasSetter,
 			IsRequired = this.IsRequired(parameter),

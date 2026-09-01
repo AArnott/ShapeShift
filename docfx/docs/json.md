@@ -72,6 +72,10 @@ explicitly enabled.
 See [Targeted and streaming deserialization](features.md#targeted-and-streaming-deserialization)
 for the format-neutral `ShapeShiftPath`, `TrySeek`, fragment deserialization,
 and sequence/document reader APIs, all of which `JsonDecoder` supports.
+Prefer `GetPath` with a typed expression --
+`serializer.GetPath((Person p) => p.Address.City)` -- so the JSON property
+names, including any that `PropertyNamingPolicy` rewrote, are produced for you.
+Build a `ShapeShiftPath` by hand for payload-driven locations instead.
 
 `Utf8JsonReader` only supports a single top-level JSON value per instance.
 `JsonDecoder` transparently constructs a fresh reader over the unconsumed

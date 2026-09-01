@@ -54,7 +54,13 @@ payloads would not satisfy.
 declaration alone:
 
 - `Name` is the wire name after the naming policy; `DeclaredName` is the
-  shape-declared name (which honors `PropertyShapeAttribute.Name`).
+  shape-declared name (which honors `PropertyShapeAttribute.Name`);
+  `MemberName` is the CLR property or field name, which neither the naming
+  policy nor an alias ever changes. `MemberName` is what
+  [`GetPath`](features.md#targeted-and-streaming-deserialization) matches a
+  member reached through an expression against; it is `null` for an entry with
+  no corresponding CLR member, such as a constructor parameter that has no
+  matching property.
 - `IsRequired` is `true` only when the deserializer will fault if the property is
   missing, so it accounts for
   `DeserializeDefaultValuesPolicy.AllowMissingValuesForRequiredProperties`.

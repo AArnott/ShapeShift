@@ -86,6 +86,34 @@ public partial class ContractTests : TestBase
 
 		await Assert.That(contract.Properties.Single().Name).IsEqualTo("EXPLICIT");
 		await Assert.That(contract.Properties.Single().DeclaredName).IsEqualTo("EXPLICIT");
+		await Assert.That(contract.Properties.Single().MemberName).IsEqualTo("Value");
+	}
+
+	[Test]
+	public async Task Object_MemberNameIsTheClrName()
+	{
+		JsonSerializer camel = this.serializer with { PropertyNamingPolicy = ShapeShiftNamingPolicy.CamelCase };
+		ObjectContract contract = (ObjectContract)camel.GetContract<Person>();
+
+		await Assert.That(string.Join(",", contract.Properties.Select(p => p.MemberName))).IsEqualTo("Name,Age,Nickname");
+	}
+
+	[Test]
+	public async Task GetMemberName_ReadsThroughAnAlias()
+	{
+		var shape = (PolyType.Abstractions.IObjectTypeShape)TypeShapeOf<Renamed>();
+		PolyType.Abstractions.IPropertyShape property = shape.Properties.Single();
+
+		await Assert.That(property.Name).IsEqualTo("EXPLICIT");
+		await Assert.That(PropertyContract.GetMemberName(property)).IsEqualTo("Value");
+	}
+
+	[Test]
+	public async Task GetMemberName_RejectsNull()
+	{
+		Func<string?> act = () => PropertyContract.GetMemberName(null!);
+
+		await Assert.That(act).Throws<ArgumentNullException>();
 	}
 
 	[Test]
@@ -355,6 +383,9 @@ public partial class ContractTests : TestBase
 
 	private static PrimitiveDataType PrimitiveOf(ObjectContract contract, string name)
 		=> ((PrimitiveContract)Property(contract, name).Type).PrimitiveType;
+
+	private static ITypeShape<T> TypeShapeOf<T>()
+		where T : IShapeable<T> => T.GetTypeShape();
 
 	private ObjectContract Contract<T>()
 		where T : IShapeable<T> => (ObjectContract)this.serializer.GetContract<T>();

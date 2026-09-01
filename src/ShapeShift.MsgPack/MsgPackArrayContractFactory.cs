@@ -3,6 +3,8 @@
 
 #pragma warning disable SA1402 // File may only contain a single type
 
+using ShapeShift.Schema;
+
 namespace ShapeShift.MsgPack;
 
 /// <summary>
@@ -173,6 +175,7 @@ internal sealed class MsgPackArrayContractBuilder(SerializeDefaultValuesPolicy s
 			ShouldWrite = shouldWrite,
 			Description = new MsgPackArraySlotDescription(0, propertyShape.Name, propertyShape.PropertyType)
 			{
+				MemberName = PropertyContract.GetMemberName(propertyShape),
 				IsRequired = required,
 				IsNullable = !rejectNull,
 				IsReadable = getter is not null,

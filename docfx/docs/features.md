@@ -55,9 +55,51 @@ intervening content, and reading a sequence of top-level values (or the
 elements of a nested vector) one at a time.
 
 `ShapeShiftPath` identifies a location within a document as a sequence of
-property names and vector indices, independent of any particular format:
+property names and vector indices, independent of any particular format.
+You rarely have to spell one out: `GetPath` translates an ordinary C#
+expression into the path that locates the same value, using the serializer's
+own contract for the root type — so the caller never needs to know the
+serialized names:
 
 [!code-csharp[TargetedDeserialization](../../samples/cs/TargetedDeserialization.cs#TargetedDeserialization)]
+
+Because the translation goes through the contract, `PropertyNamingPolicy` and
+any `[PropertyShape(Name = "...")]` alias are applied for you, and a
+positionally encoded object (such as a
+[MessagePack array contract](msgpack.md#positional-array-contracts))
+contributes indices instead of names. The expression is only *inspected* —
+never compiled — so this stays trimming-safe and NativeAOT-safe.
+
+These expression forms are supported:
+
+- The parameter itself (`x => x`), which is `ShapeShiftPath.Root`.
+- Member access, to any depth (`x => x.Address.City`), including through the
+  null-forgiving operator.
+- Constant, non-negative indexes into arrays and lists (`x => x.Tags[1]`).
+- Constant string keys into string-keyed dictionaries (`x => x.Attributes["hue"]`).
+- `Nullable<T>.Value`, and boxing or widening reference conversions, all of
+  which are stepped over.
+
+Anything else — computed indexes, method calls, narrowing or user-defined
+conversions, members the shape ignores, extension-data members, dictionaries
+whose keys are not strings, and values produced by a custom converter that
+does not describe its representation — is rejected with an
+`ArgumentException` or `NotSupportedException` that quotes the failing step
+rather than guessing.
+
+Raw paths remain first class, and are the right tool whenever the location is
+payload-driven rather than type-driven: an index chosen at runtime, or a
+property that no .NET type declares:
+
+[!code-csharp[TargetedDeserializationRawPath](../../samples/cs/TargetedDeserialization.cs#TargetedDeserializationRawPath)]
+
+Targeted deserialization keeps taking a `ShapeShiftPath` rather than gaining
+an expression overload of its own on every input type. A fragment API is
+already generic over the fragment's type and its shape provider; adding a root
+type and root shape provider to each one would multiply the overloads on every
+serializer without saying anything that `GetPath` plus the existing API does
+not already say. Computing a path once with `GetPath` and reusing it is also
+cheaper, since a path is immutable and independent of the payload.
 
 `TrySeek` (a `ref`-receiver extension member on `IDecoder`) advances a decoder
 to the value at a path, skipping everything else along the way without

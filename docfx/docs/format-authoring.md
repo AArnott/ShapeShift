@@ -481,6 +481,12 @@ projection and to anyone reading the contract. The returned contract must
 describe exactly what `WriteObject` emits. See
 [Schema and contract inspection](schema.md).
 
+When a converter builds an `ObjectContract` of its own, populate each
+`PropertyContract.MemberName` from `PropertyContract.GetMemberName(propertyShape)`.
+That is the CLR member name an expression-based path is matched against, so a
+contract that omits it silently opts its type out of
+[`GetPath`](features.md#targeted-and-streaming-deserialization).
+
 Reference preservation is the one shared feature a format must opt into
 explicitly, because there is no format-neutral way to say "this is a reference"
 without colliding with data that happens to look the same. A serializer that
