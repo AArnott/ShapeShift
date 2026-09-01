@@ -68,6 +68,24 @@ public partial class CborSerializerTests : TestBase
 		await Assert.That(deserialize).Throws<DecoderException>();
 	}
 
+	[Test]
+	public async Task DateTime_RejectsNonDateTimeTag()
+	{
+		Func<DateTime?> deserialize = () => this.serializer.Deserialize<DateTime, Witness>(new byte[] { 0xc1, 0x63, (byte)'a', (byte)'b', (byte)'c' });
+
+		await Assert.That(deserialize).Throws<DecoderException>();
+	}
+
+	[Test]
+	public async Task DynamicBigInteger_RoundTrips()
+	{
+		ShapeShiftValue value = new ShapeShiftBigInteger(BigInteger.Parse("123456789012345678901234567890"));
+
+		ShapeShiftValue? actual = this.serializer.Deserialize<ShapeShiftValue>(this.serializer.Serialize(value));
+
+		await Assert.That(actual).IsEqualTo(value);
+	}
+
 	[GenerateShape]
 	internal partial record Person(string Name, List<int> Values);
 
@@ -82,5 +100,6 @@ public partial class CborSerializerTests : TestBase
 
 	[GenerateShapeFor<int>]
 	[GenerateShapeFor<byte[]>]
+	[GenerateShapeFor<DateTime>]
 	private partial class Witness;
 }

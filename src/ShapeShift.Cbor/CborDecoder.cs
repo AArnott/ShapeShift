@@ -448,7 +448,11 @@ public ref struct CborDecoder : IDecoder
 		string text;
 		try
 		{
-			_ = this.reader.ReadTag();
+			if (this.reader.ReadTag() != CborTag.DateTimeString)
+			{
+				throw new DecoderException("The CBOR tag is not a date/time string.");
+			}
+
 			text = this.reader.ReadTextString();
 			this.CompleteValue();
 		}
@@ -537,15 +541,19 @@ public ref struct CborDecoder : IDecoder
 	}
 
 	/// <inheritdoc/>
-	public ShapeShiftNumber ReadDynamicNumber() => this.GetNextCborReaderState() switch
+	public ShapeShiftNumber ReadDynamicNumber()
 	{
-		CborReaderState.UnsignedInteger => new ShapeShiftUnsignedInteger(this.ReadUInt64()),
-		CborReaderState.NegativeInteger => new ShapeShiftInteger(this.ReadInt64()),
-		CborReaderState.HalfPrecisionFloat => new ShapeShiftFloat((double)this.ReadHalf()),
-		CborReaderState.SinglePrecisionFloat => new ShapeShiftFloat(this.ReadSingle()),
-		CborReaderState.DoublePrecisionFloat => new ShapeShiftFloat(this.ReadDouble()),
-		_ => new ShapeShiftDecimal(this.ReadDecimal()),
-	};
+		return this.GetNextCborReaderState() switch
+		{
+			CborReaderState.UnsignedInteger => new ShapeShiftUnsignedInteger(this.ReadUInt64()),
+			CborReaderState.NegativeInteger => new ShapeShiftInteger(this.ReadInt64()),
+			CborReaderState.HalfPrecisionFloat => new ShapeShiftFloat((double)this.ReadHalf()),
+			CborReaderState.SinglePrecisionFloat => new ShapeShiftFloat(this.ReadSingle()),
+			CborReaderState.DoublePrecisionFloat => new ShapeShiftFloat(this.ReadDouble()),
+			CborReaderState.Tag => this.ReadTaggedDynamicNumber(),
+			_ => new ShapeShiftDecimal(this.ReadDecimal()),
+		};
+	}
 
 	/// <summary>
 	/// Ensures no trailing CBOR data remains.
@@ -573,6 +581,30 @@ public ref struct CborDecoder : IDecoder
 		{
 			throw this.TokenMismatch(ex);
 		}
+	}
+
+	private ShapeShiftNumber ReadTaggedDynamicNumber()
+	{
+		CborTag tag;
+		try
+		{
+			tag = this.reader.PeekTag();
+		}
+		catch (CborContentException ex)
+		{
+			throw this.MalformedInput(ex);
+		}
+		catch (InvalidOperationException ex)
+		{
+			throw this.TokenMismatch(ex);
+		}
+
+		return tag switch
+		{
+			CborTag.UnsignedBigNum or CborTag.NegativeBigNum => new ShapeShiftBigInteger(this.ReadBigInteger()),
+			CborTag.DecimalFraction => new ShapeShiftDecimal(this.ReadDecimal()),
+			_ => throw new DecoderException($"CBOR tag {tag} is not a number ShapeShift can represent dynamically."),
+		};
 	}
 
 	private DecoderException MalformedInput(CborContentException exception) => new("The CBOR input is malformed.", exception);
