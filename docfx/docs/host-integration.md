@@ -82,7 +82,7 @@ decisions that are core policy, not host policy:
   reflection (and thereby to an opt-in that must not be reachable by default);
 - whether the facade is `object`-typed all the way through, and what that costs
   on a per-request hot path;
-- how [SHIFT004](analyzers/SHIFT004.md) and the other analyzers report a model
+- how [SHIFT004](../analyzers/SHIFT004.md) and the other analyzers report a model
   type whose shape was never generated, when the model type is discovered at
   runtime.
 

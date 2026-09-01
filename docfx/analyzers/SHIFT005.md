@@ -66,5 +66,5 @@ members can round-trip.
 
 ## See also
 
-- [Diagnostics](../diagnostics.md)
+- [Diagnostics](../docs/diagnostics.md)
 - [SHIFT006](SHIFT006.md)

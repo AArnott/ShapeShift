@@ -45,8 +45,8 @@ Enum values are written by name by default and honor their own aliases. Set
 [!code-csharp[ChangingEnumNames](../../samples/cs/CoreCustomization.cs#ChangingEnumNames)]
 
 The analyzers report a name that two members would share, either directly
-([SHIFT005](analyzers/SHIFT005.md)) or after a naming policy is applied
-([SHIFT006](analyzers/SHIFT006.md)).
+([SHIFT005](../analyzers/SHIFT005.md)) or after a naming policy is applied
+([SHIFT006](../analyzers/SHIFT006.md)).
 
 ## Default-value omission
 
@@ -128,9 +128,9 @@ substituted for it, so format-provided converters survive:
 A converter may also be attached to a type, property, or parameter with
 `ShapeShiftConverterAttribute`, which PolyType resolves as an associated type
 rather than by reflection. The analyzers verify that the attributed type really
-is a converter ([SHIFT001](analyzers/SHIFT001.md)), that it can be constructed
-([SHIFT002](analyzers/SHIFT002.md)), and that it converts the type it is applied
-to ([SHIFT003](analyzers/SHIFT003.md)).
+is a converter ([SHIFT001](../analyzers/SHIFT001.md)), that it can be constructed
+([SHIFT002](../analyzers/SHIFT002.md)), and that it converts the type it is applied
+to ([SHIFT003](../analyzers/SHIFT003.md)).
 
 ## Converter factories
 
@@ -178,7 +178,7 @@ that two unrelated components cannot collide on the same string.
 `WithReflectionConverterTypes` accepts converter `Type` objects and activates
 them at runtime. It is annotated with `RequiresDynamicCode` and
 `RequiresUnreferencedCode` and reported by
-[SHIFT007](analyzers/SHIFT007.md), because a constructor reached only through a
+[SHIFT007](../analyzers/SHIFT007.md), because a constructor reached only through a
 `Type` can be trimmed away. An application that never calls it is unaffected:
 converter instances, factories, and generated shapes remain the default path.
 

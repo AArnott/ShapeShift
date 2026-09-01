@@ -79,5 +79,5 @@ dotnet_diagnostic.SHIFT006.severity = warning
 
 ## See also
 
-- [Diagnostics](../diagnostics.md)
+- [Diagnostics](../docs/diagnostics.md)
 - [SHIFT005](SHIFT005.md)

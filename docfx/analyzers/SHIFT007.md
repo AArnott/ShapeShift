@@ -62,5 +62,5 @@ dotnet_diagnostic.SHIFT007.severity = none
 
 ## See also
 
-- [Diagnostics](../diagnostics.md)
+- [Diagnostics](../docs/diagnostics.md)
 - [SHIFT004](SHIFT004.md)

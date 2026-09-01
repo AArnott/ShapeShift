@@ -64,5 +64,5 @@ violation remains.
 
 ## See also
 
-- [Diagnostics](../diagnostics.md)
-- [Features](../features.md)
+- [Diagnostics](../docs/diagnostics.md)
+- [Features](../docs/features.md)

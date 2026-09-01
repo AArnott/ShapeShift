@@ -57,6 +57,6 @@ the violation remains.
 
 ## See also
 
-- [Diagnostics](../diagnostics.md)
+- [Diagnostics](../docs/diagnostics.md)
 - [SHIFT002](SHIFT002.md)
 - [SHIFT003](SHIFT003.md)

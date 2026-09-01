@@ -77,5 +77,5 @@ violation remains.
 
 ## See also
 
-- [Diagnostics](../diagnostics.md)
+- [Diagnostics](../docs/diagnostics.md)
 - [SHIFT007](SHIFT007.md)

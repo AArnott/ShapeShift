@@ -1,4 +1,5 @@
-items:
+- name: Overview
+  href: index.md
 - name: SHIFT001 Converter type is not a ShapeShift converter
   href: SHIFT001.md
 - name: SHIFT002 Converter type cannot be activated

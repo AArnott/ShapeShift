@@ -19,5 +19,3 @@ items:
   href: host-integration.md
 - name: Diagnostics
   href: diagnostics.md
-- name: Diagnostic IDs
-  href: analyzers/toc.yml
