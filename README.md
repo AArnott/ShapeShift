@@ -5,7 +5,7 @@
 [![ShapeShift NuGet package](https://img.shields.io/nuget/v/ShapeShift.svg?label=ShapeShift)](https://www.nuget.org/packages/ShapeShift)<br />
 [![ShapeShift.Json NuGet package](https://img.shields.io/nuget/v/ShapeShift.Json.svg?label=ShapeShift.Json)](https://www.nuget.org/packages/ShapeShift.Json)<br />
 [![ShapeShift.MsgPack NuGet package](https://img.shields.io/nuget/v/ShapeShift.MsgPack.svg?label=ShapeShift.MsgPack)](https://www.nuget.org/packages/ShapeShift.MsgPack)<br />
-![ShapeShift.Cbor NuGet package](https://img.shields.io/nuget/v/ShapeShift.Cbor.svg?label=ShapeShift.Cbor)<br />
+[![ShapeShift.Cbor NuGet package](https://img.shields.io/nuget/v/ShapeShift.Cbor.svg?label=ShapeShift.Cbor)](https://www.nuget.org/packages/ShapeShift.Cbor)<br />
 [![ShapeShift.Yaml NuGet package](https://img.shields.io/nuget/v/ShapeShift.Yaml.svg?label=ShapeShift.Yaml)](https://www.nuget.org/packages/ShapeShift.Yaml)<br />
 [![ShapeShift.Taml NuGet package](https://img.shields.io/nuget/v/ShapeShift.Taml.svg?label=ShapeShift.Taml)](https://www.nuget.org/packages/ShapeShift.Taml)<br />
 
