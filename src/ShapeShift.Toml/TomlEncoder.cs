@@ -45,7 +45,7 @@ public ref struct TomlEncoder : IEncoder
 		{
 			this.RenderTable((MapNode)this.root!, []);
 		}
-		}
+	}
 
 	/// <inheritdoc/>
 	public void WriteStartVector(int? itemCount)
@@ -73,6 +73,9 @@ public ref struct TomlEncoder : IEncoder
 
 		this.pendingPropertyName = name.ToString();
 	}
+
+	/// <inheritdoc/>
+	public void WritePropertyName(scoped ReadOnlySpan<char> name, object? preparedName) => this.WritePropertyName(name);
 
 	/// <inheritdoc/>
 	public void WriteNull()
@@ -243,7 +246,7 @@ public ref struct TomlEncoder : IEncoder
 				this.writer.Write(" = ");
 				this.WriteInlineValue(value);
 			}
-			}
+		}
 	}
 
 	private void WriteHeader(List<string> path, bool tableArray)
