@@ -67,6 +67,9 @@ public ref struct TamlEncoder(TextWriter writer) : IEncoder
 		this.firstItemInContainer = false;
 	}
 
+	/// <inheritdoc/>
+	public void WritePropertyName(scoped ReadOnlySpan<char> name, object? preparedName) => this.WritePropertyName(name);
+
 	public void WriteNull()
 	{
 		this.WriteScalar("~".AsSpan());

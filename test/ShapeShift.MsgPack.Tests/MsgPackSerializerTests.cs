@@ -34,6 +34,18 @@ public partial class MsgPackSerializerTests : TestBase
 	}
 
 	[Test]
+	public async Task PreparedPropertyNames_RoundTripUnicode()
+	{
+		MsgPackSerializer serializer = this.serializer with { PropertyNamingPolicy = new PrefixNamingPolicy("<\u00E9\u2028\u2029>") };
+		Person value = new("Ada", [1, 2, 3]);
+
+		Person? actual = serializer.Deserialize<Person>(serializer.Serialize(value));
+
+		await Assert.That(actual?.Name).IsEqualTo(value.Name);
+		await Assert.That(actual?.Values.SequenceEqual(value.Values)).IsTrue();
+	}
+
+	[Test]
 	public async Task ExtendedNumbersAndTime_RoundTrip()
 	{
 		Scalars value = new(
@@ -162,6 +174,13 @@ public partial class MsgPackSerializerTests : TestBase
 	[GenerateShapeFor<string>]
 	[GenerateShapeFor<byte[]>]
 	private partial class Witness;
+
+	private sealed class PrefixNamingPolicy(string prefix) : ShapeShiftNamingPolicy
+	{
+		private readonly string prefix = prefix;
+
+		public override string ConvertName(string name) => this.prefix + name;
+	}
 
 	private sealed class Segment : ReadOnlySequenceSegment<byte>
 	{

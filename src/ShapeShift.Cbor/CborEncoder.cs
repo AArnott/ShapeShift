@@ -33,6 +33,9 @@ public ref struct CborEncoder(CborWriter writer) : IEncoder
 	public void WritePropertyName(scoped ReadOnlySpan<char> name) => writer.WriteTextString(name);
 
 	/// <inheritdoc/>
+	public void WritePropertyName(scoped ReadOnlySpan<char> name, object? preparedName) => this.WritePropertyName(name);
+
+	/// <inheritdoc/>
 	public void WriteNull() => writer.WriteNull();
 
 	/// <inheritdoc/>

@@ -69,7 +69,7 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 		ObjectConverter<TDeclaringType, TEncoder, TDecoder> converter;
 		if (constructorShape.Parameters is [])
 		{
-			Dictionary<string, ReadProperty<TDeclaringType, TEncoder, TDecoder>> propertyReaders = new(objectShape.Properties.Count);
+			Dictionary<string, ObjectPropertyReader<TDeclaringType, TEncoder, TDecoder>> propertyReaders = new(objectShape.Properties.Count, StringComparer.Ordinal);
 			Dictionary<string, ObjectPropertyWriter<TDeclaringType, TEncoder, TDecoder>> propertyWriters = new(objectShape.Properties.Count);
 			ExtensionDataProperty<TDeclaringType, TEncoder, TDecoder>? extensionData = null;
 			foreach (var property in objectShape.Properties)
@@ -89,25 +89,27 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 				var converters = (PropertyConverter<TDeclaringType, TEncoder, TDecoder>)property.Accept(this)!;
 				if (converters.Read is not null)
 				{
-					propertyReaders.Add(name, converters.Read);
+					propertyReaders.Add(name, new(converters.Read, propertyReaders.Count));
 				}
 
 				if (converters.Write is not null)
 				{
-					propertyWriters.Add(name, new(converters.Write, converters.ShouldWrite));
+					propertyWriters.Add(name, new(converters.Write, converters.ShouldWrite, TEncoder.PreparePropertyName(name)));
 				}
 			}
 
 			converter = new ObjectConverterWithDefaultCtor<TDeclaringType, TEncoder, TDecoder>(constructorShape.GetDefaultConstructor())
 			{
 				PropertyReaders = propertyReaders,
-				PropertyWriters = propertyWriters,
+				PropertyWriters = [.. propertyWriters],
+				HasConditionalProperties = ContainsConditionalProperty(propertyWriters),
+				DeclaredPropertyNames = extensionData is null ? null : new(propertyWriters.Keys, StringComparer.Ordinal),
 				ExtensionData = extensionData,
 			};
 		}
 		else
 		{
-			Dictionary<string, ReadProperty<TArgumentState, TEncoder, TDecoder>> propertyReaders = new(constructorShape.Parameters.Count);
+			Dictionary<string, ObjectPropertyReader<TArgumentState, TEncoder, TDecoder>> propertyReaders = new(constructorShape.Parameters.Count, StringComparer.Ordinal);
 			Dictionary<string, ObjectPropertyWriter<TDeclaringType, TEncoder, TDecoder>> propertyWriters = new(objectShape.Properties.Count);
 			Dictionary<string, IParameterShape> parametersByName = constructorShape.Parameters.ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
 			foreach (var property in objectShape.Properties)
@@ -122,7 +124,7 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 				var converters = (PropertyConverter<TDeclaringType, TEncoder, TDecoder>)property.Accept(this, matchingParameter)!;
 				if (converters.Write is not null)
 				{
-					propertyWriters.Add(name, new(converters.Write, converters.ShouldWrite));
+					propertyWriters.Add(name, new(converters.Write, converters.ShouldWrite, TEncoder.PreparePropertyName(name)));
 				}
 			}
 
@@ -130,13 +132,14 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 			{
 				string name = this.owner.GetSerializedPropertyName(parameter.Name, parameter.AttributeProvider);
 				var propertyReader = (ReadProperty<TArgumentState, TEncoder, TDecoder>)parameter.Accept(this, parameter)!;
-				propertyReaders.Add(name, propertyReader);
+				propertyReaders.Add(name, new(propertyReader, propertyReaders.Count));
 			}
 
 			converter = new ObjectConverterWithNonDefaultCtor<TDeclaringType, TArgumentState, TEncoder, TDecoder>(constructorShape.GetArgumentStateConstructor(), constructorShape.GetParameterizedConstructor())
 			{
 				PropertyReaders = propertyReaders,
-				PropertyWriters = propertyWriters,
+				PropertyWriters = [.. propertyWriters],
+				HasConditionalProperties = ContainsConditionalProperty(propertyWriters),
 				Parameters = constructorShape.Parameters,
 				DefaultValuesPolicy = this.owner.DeserializeDefaultValues,
 			};
@@ -395,6 +398,19 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 		}
 
 		return (ConverterResult<TEncoder, TDecoder>)this.context.GetOrAdd(shape, state)!;
+	}
+
+	private static bool ContainsConditionalProperty<TDeclaringType>(Dictionary<string, ObjectPropertyWriter<TDeclaringType, TEncoder, TDecoder>> propertyWriters)
+	{
+		foreach (ObjectPropertyWriter<TDeclaringType, TEncoder, TDecoder> property in propertyWriters.Values)
+		{
+			if (property.ShouldWrite is not null)
+			{
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	private ExtensionDataProperty<TDeclaringType, TEncoder, TDecoder> CreateExtensionDataProperty<TDeclaringType, TPropertyType>(
