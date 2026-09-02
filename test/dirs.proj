@@ -7,6 +7,7 @@
     <MultiRIDProjectReference Include="ShapeShift.Cbor.Tests\ShapeShift.Cbor.Tests.csproj" TargetFramework="net10.0" />
     <MultiRIDProjectReference Include="ShapeShift.Yaml.Tests\ShapeShift.Yaml.Tests.csproj" TargetFramework="net10.0" />
     <MultiRIDProjectReference Include="ShapeShift.Taml.Tests\ShapeShift.Taml.Tests.csproj" TargetFramework="net10.0" />
+    <MultiRIDProjectReference Include="ShapeShift.Toml.Tests\ShapeShift.Toml.Tests.csproj" TargetFramework="net10.0" />
     <MultiRIDProjectReference Include="Samples.Tests\Samples.Tests.csproj" TargetFramework="net10.0" />
     <MultiRIDProjectReference Include="Ubjson.Sample.Tests\Ubjson.Sample.Tests.csproj" TargetFramework="net10.0" />
   </ItemGroup>
