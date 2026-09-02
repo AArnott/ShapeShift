@@ -60,15 +60,19 @@ public class TomlConformanceTests
 		/// <inheritdoc/>
 		public override FormatConformanceOptions Options { get; } = new()
 		{
+			// TOML has no null family.
+			SupportsNull = false,
+
 			// TOML has no binary family.
 			SupportsBinary = false,
 
 			// TOML requires a table at the root, so bare scalars and vectors need wrapping.
 			SupportsRootScalars = false,
 			SupportsRootVectors = false,
+			AllowsEmptyDocument = true,
 
-			// TOML arrays can hold mixed types when they contain tables, but not primitive types.
-			SupportsHeterogeneousVectors = false,
+			// TOML 1.0 arrays may contain mixed element types.
+			SupportsHeterogeneousVectors = true,
 
 			// Empty tables and arrays are fully supported in TOML.
 			SupportsEmptyMaps = true,
@@ -83,19 +87,19 @@ public class TomlConformanceTests
 			// TOML distinguishes strings from numbers and booleans by quoting.
 			PreservesAmbiguousStrings = true,
 
-			// TOML supports unsigned integers, Int128, UInt128, BigInteger, decimal, and Half.
-			SupportsUnsignedIntegers = true,
-			SupportsInt128 = true,
-			SupportsBigInteger = true,
-			SupportsDecimal = true,
+			// TOML integers are signed 64-bit values, and TOML floats are binary64.
+			SupportsUnsignedIntegers = false,
+			SupportsInt128 = false,
+			SupportsBigInteger = false,
+			SupportsDecimal = false,
 			SupportsHalf = true,
 
 			// TOML supports NaN and Infinity.
 			SupportsNonFiniteFloats = true,
 
-			// TOML supports date/time and duration types.
+			// TOML supports date/time values but has no duration type.
 			SupportsDateTime = true,
-			SupportsTimeSpan = true,
+			SupportsTimeSpan = false,
 
 			// TOML does not declare container sizes.
 			ReportsContainerCounts = false,
@@ -119,8 +123,8 @@ public class TomlConformanceTests
 			// TOML has no native reference preservation mechanism.
 			SupportsReferencePreservation = false,
 
-			// TOML can represent dynamic values through its typed scalars.
-			SupportsDynamicValues = true,
+			// ShapeShiftValue includes null, which TOML cannot represent.
+			SupportsDynamicValues = false,
 
 			// TOML supports surrogate pairs via UTF-8 encoding.
 			SupportsSurrogatePairs = true,

@@ -107,7 +107,7 @@ internal sealed class SkipSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder
 				encoder.WritePropertyName("b");
 				encoder.WriteValue("two");
 				encoder.WritePropertyName("c");
-				encoder.WriteNull();
+				encoder.WriteValue(false);
 				encoder.WriteEndMap();
 			});
 

@@ -80,7 +80,7 @@ internal sealed class PathSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder
 			ConformanceAssert.False(found, "Seeking past the end of a vector should report failure rather than throw.");
 		});
 
-		collector.Add("SeekThroughNullReportsFailure", skipReason, adapter =>
+		collector.Add("SeekThroughNullReportsFailure", collector.Options.SupportsNull ? skipReason : "The format has no null representation.", adapter =>
 		{
 			ShapeShiftSerializer<TEncoder, TDecoder> serializer = adapter.CreateSerializer();
 			byte[] payload = EncodeDocument(adapter);

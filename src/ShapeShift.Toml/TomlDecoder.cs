@@ -3,33 +3,33 @@
 
 using System.Globalization;
 using System.Numerics;
-using System.Text;
+using Tomlyn.Syntax;
 
 namespace ShapeShift.Toml;
 
 /// <summary>
-/// A ShapeShift-compatible TOML decoder.
+/// A ShapeShift-compatible TOML 1.0 decoder.
 /// </summary>
-/// <param name="reader">The underlying text reader from which to get the TOML.</param>
-public ref struct TomlDecoder(TextReader reader) : IDecoder
+public ref struct TomlDecoder : IDecoder
 {
-	private readonly Token[] tokens = Parser.Parse(reader.ReadToEnd());
+	private readonly Token[] tokens;
 	private int position;
+
+	/// <summary>
+	/// Initializes a new instance of the <see cref="TomlDecoder"/> struct.
+	/// </summary>
+	/// <param name="reader">The underlying text reader from which to get the TOML.</param>
+	public TomlDecoder(TextReader reader)
+	{
+		ArgumentNullException.ThrowIfNull(reader);
+		this.tokens = Parse(reader.ReadToEnd());
+	}
 
 	/// <inheritdoc/>
 	public TokenType NextTokenType => this.position < this.tokens.Length ? this.tokens[this.position].Type : TokenType.EndDocument;
 
 	/// <inheritdoc/>
-	public bool TryReadNull()
-	{
-		if (this.NextTokenType != TokenType.Null)
-		{
-			return false;
-		}
-
-		this.position++;
-		return true;
-	}
+	public bool TryReadNull() => false;
 
 	/// <inheritdoc/>
 	public int? ReadStartMap()
@@ -52,7 +52,7 @@ public ref struct TomlDecoder(TextReader reader) : IDecoder
 	public void ReadEndVector() => this.ReadToken(TokenType.EndVector);
 
 	/// <inheritdoc/>
-	public ReadOnlySpan<char> ReadPropertyName() => this.ReadToken(TokenType.PropertyName);
+	public ReadOnlySpan<char> ReadPropertyName() => this.ReadToken(TokenType.PropertyName).Text;
 
 	/// <inheritdoc/>
 	public void Skip()
@@ -89,122 +89,112 @@ public ref struct TomlDecoder(TextReader reader) : IDecoder
 	}
 
 	/// <inheritdoc/>
-	public void ReadNull() => this.ReadToken(TokenType.Null);
+	public void ReadNull() => throw new DecoderException("TOML has no null value.");
 
 	/// <inheritdoc/>
-	public bool ReadBoolean()
-	{
-		ReadOnlySpan<char> value = this.ReadToken(TokenType.Boolean);
-		return value.SequenceEqual("true") ? true : value.SequenceEqual("false") ? false : throw new DecoderException("Invalid TOML Boolean.");
-	}
+	public bool ReadBoolean() => this.ReadToken(TokenType.Boolean).Value is true;
 
 	/// <inheritdoc/>
-	public long ReadInt64() => this.ParseInteger<long>(long.TryParse, "Int64");
+	public long ReadInt64() => this.ReadInteger<long>(long.TryParse, "Int64");
 
 	/// <inheritdoc/>
-	public ulong ReadUInt64() => this.ParseInteger<ulong>(ulong.TryParse, "UInt64");
+	public ulong ReadUInt64() => this.ReadInteger<ulong>(ulong.TryParse, "UInt64");
 
 	/// <inheritdoc/>
-	public Int128 ReadInt128() => this.ParseInteger<Int128>(Int128.TryParse, "Int128");
+	public Int128 ReadInt128() => this.ReadInteger<Int128>(Int128.TryParse, "Int128");
 
 	/// <inheritdoc/>
-	public UInt128 ReadUInt128() => this.ParseInteger<UInt128>(UInt128.TryParse, "UInt128");
+	public UInt128 ReadUInt128() => this.ReadInteger<UInt128>(UInt128.TryParse, "UInt128");
 
 	/// <inheritdoc/>
-	public BigInteger ReadBigInteger() => this.ParseInteger<BigInteger>(BigInteger.TryParse, "BigInteger");
+	public BigInteger ReadBigInteger() => this.ReadInteger<BigInteger>(BigInteger.TryParse, "BigInteger");
 
 	/// <inheritdoc/>
-	public Half ReadHalf()
-	{
-		string value = NormalizeFloatingPoint(this.ReadToken(TokenType.Number));
-		return Half.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out Half result) ? result : throw InvalidNumber("Half", value);
-	}
+	public Half ReadHalf() => this.ReadFloatingPoint<Half>(Half.TryParse, "Half");
 
 	/// <inheritdoc/>
-	public float ReadSingle()
-	{
-		string value = NormalizeFloatingPoint(this.ReadToken(TokenType.Number));
-		return float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out float result) ? result : throw InvalidNumber("Single", value);
-	}
+	public float ReadSingle() => this.ReadFloatingPoint<float>(float.TryParse, "Single");
 
 	/// <inheritdoc/>
-	public double ReadDouble()
-	{
-		string value = NormalizeFloatingPoint(this.ReadToken(TokenType.Number));
-		return double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double result) ? result : throw InvalidNumber("Double", value);
-	}
+	public double ReadDouble() => this.ReadFloatingPoint<double>(double.TryParse, "Double");
 
 	/// <inheritdoc/>
-	public decimal ReadDecimal()
-	{
-		string value = this.ReadToken(TokenType.Number).ToString();
-		return decimal.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out decimal result) ? result : throw InvalidNumber("Decimal", value);
-	}
+	public decimal ReadDecimal() => this.ReadFloatingPoint<decimal>(decimal.TryParse, "Decimal");
 
 	/// <inheritdoc/>
 	public DateTime ReadDateTime()
 	{
-		ReadOnlySpan<char> value = this.ReadToken(TokenType.String);
-		return DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out DateTime result)
-			? result
-			: throw new DecoderException($"Invalid TOML date/time: {value.ToString()}.");
+		Token token = this.ReadToken(TokenType.String);
+		if (token.Value is Tomlyn.TomlDateTime tomlDateTime)
+		{
+			return tomlDateTime.Kind is Tomlyn.TomlDateTimeKind.OffsetDateTimeByZ or Tomlyn.TomlDateTimeKind.OffsetDateTimeByNumber
+				? tomlDateTime.DateTime.UtcDateTime
+				: tomlDateTime.DateTime.DateTime;
+		}
+
+		throw new DecoderException("Expected a TOML date/time value.");
 	}
 
 	/// <inheritdoc/>
-	public TimeSpan ReadTimeSpan()
+	public TimeSpan ReadTimeSpan() => throw new NotSupportedException("TOML has no duration value.");
+
+	/// <inheritdoc/>
+	public string ReadString()
 	{
-		ReadOnlySpan<char> value = this.ReadToken(TokenType.String);
-		return TimeSpan.TryParse(value, CultureInfo.InvariantCulture, out TimeSpan result)
-			? result
-			: throw new DecoderException($"Invalid TOML duration: {value.ToString()}.");
+		Token token = this.ReadToken(TokenType.String);
+		return token.Value is string value ? value : throw new DecoderException("Expected a TOML string value.");
 	}
 
 	/// <inheritdoc/>
-	public string ReadString() => this.ReadToken(TokenType.String).ToString();
+	public ReadOnlySpan<char> ReadCharSpan()
+	{
+		Token token = this.ReadToken(TokenType.String);
+		return token.Value is string value ? value.AsSpan() : throw new DecoderException("Expected a TOML string value.");
+	}
 
 	/// <inheritdoc/>
-	public ReadOnlySpan<char> ReadCharSpan() => this.ReadToken(TokenType.String);
-
-	/// <inheritdoc/>
-	public byte[] ReadByteArray() => throw new NotSupportedException("TOML binary values are not supported.");
+	public byte[] ReadByteArray() => throw new NotSupportedException("TOML has no binary value.");
 
 	/// <inheritdoc/>
 	public ShapeShiftNumber ReadDynamicNumber()
 	{
-		ReadOnlySpan<char> value = this.ReadToken(TokenType.Number);
-		if (value.IndexOfAny('.', 'e', 'E') < 0 && BigInteger.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out BigInteger integer))
+		Token token = this.ReadToken(TokenType.Number);
+		return token.Value switch
 		{
-			if (integer >= long.MinValue && integer <= long.MaxValue)
-			{
-				return new ShapeShiftInteger((long)integer);
-			}
-
-			return new ShapeShiftBigInteger(integer);
-		}
-
-		if (decimal.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out decimal decimalValue))
-		{
-			return new ShapeShiftDecimal(decimalValue);
-		}
-
-		string normalized = NormalizeFloatingPoint(value);
-		if (double.TryParse(normalized, NumberStyles.Float, CultureInfo.InvariantCulture, out double doubleValue))
-		{
-			return new ShapeShiftFloat(doubleValue);
-		}
-
-		throw InvalidNumber("dynamic number", value.ToString());
+			long value => new ShapeShiftInteger(value),
+			double value => new ShapeShiftFloat(value),
+			_ => throw new DecoderException("Unsupported TOML number representation."),
+		};
 	}
 
-	private delegate bool IntegerParser<T>(ReadOnlySpan<char> value, NumberStyles style, IFormatProvider? provider, out T result);
+#pragma warning disable SA1201
+	private delegate bool NumberParser<T>(ReadOnlySpan<char> value, NumberStyles style, IFormatProvider? provider, out T result);
+#pragma warning restore SA1201
 
-	private T ParseInteger<T>(IntegerParser<T> parser, string typeName)
+	private T ReadInteger<T>(NumberParser<T> parser, string typeName)
 	{
-		ReadOnlySpan<char> value = this.ReadToken(TokenType.Number);
-		return parser(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out T result) ? result : throw InvalidNumber(typeName, value.ToString());
+		Token token = this.ReadToken(TokenType.Number);
+		return parser(token.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out T result)
+			? result
+			: throw new DecoderException($"The TOML number is not a valid {typeName} value.");
 	}
 
-	private ReadOnlySpan<char> ReadToken(TokenType expectedType)
+	private T ReadFloatingPoint<T>(NumberParser<T> parser, string typeName)
+	{
+		Token token = this.ReadToken(TokenType.Number);
+		string text = token.Value switch
+		{
+			double value when double.IsPositiveInfinity(value) => "Infinity",
+			double value when double.IsNegativeInfinity(value) => "-Infinity",
+			double value when double.IsNaN(value) => "NaN",
+			_ => token.Text,
+		};
+		return parser(text, NumberStyles.Float, CultureInfo.InvariantCulture, out T result)
+			? result
+			: throw new DecoderException($"The TOML number is not a valid {typeName} value.");
+	}
+
+	private Token ReadToken(TokenType expectedType)
 	{
 		if (this.position >= this.tokens.Length)
 		{
@@ -218,397 +208,189 @@ public ref struct TomlDecoder(TextReader reader) : IDecoder
 		}
 
 		this.position++;
-		return token.Value.AsSpan();
+		return token;
 	}
 
-	private static DecoderException InvalidNumber(string typeName, string value) => new($"Invalid TOML {typeName} value: {value}.");
-
-	private static string NormalizeFloatingPoint(ReadOnlySpan<char> value)
-		=> value switch
-		{
-			"inf" or "+inf" => "Infinity",
-			"-inf" => "-Infinity",
-			"nan" or "+nan" or "-nan" => "NaN",
-			_ => value.ToString(),
-		};
-
-	private readonly record struct Token(TokenType Type, string Value = "");
-
-	private sealed class Parser(string text)
+#pragma warning disable SA1204 // Static model adapters follow the instance token reader they support.
+	private static Token[] Parse(string text)
 	{
-		private readonly string text = text;
-		private readonly List<Token> tokens = [];
-		private int position;
-
-		internal static Token[] Parse(string text)
+		DocumentSyntax document = Tomlyn.Toml.Parse(text);
+		if (document.HasErrors)
 		{
-			Parser parser = new(text);
-			parser.ParseDocument();
-			return [.. parser.tokens];
+			throw new DecoderException($"The input is not well-formed TOML 1.0.{Environment.NewLine}{document.Diagnostics}");
 		}
 
-		private void ParseDocument()
+		Dictionary<string, object> root = [];
+		AddKeyValues(root, document.KeyValues);
+		foreach (TableSyntaxBase tableSyntax in document.Tables)
 		{
-			this.SkipTrivia(includeNewlines: true);
-			if (this.position == this.text.Length)
-			{
-				throw this.Error("Expected a TOML document");
-			}
-
-			if (this.text[this.position] == '{')
-			{
-				this.ParseMap();
-			}
-			else if (this.LooksLikeRootMap())
-			{
-				this.ParseRootMap();
-			}
-			else
-			{
-				this.ParseValue();
-			}
-
-			this.SkipTrivia(includeNewlines: true);
-			if (this.position != this.text.Length)
-			{
-				throw this.Error("Unexpected content after the root value");
-			}
+			Dictionary<string, object> table = GetTable(root, GetKey(tableSyntax.Name ?? throw InvalidSyntaxTree()), tableSyntax is TableArraySyntax);
+			AddKeyValues(table, tableSyntax.Items);
 		}
 
-		private void ParseRootMap()
-		{
-			this.tokens.Add(new(TokenType.StartMap));
-			while (true)
-			{
-				this.SkipTrivia(includeNewlines: true);
-				if (this.position == this.text.Length)
-				{
-					break;
-				}
-
-				this.ParseProperty();
-				this.SkipTrivia(includeNewlines: false);
-				if (this.position < this.text.Length && this.text[this.position] is not ('\r' or '\n' or '#'))
-				{
-					throw this.Error("Expected the end of a TOML key/value pair");
-				}
-			}
-
-			this.tokens.Add(new(TokenType.EndMap));
-		}
-
-		private void ParseMap()
-		{
-			this.Expect('{');
-			this.tokens.Add(new(TokenType.StartMap));
-			this.SkipTrivia(includeNewlines: true);
-			if (this.TryConsume('}'))
-			{
-				this.tokens.Add(new(TokenType.EndMap));
-				return;
-			}
-
-			while (true)
-			{
-				this.ParseProperty();
-				this.SkipTrivia(includeNewlines: true);
-				if (this.TryConsume('}'))
-				{
-					break;
-				}
-
-				this.Expect(',');
-				this.SkipTrivia(includeNewlines: true);
-			}
-
-			this.tokens.Add(new(TokenType.EndMap));
-		}
-
-		private void ParseProperty()
-		{
-			string key = this.ParseKey();
-			this.SkipTrivia(includeNewlines: false);
-			this.Expect('=');
-			this.SkipTrivia(includeNewlines: false);
-			this.tokens.Add(new(TokenType.PropertyName, key));
-			this.ParseValue();
-		}
-
-		private void ParseArray()
-		{
-			this.Expect('[');
-			this.tokens.Add(new(TokenType.StartVector));
-			this.SkipTrivia(includeNewlines: true);
-			if (this.TryConsume(']'))
-			{
-				this.tokens.Add(new(TokenType.EndVector));
-				return;
-			}
-
-			while (true)
-			{
-				this.ParseValue();
-				this.SkipTrivia(includeNewlines: true);
-				if (this.TryConsume(']'))
-				{
-					break;
-				}
-
-				this.Expect(',');
-				this.SkipTrivia(includeNewlines: true);
-				if (this.TryConsume(']'))
-				{
-					break;
-				}
-			}
-
-			this.tokens.Add(new(TokenType.EndVector));
-		}
-
-		private void ParseValue()
-		{
-			if (this.position >= this.text.Length)
-			{
-				throw this.Error("Expected a TOML value");
-			}
-
-			switch (this.text[this.position])
-			{
-				case '{': this.ParseMap(); return;
-				case '[': this.ParseArray(); return;
-				case '"': this.tokens.Add(new(TokenType.String, this.ParseBasicString())); return;
-				case '\'': this.tokens.Add(new(TokenType.String, this.ParseLiteralString())); return;
-			}
-
-			int start = this.position;
-			while (this.position < this.text.Length && this.text[this.position] is not (',' or ']' or '}' or '\r' or '\n' or '#'))
-			{
-				this.position++;
-			}
-
-			string value = this.text[start..this.position].Trim();
-			if (value.Length == 0)
-			{
-				throw this.Error("Expected a TOML value");
-			}
-
-			if (value is "true" or "false")
-			{
-				this.tokens.Add(new(TokenType.Boolean, value));
-			}
-			else if (value == "null")
-			{
-				this.tokens.Add(new(TokenType.Null, value));
-			}
-			else if (LooksLikeNumber(value))
-			{
-				this.tokens.Add(new(TokenType.Number, value.Replace("_", string.Empty, StringComparison.Ordinal)));
-			}
-			else if (DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out _))
-			{
-				this.tokens.Add(new(TokenType.String, value));
-			}
-			else
-			{
-				throw this.Error($"Unrecognized TOML value '{value}'");
-			}
-		}
-
-		private string ParseKey()
-		{
-			if (this.position >= this.text.Length)
-			{
-				throw this.Error("Expected a TOML key");
-			}
-
-			if (this.text[this.position] == '"')
-			{
-				return this.ParseBasicString();
-			}
-
-			if (this.text[this.position] == '\'')
-			{
-				return this.ParseLiteralString();
-			}
-
-			int start = this.position;
-			while (this.position < this.text.Length && IsBareKeyCharacter(this.text[this.position]))
-			{
-				this.position++;
-			}
-
-			return this.position > start ? this.text[start..this.position] : throw this.Error("Expected a TOML key");
-		}
-
-		private string ParseBasicString()
-		{
-			this.Expect('"');
-			StringBuilder result = new();
-			while (this.position < this.text.Length)
-			{
-				char character = this.text[this.position++];
-				if (character == '"')
-				{
-					return result.ToString();
-				}
-
-				if (character != '\\')
-				{
-					if (character is '\r' or '\n' || character < 0x20 && character != '\t')
-					{
-						throw this.Error("Control character in TOML basic string");
-					}
-
-					result.Append(character);
-					continue;
-				}
-
-				if (this.position >= this.text.Length)
-				{
-					throw this.Error("Unterminated TOML escape sequence");
-				}
-
-				char escape = this.text[this.position++];
-				result.Append(escape switch
-				{
-					'"' => '"',
-					'\\' => '\\',
-					'b' => '\b',
-					'f' => '\f',
-					'n' => '\n',
-					'r' => '\r',
-					't' => '\t',
-					'u' => this.ParseUnicodeEscape(4),
-					'U' => this.ParseUnicodeEscape(8),
-					_ => throw this.Error($"Invalid TOML escape sequence '\\{escape}'"),
-				});
-			}
-
-			throw this.Error("Unterminated TOML basic string");
-		}
-
-		private string ParseLiteralString()
-		{
-			this.Expect('\'');
-			int start = this.position;
-			while (this.position < this.text.Length && this.text[this.position] != '\'')
-			{
-				if (this.text[this.position] is '\r' or '\n')
-				{
-					throw this.Error("Newline in TOML literal string");
-				}
-
-				this.position++;
-			}
-
-			if (this.position >= this.text.Length)
-			{
-				throw this.Error("Unterminated TOML literal string");
-			}
-
-			string result = this.text[start..this.position];
-			this.position++;
-			return result;
-		}
-
-		private char ParseUnicodeEscape(int digits)
-		{
-			if (this.position + digits > this.text.Length || !int.TryParse(this.text.AsSpan(this.position, digits), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out int value) || value > char.MaxValue)
-			{
-				throw this.Error("Invalid TOML Unicode escape");
-			}
-
-			this.position += digits;
-			return (char)value;
-		}
-
-		private bool LooksLikeRootMap()
-		{
-			int savedPosition = this.position;
-			try
-			{
-				this.ParseKey();
-				this.SkipTrivia(includeNewlines: false);
-				return this.position < this.text.Length && this.text[this.position] == '=';
-			}
-			catch (DecoderException)
-			{
-				return false;
-			}
-			finally
-			{
-				this.position = savedPosition;
-			}
-		}
-
-		private void SkipTrivia(bool includeNewlines)
-		{
-			while (this.position < this.text.Length)
-			{
-				char character = this.text[this.position];
-				if (character is ' ' or '\t' || includeNewlines && character is '\r' or '\n')
-				{
-					this.position++;
-					continue;
-				}
-
-				if (character == '#')
-				{
-					while (this.position < this.text.Length && this.text[this.position] is not ('\r' or '\n'))
-					{
-						this.position++;
-					}
-
-					if (!includeNewlines)
-					{
-						return;
-					}
-
-					continue;
-				}
-
-				break;
-			}
-		}
-
-		private void Expect(char expected)
-		{
-			if (!this.TryConsume(expected))
-			{
-				throw this.Error($"Expected '{expected}'");
-			}
-		}
-
-		private bool TryConsume(char expected)
-		{
-			if (this.position < this.text.Length && this.text[this.position] == expected)
-			{
-				this.position++;
-				return true;
-			}
-
-			return false;
-		}
-
-		private DecoderException Error(string message) => new($"{message} at character {this.position}.");
-
-		private static bool LooksLikeNumber(string value)
-		{
-			ReadOnlySpan<char> span = value.AsSpan();
-			if (span is "inf" or "+inf" or "-inf" or "nan" or "+nan" or "-nan")
-			{
-				return true;
-			}
-
-			span = value.Replace("_", string.Empty, StringComparison.Ordinal).AsSpan();
-			return BigInteger.TryParse(span, NumberStyles.Integer, CultureInfo.InvariantCulture, out _) ||
-				double.TryParse(span, NumberStyles.Float, CultureInfo.InvariantCulture, out _);
-		}
-
-		private static bool IsBareKeyCharacter(char character)
-			=> (character >= 'a' && character <= 'z') ||
-				(character >= 'A' && character <= 'Z') ||
-				(character >= '0' && character <= '9') ||
-				character is '-' or '_';
+		List<Token> tokens = [];
+		AppendTable(tokens, root);
+		return [.. tokens];
 	}
+
+	private static void AddKeyValues(Dictionary<string, object> table, SyntaxList<KeyValueSyntax> keyValues)
+	{
+		foreach (KeyValueSyntax keyValue in keyValues)
+		{
+			AddValue(table, GetKey(keyValue.Key ?? throw InvalidSyntaxTree()), ConvertValue(keyValue.Value ?? throw InvalidSyntaxTree()));
+		}
+	}
+
+	private static void AddValue(Dictionary<string, object> table, List<string> path, object value)
+	{
+		for (int i = 0; i < path.Count - 1; i++)
+		{
+			table = GetOrAddTable(table, path[i]);
+		}
+
+		table.Add(path[^1], value);
+	}
+
+	private static Dictionary<string, object> GetTable(Dictionary<string, object> root, List<string> path, bool isTableArray)
+	{
+		Dictionary<string, object> table = root;
+		for (int i = 0; i < path.Count - 1; i++)
+		{
+			table = GetOrAddTable(table, path[i]);
+		}
+
+		string name = path[^1];
+		if (isTableArray)
+		{
+			if (!table.TryGetValue(name, out object? value))
+			{
+				value = new List<object>();
+				table.Add(name, value);
+			}
+
+			List<object> tables = (List<object>)value;
+			Dictionary<string, object> item = [];
+			tables.Add(item);
+			return item;
+		}
+
+		return GetOrAddTable(table, name);
+	}
+
+	private static Dictionary<string, object> GetOrAddTable(Dictionary<string, object> table, string name)
+	{
+		if (!table.TryGetValue(name, out object? value))
+		{
+			Dictionary<string, object> child = [];
+			table.Add(name, child);
+			return child;
+		}
+
+		return value switch
+		{
+			Dictionary<string, object> child => child,
+			List<object> { Count: > 0 } tables => (Dictionary<string, object>)tables[^1],
+			_ => throw new DecoderException($"The TOML key '{name}' is not a table."),
+		};
+	}
+
+	private static List<string> GetKey(KeySyntax key)
+	{
+		List<string> path = [GetKeyPart(key.Key ?? throw InvalidSyntaxTree())];
+		foreach (DottedKeyItemSyntax item in key.DotKeys)
+		{
+			path.Add(GetKeyPart(item.Key ?? throw InvalidSyntaxTree()));
+		}
+
+		return path;
+	}
+
+	private static string GetKeyPart(BareKeyOrStringValueSyntax key) => key switch
+	{
+		BareKeySyntax bareKey => bareKey.Key?.Text ?? throw InvalidSyntaxTree(),
+		StringValueSyntax stringKey => stringKey.Value ?? throw InvalidSyntaxTree(),
+		_ => throw new DecoderException("Unsupported TOML key syntax."),
+	};
+
+	private static object ConvertValue(ValueSyntax value) => value switch
+	{
+		StringValueSyntax text => text.Value ?? throw InvalidSyntaxTree(),
+		IntegerValueSyntax integer => integer.Value,
+		FloatValueSyntax floatingPoint => floatingPoint.Value,
+		BooleanValueSyntax boolean => boolean.Value,
+		DateTimeValueSyntax dateTime => dateTime.Value,
+		ArraySyntax array => array.Items.Select(static item => ConvertValue(item.Value ?? throw InvalidSyntaxTree())).ToList(),
+		InlineTableSyntax inlineTable => ConvertInlineTable(inlineTable),
+		_ => throw new DecoderException($"Unsupported TOML value syntax {value.GetType().FullName}."),
+	};
+
+	private static Dictionary<string, object> ConvertInlineTable(InlineTableSyntax syntax)
+	{
+		Dictionary<string, object> table = [];
+		foreach (InlineTableItemSyntax item in syntax.Items)
+		{
+			KeyValueSyntax keyValue = item.KeyValue ?? throw InvalidSyntaxTree();
+			AddValue(table, GetKey(keyValue.Key ?? throw InvalidSyntaxTree()), ConvertValue(keyValue.Value ?? throw InvalidSyntaxTree()));
+		}
+
+		return table;
+	}
+
+	private static DecoderException InvalidSyntaxTree() => new("Tomlyn returned an incomplete syntax tree for valid TOML.");
+
+	private static void AppendTable(List<Token> tokens, Dictionary<string, object> table)
+	{
+		tokens.Add(new(TokenType.StartMap));
+		foreach ((string name, object value) in table)
+		{
+			tokens.Add(new(TokenType.PropertyName, name, name));
+			AppendValue(tokens, value);
+		}
+
+		tokens.Add(new(TokenType.EndMap));
+	}
+
+	private static void AppendVector(List<Token> tokens, IEnumerable<object> values)
+	{
+		tokens.Add(new(TokenType.StartVector));
+		foreach (object value in values)
+		{
+			AppendValue(tokens, value);
+		}
+
+		tokens.Add(new(TokenType.EndVector));
+	}
+
+	private static void AppendValue(List<Token> tokens, object value)
+	{
+		switch (value)
+		{
+			case Dictionary<string, object> table:
+				AppendTable(tokens, table);
+				break;
+			case List<object> array:
+				AppendVector(tokens, array);
+				break;
+			case bool boolean:
+				tokens.Add(new(TokenType.Boolean, boolean ? "true" : "false", boolean));
+				break;
+			case long integer:
+				tokens.Add(new(TokenType.Number, integer.ToString(CultureInfo.InvariantCulture), integer));
+				break;
+			case double floatingPoint:
+				tokens.Add(new(TokenType.Number, floatingPoint.ToString("R", CultureInfo.InvariantCulture), floatingPoint));
+				break;
+			case string text:
+				tokens.Add(new(TokenType.String, text, text));
+				break;
+			case Tomlyn.TomlDateTime dateTime:
+				tokens.Add(new(TokenType.String, dateTime.ToString(), dateTime));
+				break;
+			default:
+				throw new DecoderException($"Unsupported TOML model value {value.GetType().FullName}.");
+		}
+	}
+
+	private readonly record struct Token(TokenType Type, string Text = "", object? Value = null);
+#pragma warning restore SA1204
 }

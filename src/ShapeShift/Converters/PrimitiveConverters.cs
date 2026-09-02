@@ -112,7 +112,7 @@ internal class DateTimeOffsetConverter<TEncoder, TDecoder> : ShapeShiftConverter
 		}
 
 		DateTime utcDateTime = decoder.ReadDateTime();
-		short offsetMinutes = decoder.ReadInt16();
+		short offsetMinutes = checked((short)decoder.ReadInt64());
 		decoder.ReadEndVector();
 
 		// We construct the offset very carefully so that it knows it's being initialized with UTC time
@@ -159,7 +159,7 @@ internal class RuneConverter<TEncoder, TDecoder> : ShapeShiftConverter<Rune, TEn
 	where TDecoder : IDecoder, allows ref struct
 {
 	/// <inheritdoc/>
-	public override Rune Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => new Rune(decoder.ReadInt32());
+	public override Rune Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => new Rune(checked((int)decoder.ReadInt64()));
 
 	/// <inheritdoc/>
 	public override void Write(ref TEncoder encoder, in Rune value, SerializationContext<TEncoder, TDecoder> context) => encoder.WriteValue(value.Value);

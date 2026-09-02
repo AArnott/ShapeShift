@@ -7,143 +7,120 @@ using System.Numerics;
 namespace ShapeShift.Toml;
 
 /// <summary>
-/// A ShapeShift-compatible TOML encoder.
+/// A ShapeShift-compatible TOML 1.0 encoder.
 /// </summary>
-/// <param name="writer">The underlying text writer to which to write the TOML.</param>
-public ref struct TomlEncoder(TextWriter writer) : IEncoder
+public ref struct TomlEncoder : IEncoder
 {
-	private readonly TextWriter writer = writer;
-	private ContainerState[] containers = new ContainerState[8];
+	private readonly TextWriter writer;
+	private ContainerNode[] containers;
 	private int depth;
-	private bool pendingPropertyValue;
+	private string? pendingPropertyName;
+	private ValueNode? root;
+	private bool hasOutput;
 
-	private enum ContainerKind
+	/// <summary>
+	/// Initializes a new instance of the <see cref="TomlEncoder"/> struct.
+	/// </summary>
+	/// <param name="writer">The underlying text writer to which to write the TOML.</param>
+	public TomlEncoder(TextWriter writer)
 	{
-		Map,
-		Vector,
-	}
-
-	private struct ContainerState(ContainerKind kind, bool inline)
-	{
-		internal ContainerKind Kind = kind;
-		internal bool Inline = inline;
-		internal int ItemCount;
+		ArgumentNullException.ThrowIfNull(writer);
+		this.writer = writer;
+		this.containers = new ContainerNode[8];
 	}
 
 	/// <inheritdoc/>
 	public void WriteStartMap(int? propertyCount)
 	{
-		bool inline = this.depth > 0;
-		this.BeforeValue();
-		if (inline)
-		{
-			this.writer.Write("{ ");
-		}
-
-		this.Push(new(ContainerKind.Map, inline));
+		MapNode map = new(propertyCount ?? 0);
+		this.AddValue(map);
+		this.Push(map);
 	}
 
 	/// <inheritdoc/>
 	public void WriteEndMap()
 	{
-		ContainerState state = this.Pop(ContainerKind.Map);
-		if (this.pendingPropertyValue)
+		this.Pop<MapNode>();
+		if (this.depth == 0)
 		{
-			throw new InvalidOperationException("A TOML property has no value.");
+			this.RenderTable((MapNode)this.root!, []);
 		}
-
-		if (state.Inline)
-		{
-			this.writer.Write(state.ItemCount == 0 ? "{}" : " }");
 		}
-		else if (state.ItemCount == 0)
-		{
-			this.writer.Write("{}");
-		}
-	}
 
 	/// <inheritdoc/>
 	public void WriteStartVector(int? itemCount)
 	{
-		this.BeforeValue();
-		this.writer.Write('[');
-		this.Push(new(ContainerKind.Vector, inline: true));
+		VectorNode vector = new(itemCount ?? 0);
+		this.AddValue(vector);
+		this.Push(vector);
 	}
 
 	/// <inheritdoc/>
-	public void WriteEndVector()
-	{
-		this.Pop(ContainerKind.Vector);
-		this.writer.Write(']');
-	}
+	public void WriteEndVector() => this.Pop<VectorNode>();
 
 	/// <inheritdoc/>
 	public void WritePropertyName(scoped ReadOnlySpan<char> name)
 	{
-		if (this.depth == 0 || this.containers[this.depth - 1].Kind != ContainerKind.Map)
+		if (this.depth == 0 || this.containers[this.depth - 1] is not MapNode)
 		{
-			throw new InvalidOperationException("Property names may only be written within a map.");
+			throw new InvalidOperationException("Property names may only be written within a TOML table.");
 		}
 
-		if (this.pendingPropertyValue)
+		if (this.pendingPropertyName is not null)
 		{
 			throw new InvalidOperationException("The previous TOML property has no value.");
 		}
 
-		ref ContainerState map = ref this.containers[this.depth - 1];
-		if (map.ItemCount > 0)
+		this.pendingPropertyName = name.ToString();
+	}
+
+	/// <inheritdoc/>
+	public void WriteNull()
+	{
+		if (this.depth > 0 && this.containers[this.depth - 1] is MapNode && this.pendingPropertyName is not null)
 		{
-			this.writer.Write(map.Inline ? ", " : Environment.NewLine);
+			this.pendingPropertyName = null;
+			return;
 		}
 
-		this.WriteStringKey(name);
-		this.writer.Write(" = ");
-		map.ItemCount++;
-		this.pendingPropertyValue = true;
+		throw new NotSupportedException("TOML has no null value.");
 	}
 
 	/// <inheritdoc/>
-	public void WriteNull() => this.WriteScalar("null");
+	public void WriteValue(bool value) => this.AddValue(new ScalarNode(value));
 
 	/// <inheritdoc/>
-	public void WriteValue(bool value) => this.WriteScalar(value ? "true" : "false");
+	public void WriteValue(long value) => this.AddValue(new ScalarNode(value));
 
 	/// <inheritdoc/>
-	public void WriteValue(long value) => this.WriteScalar(value.ToString(CultureInfo.InvariantCulture));
+	public void WriteValue(ulong value) => this.AddValue(new ScalarNode(CheckedInt64(value)));
 
 	/// <inheritdoc/>
-	public void WriteValue(ulong value) => this.WriteScalar(value.ToString(CultureInfo.InvariantCulture));
+	public void WriteValue(Int128 value) => this.AddValue(new ScalarNode(CheckedInt64(value)));
 
 	/// <inheritdoc/>
-	public void WriteValue(Int128 value) => this.WriteScalar(value.ToString(CultureInfo.InvariantCulture));
+	public void WriteValue(UInt128 value) => this.AddValue(new ScalarNode(CheckedInt64(value)));
 
 	/// <inheritdoc/>
-	public void WriteValue(UInt128 value) => this.WriteScalar(value.ToString(CultureInfo.InvariantCulture));
+	public void WriteValue(BigInteger value) => this.AddValue(new ScalarNode(CheckedInt64(value)));
 
 	/// <inheritdoc/>
-	public void WriteValue(BigInteger value) => this.WriteScalar(value.ToString(CultureInfo.InvariantCulture));
+	public void WriteValue(Half value) => this.AddValue(new ScalarNode((double)value));
 
 	/// <inheritdoc/>
-	public void WriteValue(Half value) => this.WriteScalar(value.ToString("G", CultureInfo.InvariantCulture));
+	public void WriteValue(float value) => this.AddValue(new ScalarNode((double)value));
 
 	/// <inheritdoc/>
-	public void WriteValue(float value) => this.WriteFloatingPoint(value, float.IsNaN(value), float.IsPositiveInfinity(value), float.IsNegativeInfinity(value));
+	public void WriteValue(double value) => this.AddValue(new ScalarNode(value));
 
 	/// <inheritdoc/>
-	public void WriteValue(double value) => this.WriteFloatingPoint(value, double.IsNaN(value), double.IsPositiveInfinity(value), double.IsNegativeInfinity(value));
+	public void WriteValue(decimal value) => this.AddValue(new ScalarNode((double)value));
 
 	/// <inheritdoc/>
-	public void WriteValue(decimal value) => this.WriteScalar(value.ToString("G", CultureInfo.InvariantCulture));
+	public void WriteValue(DateTime value) => this.AddValue(new ScalarNode(value));
 
 	/// <inheritdoc/>
-	public void WriteValue(DateTime value) => this.WriteScalar(value.ToString("O", CultureInfo.InvariantCulture));
-
-	/// <inheritdoc/>
-	public void WriteValue(TimeSpan value)
-	{
-		this.BeforeValue();
-		this.WriteStringLiteral(value.ToString("c", CultureInfo.InvariantCulture));
-	}
+	public void WriteValue(TimeSpan value) => throw new NotSupportedException("TOML has no duration value.");
 
 	/// <inheritdoc/>
 	public void WriteValue(string? value)
@@ -154,100 +131,224 @@ public ref struct TomlEncoder(TextWriter writer) : IEncoder
 			return;
 		}
 
-		this.BeforeValue();
-		this.WriteStringLiteral(value);
+		this.AddValue(new ScalarNode(value));
 	}
 
 	/// <inheritdoc/>
-	public void WriteValue(scoped ReadOnlySpan<char> value)
-	{
-		this.BeforeValue();
-		this.WriteStringLiteral(value);
-	}
+	public void WriteValue(scoped ReadOnlySpan<char> value) => this.AddValue(new ScalarNode(value.ToString()));
 
 	/// <inheritdoc/>
-	public void WriteValue(scoped ReadOnlySpan<byte> value) => throw new NotSupportedException("TOML binary values are not supported.");
+	public void WriteValue(scoped ReadOnlySpan<byte> value) => throw new NotSupportedException("TOML has no binary value.");
 
-	private void WriteFloatingPoint<T>(T value, bool isNaN, bool isPositiveInfinity, bool isNegativeInfinity)
-		where T : IFormattable
-	{
-		this.WriteScalar(isNaN ? "nan" : isPositiveInfinity ? "inf" : isNegativeInfinity ? "-inf" : value.ToString("G", CultureInfo.InvariantCulture));
-	}
+	private static long CheckedInt64(ulong value) => value <= long.MaxValue ? (long)value : throw IntegerOutOfRange();
 
-	private void WriteScalar(string scalar)
-	{
-		this.BeforeValue();
-		this.writer.Write(scalar);
-	}
+	private static long CheckedInt64(Int128 value) => value >= long.MinValue && value <= long.MaxValue ? (long)value : throw IntegerOutOfRange();
 
-	private void BeforeValue()
+	private static long CheckedInt64(UInt128 value) => value <= long.MaxValue ? (long)value : throw IntegerOutOfRange();
+
+	private static long CheckedInt64(BigInteger value) => value >= long.MinValue && value <= long.MaxValue ? (long)value : throw IntegerOutOfRange();
+
+	private static NotSupportedException IntegerOutOfRange() => new("TOML integers are limited to signed 64-bit values.");
+
+	private void AddValue(ValueNode value)
 	{
-		if (this.pendingPropertyValue)
+		if (this.depth == 0)
 		{
-			this.pendingPropertyValue = false;
+			if (this.root is not null)
+			{
+				throw new InvalidOperationException("A TOML document can contain only one root value.");
+			}
+
+			if (value is not MapNode)
+			{
+				throw new NotSupportedException("A TOML document must have a table at its root.");
+			}
+
+			this.root = value;
 			return;
 		}
 
-		if (this.depth > 0)
+		ContainerNode parent = this.containers[this.depth - 1];
+		if (parent is MapNode map)
 		{
-			ref ContainerState container = ref this.containers[this.depth - 1];
-			if (container.Kind == ContainerKind.Map)
-			{
-				throw new InvalidOperationException("A TOML map value must follow a property name.");
-			}
-
-			if (container.ItemCount > 0)
-			{
-				this.writer.Write(", ");
-			}
-
-			container.ItemCount++;
+			string name = this.pendingPropertyName ?? throw new InvalidOperationException("A TOML table value must follow a property name.");
+			map.Properties.Add(new(name, value));
+			this.pendingPropertyName = null;
+		}
+		else
+		{
+			((VectorNode)parent).Items.Add(value);
 		}
 	}
 
-	private void Push(ContainerState state)
+	private void Push(ContainerNode container)
 	{
 		if (this.depth == this.containers.Length)
 		{
 			Array.Resize(ref this.containers, this.containers.Length * 2);
 		}
 
-		this.containers[this.depth++] = state;
+		this.containers[this.depth++] = container;
 	}
 
-	private ContainerState Pop(ContainerKind expectedKind)
+	private void Pop<TContainer>()
+		where TContainer : ContainerNode
 	{
-		if (this.depth == 0 || this.containers[this.depth - 1].Kind != expectedKind)
+		if (this.depth == 0 || this.containers[this.depth - 1] is not TContainer)
 		{
 			throw new InvalidOperationException("Attempted to close a TOML container that is not open.");
 		}
 
-		return this.containers[--this.depth];
-	}
-
-	private void WriteStringKey(scoped ReadOnlySpan<char> key)
-	{
-		bool isBareKey = key.Length > 0;
-		foreach (char character in key)
+		if (this.pendingPropertyName is not null)
 		{
-			if (!IsBareKeyCharacter(character))
-			{
-				isBareKey = false;
-				break;
-			}
+			throw new InvalidOperationException("A TOML property has no value.");
 		}
 
-		if (isBareKey)
+		this.containers[--this.depth] = null!;
+	}
+
+	private void RenderTable(MapNode map, List<string> path)
+	{
+		for (int i = 0; i < map.Properties.Count; i++)
+		{
+			(string name, ValueNode value) = map.Properties[i];
+			bool canUseHeader = true;
+			for (int j = i + 1; canUseHeader && j < map.Properties.Count; j++)
+			{
+				canUseHeader = this.IsHeaderValue(map.Properties[j].Value);
+			}
+
+			if (canUseHeader && value is MapNode childMap)
+			{
+				path.Add(name);
+				this.WriteHeader(path, tableArray: false);
+				this.RenderTable(childMap, path);
+				path.RemoveAt(path.Count - 1);
+			}
+			else if (canUseHeader && value is VectorNode { Items.Count: > 0 } vector && vector.Items.All(static item => item is MapNode))
+			{
+				path.Add(name);
+				foreach (MapNode item in vector.Items.Cast<MapNode>())
+				{
+					this.WriteHeader(path, tableArray: true);
+					this.RenderTable(item, path);
+				}
+
+				path.RemoveAt(path.Count - 1);
+			}
+			else
+			{
+				this.BeginLine();
+				this.WriteKey(name);
+				this.writer.Write(" = ");
+				this.WriteInlineValue(value);
+			}
+			}
+	}
+
+	private void WriteHeader(List<string> path, bool tableArray)
+	{
+		this.BeginLine();
+		this.writer.Write(tableArray ? "[[" : "[");
+		for (int i = 0; i < path.Count; i++)
+		{
+			if (i > 0)
+			{
+				this.writer.Write('.');
+			}
+
+			this.WriteKey(path[i]);
+		}
+
+		this.writer.Write(tableArray ? "]]" : "]");
+	}
+
+	private void WriteInlineValue(ValueNode value)
+	{
+		switch (value)
+		{
+			case ScalarNode scalar:
+				this.WriteScalar(scalar.Value);
+				break;
+			case MapNode map:
+				this.writer.Write("{ ");
+				for (int i = 0; i < map.Properties.Count; i++)
+				{
+					if (i > 0)
+					{
+						this.writer.Write(", ");
+					}
+
+					this.WriteKey(map.Properties[i].Key);
+					this.writer.Write(" = ");
+					this.WriteInlineValue(map.Properties[i].Value);
+				}
+
+				this.writer.Write(" }");
+				break;
+			case VectorNode vector:
+				this.writer.Write('[');
+				for (int i = 0; i < vector.Items.Count; i++)
+				{
+					if (i > 0)
+					{
+						this.writer.Write(", ");
+					}
+
+					this.WriteInlineValue(vector.Items[i]);
+				}
+
+				this.writer.Write(']');
+				break;
+		}
+	}
+
+	private void WriteScalar(object value)
+	{
+		switch (value)
+		{
+			case string text:
+				this.WriteString(text);
+				break;
+			case bool boolean:
+				this.writer.Write(boolean ? "true" : "false");
+				break;
+			case long integer:
+				this.writer.Write(integer.ToString(CultureInfo.InvariantCulture));
+				break;
+			case double floatingPoint when double.IsNaN(floatingPoint):
+				this.writer.Write("nan");
+				break;
+			case double floatingPoint when double.IsPositiveInfinity(floatingPoint):
+				this.writer.Write("inf");
+				break;
+			case double floatingPoint when double.IsNegativeInfinity(floatingPoint):
+				this.writer.Write("-inf");
+				break;
+			case double floatingPoint:
+				this.writer.Write(floatingPoint.ToString("R", CultureInfo.InvariantCulture));
+				break;
+			case DateTime dateTime:
+				this.writer.Write(dateTime.ToString("O", CultureInfo.InvariantCulture));
+				break;
+			default:
+				throw new InvalidOperationException($"Unsupported TOML scalar {value.GetType().FullName}.");
+		}
+	}
+
+	private void WriteKey(string key)
+	{
+		if (key.Length > 0 && key.All(static character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_'))
 		{
 			this.writer.Write(key);
 		}
 		else
 		{
-			this.WriteStringLiteral(key);
+			this.WriteString(key);
 		}
 	}
 
-	private void WriteStringLiteral(scoped ReadOnlySpan<char> value)
+	private void WriteString(string value)
 	{
 		this.writer.Write('"');
 		foreach (char character in value)
@@ -257,15 +358,14 @@ public ref struct TomlEncoder(TextWriter writer) : IEncoder
 				case '"': this.writer.Write("\\\""); break;
 				case '\\': this.writer.Write("\\\\"); break;
 				case '\b': this.writer.Write("\\b"); break;
-				case '\f': this.writer.Write("\\f"); break;
-				case '\n': this.writer.Write("\\n"); break;
-				case '\r': this.writer.Write("\\r"); break;
 				case '\t': this.writer.Write("\\t"); break;
+				case '\n': this.writer.Write("\\n"); break;
+				case '\f': this.writer.Write("\\f"); break;
+				case '\r': this.writer.Write("\\r"); break;
 				default:
 					if (character < 0x20 || character == 0x7f)
 					{
-						this.writer.Write("\\u");
-						this.writer.Write(((int)character).ToString("X4", CultureInfo.InvariantCulture));
+						this.writer.Write($"\\u{(int)character:X4}");
 					}
 					else
 					{
@@ -279,9 +379,35 @@ public ref struct TomlEncoder(TextWriter writer) : IEncoder
 		this.writer.Write('"');
 	}
 
-	private static bool IsBareKeyCharacter(char character)
-		=> (character >= 'a' && character <= 'z') ||
-			(character >= 'A' && character <= 'Z') ||
-			(character >= '0' && character <= '9') ||
-			character is '-' or '_';
+	private void BeginLine()
+	{
+		if (this.hasOutput)
+		{
+			this.writer.WriteLine();
+		}
+
+		this.hasOutput = true;
+	}
+
+	private bool IsHeaderValue(ValueNode value)
+		=> value is MapNode || (value is VectorNode { Items.Count: > 0 } vector && vector.Items.All(static item => item is MapNode));
+
+	private abstract class ValueNode;
+
+	private abstract class ContainerNode : ValueNode;
+
+	private sealed class ScalarNode(object value) : ValueNode
+	{
+		internal object Value { get; } = value;
+	}
+
+	private sealed class MapNode(int capacity) : ContainerNode
+	{
+		internal List<KeyValuePair<string, ValueNode>> Properties { get; } = new(capacity);
+	}
+
+	private sealed class VectorNode(int capacity) : ContainerNode
+	{
+		internal List<ValueNode> Items { get; } = new(capacity);
+	}
 }

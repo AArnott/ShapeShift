@@ -6,4 +6,7 @@
   <ItemGroup>
     <ProjectReference Include="..\ShapeShift\ShapeShift.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Tomlyn" />
+  </ItemGroup>
 </Project>
