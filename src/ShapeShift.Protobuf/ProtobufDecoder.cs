@@ -11,9 +11,9 @@ namespace ShapeShift.Protobuf;
 /// Decodes the protobuf-style binary representation created by <see cref="ProtobufEncoder"/>.
 /// </summary>
 /// <param name="buffer">The payload to decode.</param>
-public ref struct ProtobufDecoder(byte[] buffer) : IDecoder
+public ref struct ProtobufDecoder(ReadOnlySpan<byte> buffer) : IDecoder
 {
-	private readonly byte[] buffer = buffer ?? throw new ArgumentNullException(nameof(buffer));
+	private readonly ReadOnlySpan<byte> buffer = buffer;
 	private int position;
 	private ContainerKind[] containerKinds = new ContainerKind[8];
 	private int depth;
@@ -61,6 +61,11 @@ public ref struct ProtobufDecoder(byte[] buffer) : IDecoder
 	/// <exception cref="DecoderException">Thrown when trailing data remains.</exception>
 	public void EnsureEndOfDocument()
 	{
+		if (this.depth > 0)
+		{
+			throw new DecoderException("The Protobuf input ended while a container was still open.");
+		}
+
 		if (this.NextTokenType != TokenType.EndDocument)
 		{
 			throw new DecoderException("The Protobuf input contains trailing data.");
@@ -443,8 +448,7 @@ public ref struct ProtobufDecoder(byte[] buffer) : IDecoder
 			throw new DecoderException("Binary payload is truncated.");
 		}
 
-		this.currentBinary = new byte[length];
-		Buffer.BlockCopy(this.buffer, this.position, this.currentBinary, 0, length);
+		this.currentBinary = this.buffer.Slice(this.position, length).ToArray();
 		this.position += length;
 		return this.currentBinary;
 	}
@@ -509,7 +513,7 @@ public ref struct ProtobufDecoder(byte[] buffer) : IDecoder
 			throw new DecoderException("Numeric payload is truncated.");
 		}
 
-		string text = Encoding.UTF8.GetString(this.buffer, this.position, length);
+		string text = Encoding.UTF8.GetString(this.buffer.Slice(this.position, length));
 		this.position += length;
 		return text;
 	}
@@ -522,7 +526,7 @@ public ref struct ProtobufDecoder(byte[] buffer) : IDecoder
 			throw new DecoderException("String payload is truncated.");
 		}
 
-		string text = Encoding.UTF8.GetString(this.buffer, this.position, length);
+		string text = Encoding.UTF8.GetString(this.buffer.Slice(this.position, length));
 		this.position += length;
 		return text;
 	}

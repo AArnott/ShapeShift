@@ -55,8 +55,7 @@ public record ProtobufSerializer : ShapeShiftSerializer<ProtobufEncoder, Protobu
 	public T? Deserialize<T, TProvider>(ReadOnlySpan<byte> payload)
 		where TProvider : IShapeable<T>
 	{
-		byte[] bytes = payload.ToArray();
-		ProtobufDecoder decoder = new(bytes);
+		ProtobufDecoder decoder = new(payload);
 		T? value = this.Deserialize(ref decoder, TProvider.GetTypeShape());
 		decoder.EnsureEndOfDocument();
 		return value;
