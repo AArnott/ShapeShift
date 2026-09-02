@@ -57,6 +57,8 @@ public record ProtobufSerializer : ShapeShiftSerializer<ProtobufEncoder, Protobu
 	{
 		byte[] bytes = payload.ToArray();
 		ProtobufDecoder decoder = new(bytes);
-		return this.Deserialize(ref decoder, TProvider.GetTypeShape());
+		T? value = this.Deserialize(ref decoder, TProvider.GetTypeShape());
+		decoder.EnsureEndOfDocument();
+		return value;
 	}
 }

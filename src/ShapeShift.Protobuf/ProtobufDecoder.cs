@@ -55,6 +55,18 @@ public ref struct ProtobufDecoder(byte[] buffer) : IDecoder
 		}
 	}
 
+	/// <summary>
+	/// Ensures no trailing protobuf data remains.
+	/// </summary>
+	/// <exception cref="DecoderException">Thrown when trailing data remains.</exception>
+	public void EnsureEndOfDocument()
+	{
+		if (this.NextTokenType != TokenType.EndDocument)
+		{
+			throw new DecoderException("The Protobuf input contains trailing data.");
+		}
+	}
+
 	/// <inheritdoc/>
 	public bool TryReadNull()
 	{

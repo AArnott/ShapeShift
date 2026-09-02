@@ -131,12 +131,7 @@ public ref struct ProtobufEncoder(Stream stream) : IEncoder
 	/// <inheritdoc/>
 	public void WriteValue(string value)
 	{
-		if (value is null)
-		{
-			this.WriteNull();
-			return;
-		}
-
+		ArgumentNullException.ThrowIfNull(value);
 		this.WriteStringPayload(0x30, value);
 	}
 
@@ -148,9 +143,8 @@ public ref struct ProtobufEncoder(Stream stream) : IEncoder
 	public void WriteValue(scoped ReadOnlySpan<byte> value)
 	{
 		this.WriteTag(0x31);
-		byte[] bytes = value.ToArray();
-		this.WriteLength(bytes.Length);
-		this.stream.Write(bytes, 0, bytes.Length);
+		this.WriteLength(value.Length);
+		this.stream.Write(value);
 	}
 
 	private static void ThrowBadContainer(ContainerKind expected, ContainerKind actual)
