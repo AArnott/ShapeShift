@@ -68,6 +68,10 @@ public ref struct UbjsonEncoder(IBufferWriter<byte> writer) : IEncoder
 
         this.WriteTextWithLength(name);
     }
+
+    /// <inheritdoc/>
+    public void WritePropertyName(scoped ReadOnlySpan<char> name, object? preparedName) => this.WritePropertyName(name);
+
     #endregion
 
     /// <inheritdoc/>

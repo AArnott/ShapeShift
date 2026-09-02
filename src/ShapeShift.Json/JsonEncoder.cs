@@ -31,6 +31,9 @@ public ref struct JsonEncoder(Utf8JsonWriter writer, bool allowNamedFloatingPoin
 	public Utf8JsonWriter Writer => writer;
 
 	/// <inheritdoc/>
+	public static object PreparePropertyName(string name) => JsonEncodedText.Encode(name, Rfc8259StringEncoder);
+
+	/// <inheritdoc/>
 	public void WriteStartMap(int? propertyCount) => writer.WriteStartObject();
 
 	/// <inheritdoc/>
@@ -44,6 +47,13 @@ public ref struct JsonEncoder(Utf8JsonWriter writer, bool allowNamedFloatingPoin
 
 	/// <inheritdoc/>
 	public void WritePropertyName(scoped ReadOnlySpan<char> name) => writer.WritePropertyName(name);
+
+	/// <inheritdoc/>
+	public void WritePropertyName(scoped ReadOnlySpan<char> name, object? preparedName)
+	{
+		ArgumentNullException.ThrowIfNull(preparedName);
+		writer.WritePropertyName((JsonEncodedText)preparedName);
+	}
 
 	/// <inheritdoc/>
 	public void WriteNull() => writer.WriteNullValue();

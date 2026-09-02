@@ -7,7 +7,17 @@ internal abstract class ObjectConverter<T, TEncoder, TDecoder> : ShapeShiftConve
 	where TEncoder : IEncoder, allows ref struct
 	where TDecoder : IDecoder, allows ref struct
 {
-	internal required IReadOnlyDictionary<string, ObjectPropertyWriter<T, TEncoder, TDecoder>> PropertyWriters { get; init; }
+	internal required KeyValuePair<string, ObjectPropertyWriter<T, TEncoder, TDecoder>>[] PropertyWriters { get; init; }
+
+	/// <summary>
+	/// Gets a value indicating whether any declared property may be omitted during serialization.
+	/// </summary>
+	internal required bool HasConditionalProperties { get; init; }
+
+	/// <summary>
+	/// Gets the declared property names used to detect extension-data conflicts, when extension data is supported.
+	/// </summary>
+	internal HashSet<string>? DeclaredPropertyNames { get; init; }
 
 	internal ExtensionDataProperty<T, TEncoder, TDecoder>? ExtensionData { get; init; }
 
@@ -24,12 +34,16 @@ internal abstract class ObjectConverter<T, TEncoder, TDecoder> : ShapeShiftConve
 
 		context.DepthStep();
 
-		int count = 0;
-		foreach (ObjectPropertyWriter<T, TEncoder, TDecoder> property in this.PropertyWriters.Values)
+		int count = this.PropertyWriters.Length;
+		if (this.HasConditionalProperties)
 		{
-			if (property.ShouldWrite is null || property.ShouldWrite(value))
+			count = 0;
+			foreach ((_, ObjectPropertyWriter<T, TEncoder, TDecoder> property) in this.PropertyWriters)
 			{
-				count++;
+				if (property.ShouldWrite is null || property.ShouldWrite(value))
+				{
+					count++;
+				}
 			}
 		}
 
@@ -38,7 +52,7 @@ internal abstract class ObjectConverter<T, TEncoder, TDecoder> : ShapeShiftConve
 		{
 			foreach (string name in extensionData.Keys)
 			{
-				if (this.PropertyWriters.ContainsKey(name))
+				if (this.DeclaredPropertyNames!.Contains(name))
 				{
 					throw new ShapeShiftSerializationException($"Extension property '{name}' conflicts with a declared property on {typeof(T).FullName}.", null, new ShapeShiftPath(name));
 				}
@@ -55,7 +69,7 @@ internal abstract class ObjectConverter<T, TEncoder, TDecoder> : ShapeShiftConve
 				continue;
 			}
 
-			encoder.WritePropertyName(name);
+			encoder.WritePropertyName(name, property.PreparedName);
 			try
 			{
 				property.Write(ref encoder, in value, context);
