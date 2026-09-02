@@ -23,6 +23,9 @@ public ref struct ProtobufEncoder(Stream stream) : IEncoder
 		Vector,
 	}
 
+	/// <inheritdoc/>
+	public static object? PreparePropertyName(string name) => name;
+
 	public void WriteStartMap(int? propertyCount)
 	{
 		this.WriteTag(0x70);
@@ -54,6 +57,12 @@ public ref struct ProtobufEncoder(Stream stream) : IEncoder
 	public void WritePropertyName(scoped ReadOnlySpan<char> name)
 	{
 		this.WriteStringPayload(0x60, name);
+	}
+
+	public void WritePropertyName(scoped ReadOnlySpan<char> name, object? preparedName)
+	{
+		string propertyName = preparedName as string ?? name.ToString();
+		this.WriteStringPayload(0x60, propertyName);
 	}
 
 	public void WriteNull()
