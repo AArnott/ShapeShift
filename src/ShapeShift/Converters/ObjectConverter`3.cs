@@ -9,6 +9,11 @@ internal abstract class ObjectConverter<T, TEncoder, TDecoder> : ShapeShiftConve
 {
 	internal required Dictionary<string, ObjectPropertyWriter<T, TEncoder, TDecoder>> PropertyWriters { get; init; }
 
+	/// <summary>
+	/// Gets a value indicating whether any declared property may be omitted during serialization.
+	/// </summary>
+	internal required bool HasConditionalProperties { get; init; }
+
 	internal ExtensionDataProperty<T, TEncoder, TDecoder>? ExtensionData { get; init; }
 
 	public override void Write(ref TEncoder encoder, in T? value, SerializationContext<TEncoder, TDecoder> context)
@@ -24,12 +29,16 @@ internal abstract class ObjectConverter<T, TEncoder, TDecoder> : ShapeShiftConve
 
 		context.DepthStep();
 
-		int count = 0;
-		foreach (ObjectPropertyWriter<T, TEncoder, TDecoder> property in this.PropertyWriters.Values)
+		int count = this.PropertyWriters.Count;
+		if (this.HasConditionalProperties)
 		{
-			if (property.ShouldWrite is null || property.ShouldWrite(value))
+			count = 0;
+			foreach (ObjectPropertyWriter<T, TEncoder, TDecoder> property in this.PropertyWriters.Values)
 			{
-				count++;
+				if (property.ShouldWrite is null || property.ShouldWrite(value))
+				{
+					count++;
+				}
 			}
 		}
 

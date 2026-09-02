@@ -102,6 +102,7 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 			{
 				PropertyReaders = propertyReaders,
 				PropertyWriters = propertyWriters,
+				HasConditionalProperties = propertyWriters.Values.Any(static property => property.ShouldWrite is not null),
 				ExtensionData = extensionData,
 			};
 		}
@@ -137,6 +138,7 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 			{
 				PropertyReaders = propertyReaders,
 				PropertyWriters = propertyWriters,
+				HasConditionalProperties = propertyWriters.Values.Any(static property => property.ShouldWrite is not null),
 				Parameters = constructorShape.Parameters,
 				DefaultValuesPolicy = this.owner.DeserializeDefaultValues,
 			};
