@@ -2,8 +2,9 @@
 
 Everything on this page is declared by the format-neutral `ShapeShift` package,
 so it applies identically to `ShapeShift.Json`, `ShapeShift.MsgPack`,
-`ShapeShift.Yaml`, `ShapeShift.Taml`, and any third-party format package. The
-samples use `JsonSerializer` only because its output is readable.
+`ShapeShift.Yaml`, `ShapeShift.Protobuf`, `ShapeShift.Taml`, and any
+third-party format package. The samples use `JsonSerializer` only because its
+output is readable.
 
 Nothing here uses reflection: converters are supplied as instances or built by
 factories from source-generated PolyType shapes, so a customized serializer is

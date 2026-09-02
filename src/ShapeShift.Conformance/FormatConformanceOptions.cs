@@ -21,6 +21,11 @@ namespace ShapeShift.Conformance;
 public sealed record FormatConformanceOptions
 {
 	/// <summary>
+	/// Gets a value indicating whether the format has a null representation.
+	/// </summary>
+	public bool SupportsNull { get; init; } = true;
+
+	/// <summary>
 	/// Gets a value indicating whether the format has a binary representation, so that
 	/// <see cref="IEncoder.WriteValue(ReadOnlySpan{byte})"/> and <see cref="IDecoder.ReadByteArray"/> work.
 	/// </summary>
@@ -43,6 +48,11 @@ public sealed record FormatConformanceOptions
 	public bool SupportsRootVectors { get; init; } = true;
 
 	/// <summary>
+	/// Gets a value indicating whether an empty document represents a valid value.
+	/// </summary>
+	public bool AllowsEmptyDocument { get; init; }
+
+	/// <summary>
 	/// Gets a value indicating whether a vector may hold elements of differing shapes -- for example a
 	/// map followed by a scalar.
 	/// </summary>
@@ -51,6 +61,15 @@ public sealed record FormatConformanceOptions
 	/// recognize a later element of a different shape.
 	/// </remarks>
 	public bool SupportsHeterogeneousVectors { get; init; } = true;
+
+	/// <summary>
+	/// Gets a value indicating whether map entries retain their relative order when they round-trip.
+	/// </summary>
+	/// <remarks>
+	/// Formats such as TOML may require parent assignments to precede nested table headers and therefore
+	/// cannot preserve relative order between those entry kinds.
+	/// </remarks>
+	public bool PreservesMapEntryOrder { get; init; } = true;
 
 	/// <summary>
 	/// Gets a value indicating whether a map with no entries round-trips.

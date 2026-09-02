@@ -76,7 +76,7 @@ internal sealed class MalformedSuite<TEncoder, TDecoder> : IConformanceSuite<TEn
 			}
 		});
 
-		collector.Add("EmptyPayloadFailsCleanly", adapter =>
+		collector.Add("EmptyPayloadFailsCleanly", collector.Options.AllowsEmptyDocument ? "The format defines an empty document as a valid value." : null, adapter =>
 		{
 			ConformanceAssert.FailsCleanly(
 				() => adapter.Decode(ReadOnlyMemory<byte>.Empty, static (ref TDecoder decoder) =>

@@ -39,7 +39,7 @@ internal sealed class LimitsSuite<TEncoder, TDecoder> : IConformanceSuite<TEncod
 					encoder.WritePropertyName("Child");
 				}
 
-				encoder.WriteNull();
+				encoder.WriteValue(false);
 
 				for (int i = 0; i < Depth; i++)
 				{

@@ -7,7 +7,9 @@
 [![ShapeShift.MsgPack NuGet package](https://img.shields.io/nuget/v/ShapeShift.MsgPack.svg?label=ShapeShift.MsgPack)](https://www.nuget.org/packages/ShapeShift.MsgPack)<br />
 [![ShapeShift.Cbor NuGet package](https://img.shields.io/nuget/v/ShapeShift.Cbor.svg?label=ShapeShift.Cbor)](https://www.nuget.org/packages/ShapeShift.Cbor)<br />
 [![ShapeShift.Yaml NuGet package](https://img.shields.io/nuget/v/ShapeShift.Yaml.svg?label=ShapeShift.Yaml)](https://www.nuget.org/packages/ShapeShift.Yaml)<br />
+[![ShapeShift.Protobuf NuGet package](https://img.shields.io/nuget/v/ShapeShift.Protobuf.svg?label=ShapeShift.Protobuf)](https://www.nuget.org/packages/ShapeShift.Protobuf)<br />
 [![ShapeShift.Taml NuGet package](https://img.shields.io/nuget/v/ShapeShift.Taml.svg?label=ShapeShift.Taml)](https://www.nuget.org/packages/ShapeShift.Taml)<br />
+[![ShapeShift.Toml NuGet package](https://img.shields.io/nuget/v/ShapeShift.Toml.svg?label=ShapeShift.Toml)](https://www.nuget.org/packages/ShapeShift.Toml)<br />
 
 [![🏭 Build](https://github.com/AArnott/ShapeShift/actions/workflows/build.yml/badge.svg)](https://github.com/AArnott/ShapeShift/actions/workflows/build.yml)
 [![codecov](https://codecov.io/gh/aarnott/ShapeShift/branch/main/graph/badge.svg)](https://codecov.io/gh/aarnott/ShapeShift)

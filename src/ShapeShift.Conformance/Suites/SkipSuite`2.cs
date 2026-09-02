@@ -42,7 +42,7 @@ internal sealed class SkipSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder
 			});
 		});
 
-		collector.Add("SkipMapValue", skipReason, adapter =>
+		collector.Add("SkipMapValue", !collector.Options.PreservesMapEntryOrder ? "The format does not preserve map entry order." : skipReason, adapter =>
 		{
 			byte[] payload = adapter.Encode(static (ref TEncoder encoder) =>
 			{
@@ -107,7 +107,7 @@ internal sealed class SkipSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder
 				encoder.WritePropertyName("b");
 				encoder.WriteValue("two");
 				encoder.WritePropertyName("c");
-				encoder.WriteNull();
+				encoder.WriteValue(false);
 				encoder.WriteEndMap();
 			});
 

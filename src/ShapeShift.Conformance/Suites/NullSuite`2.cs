@@ -36,8 +36,9 @@ internal sealed class NullSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder
 	public void AddTests(ConformanceTestCollector<TEncoder, TDecoder> collector)
 	{
 		Requires.NotNull(collector);
+		string? unsupported = collector.Options.SupportsNull ? null : "The format has no null representation.";
 
-		collector.Add("NextTokenTypeIsThePeekForNull", adapter =>
+		collector.Add("NextTokenTypeIsThePeekForNull", unsupported, adapter =>
 		{
 			byte[] payload = RootHarness.EncodeScalar(adapter, static (ref TEncoder encoder) => encoder.WriteNull());
 			RootHarness.DecodeScalar(adapter, payload, (ref TDecoder decoder) =>
@@ -49,7 +50,7 @@ internal sealed class NullSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder
 			});
 		});
 
-		collector.Add("TryReadNullConsumesTheNull", adapter =>
+		collector.Add("TryReadNullConsumesTheNull", unsupported, adapter =>
 		{
 			byte[] payload = RootHarness.EncodeVector(adapter, static (ref TEncoder encoder) =>
 			{
@@ -69,7 +70,7 @@ internal sealed class NullSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder
 			});
 		});
 
-		collector.Add("TryReadNullConsumesTrailingNull", adapter =>
+		collector.Add("TryReadNullConsumesTrailingNull", unsupported, adapter =>
 		{
 			// A null consumed as the last element of a container is where a decoder that forgets to run
 			// its per-value bookkeeping shows up: a length-prefixed format must still be able to
@@ -92,7 +93,7 @@ internal sealed class NullSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder
 			});
 		});
 
-		collector.Add("ReadNullConsumes", adapter =>
+		collector.Add("ReadNullConsumes", unsupported, adapter =>
 		{
 			byte[] payload = RootHarness.EncodeVector(adapter, static (ref TEncoder encoder) =>
 			{
@@ -157,7 +158,7 @@ internal sealed class NullSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder
 				"reading a string as a null");
 		});
 
-		collector.Add("NullMapValue", adapter =>
+		collector.Add("NullMapValue", unsupported, adapter =>
 		{
 			byte[] payload = adapter.Encode(static (ref TEncoder encoder) =>
 			{
@@ -183,8 +184,8 @@ internal sealed class NullSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder
 
 		collector.AddIf(
 			"NullIsSkippable",
-			collector.Options.SupportsSkip,
-			"The format does not implement Skip.",
+			collector.Options.SupportsSkip && collector.Options.SupportsNull,
+			collector.Options.SupportsNull ? "The format does not implement Skip." : "The format has no null representation.",
 			adapter =>
 			{
 				byte[] payload = RootHarness.EncodeVector(adapter, static (ref TEncoder encoder) =>
@@ -204,7 +205,7 @@ internal sealed class NullSuite<TEncoder, TDecoder> : IConformanceSuite<TEncoder
 				});
 			});
 
-		collector.Add("NullContainerMemberDeserializesAsNull", adapter =>
+		collector.Add("NullContainerMemberDeserializesAsNull", unsupported, adapter =>
 		{
 			ShapeShiftSerializer<TEncoder, TDecoder> serializer = adapter.CreateSerializer();
 			byte[] payload = adapter.Encode(static (ref TEncoder encoder) => encoder.WriteNull());

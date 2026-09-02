@@ -35,7 +35,9 @@
     <Project Path="src/ShapeShift.Cbor/ShapeShift.Cbor.csproj" />
     <Project Path="src/ShapeShift.Json/ShapeShift.Json.csproj" />
     <Project Path="src/ShapeShift.MsgPack/ShapeShift.MsgPack.csproj" />
+    <Project Path="src/ShapeShift.Protobuf/ShapeShift.Protobuf.csproj" />
     <Project Path="src/ShapeShift.Taml/ShapeShift.Taml.csproj" Id="7f31bb72-652a-4705-905d-65a3728ac52f" />
+    <Project Path="src/ShapeShift.Toml/ShapeShift.Toml.csproj" />
     <Project Path="src/ShapeShift.Yaml/ShapeShift.Yaml.csproj" />
     <Project Path="src/ShapeShift/ShapeShift.csproj" />
   </Folder>
@@ -45,8 +47,10 @@
     <Project Path="test/ShapeShift.Cbor.Tests/ShapeShift.Cbor.Tests.csproj" />
     <Project Path="test/ShapeShift.Json.Tests/ShapeShift.Json.Tests.csproj" />
     <Project Path="test/ShapeShift.MsgPack.Tests/ShapeShift.MsgPack.Tests.csproj" />
+    <Project Path="test/ShapeShift.Protobuf.Tests/ShapeShift.Protobuf.Tests.csproj" />
     <Project Path="test/ShapeShift.Taml.Tests/ShapeShift.Taml.Tests.csproj" Id="f9c4086c-1418-40b9-9987-f10aa4c2a5b8" />
     <Project Path="test/ShapeShift.Tests/ShapeShift.Tests.csproj" />
+    <Project Path="test/ShapeShift.Toml.Tests/ShapeShift.Toml.Tests.csproj" />
     <Project Path="test/ShapeShift.Yaml.Tests/ShapeShift.Yaml.Tests.csproj" />
     <Project Path="test/Samples.Tests/Samples.Tests.csproj" />
     <Project Path="test/Ubjson.Sample.Tests/Ubjson.Sample.Tests.csproj" />

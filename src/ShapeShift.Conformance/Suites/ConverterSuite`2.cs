@@ -44,7 +44,7 @@ internal sealed class ConverterSuite<TEncoder, TDecoder> : IConformanceSuite<TEn
 			ConformanceAssert.Equal(2, roundtripped?["two"] ?? -1, "the \"two\" entry of a round-tripped dictionary");
 		});
 
-		collector.Add("CustomConverterIsUsed", adapter =>
+		collector.Add("CustomConverterIsUsed", collector.Options.SupportsRootScalars ? null : "The format cannot carry a scalar at the root of a document.", adapter =>
 		{
 			ShapeShiftSerializer<TEncoder, TDecoder> serializer = adapter.CreateSerializer() with
 			{
@@ -141,8 +141,8 @@ internal sealed class ConverterSuite<TEncoder, TDecoder> : IConformanceSuite<TEn
 
 		collector.AddIf(
 			"SerializeDefaultValuesPolicyIsApplied",
-			collector.Options.SupportsEmptyMaps,
-			"The format cannot represent the empty map that omitting every default member produces.",
+			collector.Options.SupportsEmptyMaps && collector.Options.SupportsNull,
+			collector.Options.SupportsNull ? "The format cannot represent the empty map that omitting every default member produces." : "The format cannot represent null default members.",
 			adapter =>
 			{
 				ShapeShiftSerializer<TEncoder, TDecoder> omitting = adapter.CreateSerializer() with
