@@ -7,7 +7,7 @@ internal abstract class ObjectConverter<T, TEncoder, TDecoder> : ShapeShiftConve
 	where TEncoder : IEncoder, allows ref struct
 	where TDecoder : IDecoder, allows ref struct
 {
-	internal required IReadOnlyDictionary<string, ObjectPropertyWriter<T, TEncoder, TDecoder>> PropertyWriters { get; init; }
+	internal required Dictionary<string, ObjectPropertyWriter<T, TEncoder, TDecoder>> PropertyWriters { get; init; }
 
 	internal ExtensionDataProperty<T, TEncoder, TDecoder>? ExtensionData { get; init; }
 
