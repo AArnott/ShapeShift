@@ -40,6 +40,7 @@
     <Project Path="src/ShapeShift/ShapeShift.csproj" />
   </Folder>
   <Folder Name="/test/">
+    <Project Path="test/AotCompatibilityTest/AotCompatibilityTest.csproj" />
     <Project Path="test/ShapeShift.Analyzers.Tests/ShapeShift.Analyzers.Tests.csproj" />
     <Project Path="test/ShapeShift.Cbor.Tests/ShapeShift.Cbor.Tests.csproj" />
     <Project Path="test/ShapeShift.Json.Tests/ShapeShift.Json.Tests.csproj" />
