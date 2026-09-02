@@ -106,7 +106,12 @@ if ($isMTP) {
     if ($LASTEXITCODE -ne 0) { $failedTests += 1 }
 
     if ($IncludeNativeAOT) {
-        Get-ChildItem -Directory "$RepoRoot/bin/*.Tests/$Configuration/*/*/publish" | % {
+        $nativeAotPublishDirs = @(Get-ChildItem -Directory "$RepoRoot/bin/*.Tests/$Configuration/*/*/publish")
+        if ($nativeAotPublishDirs.Count -eq 0) {
+            Write-Error "IncludeNativeAOT was set, but no NativeAOT-published test directories were found under $RepoRoot/bin."
+            $failedTests += 1
+        }
+        $nativeAotPublishDirs | % {
             $TestDirName = $_.Parent.Parent.Parent.Parent.Name
             $TestExecutableName = $TestDirName
             $NativeAOTArgs = $mtpArgs
