@@ -74,6 +74,9 @@ public class TomlConformanceTests
 			// TOML 1.0 arrays may contain mixed element types.
 			SupportsHeterogeneousVectors = true,
 
+			// Parent assignments must precede nested table headers, so those entry kinds may be reordered.
+			PreservesMapEntryOrder = false,
+
 			// Empty tables and arrays are fully supported in TOML.
 			SupportsEmptyMaps = true,
 			SupportsEmptyVectors = true,

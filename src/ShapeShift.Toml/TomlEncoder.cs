@@ -212,23 +212,27 @@ public ref struct TomlEncoder : IEncoder
 
 	private void RenderTable(MapNode map, List<string> path)
 	{
-		for (int i = 0; i < map.Properties.Count; i++)
+		foreach ((string name, ValueNode value) in map.Properties)
 		{
-			(string name, ValueNode value) = map.Properties[i];
-			bool canUseHeader = true;
-			for (int j = i + 1; canUseHeader && j < map.Properties.Count; j++)
+			if (!this.IsHeaderValue(value))
 			{
-				canUseHeader = this.IsHeaderValue(map.Properties[j].Value);
+				this.BeginLine();
+				this.WriteKey(name);
+				this.writer.Write(" = ");
+				this.WriteInlineValue(value);
 			}
+		}
 
-			if (canUseHeader && value is MapNode childMap)
+		foreach ((string name, ValueNode value) in map.Properties)
+		{
+			if (value is MapNode childMap)
 			{
 				path.Add(name);
 				this.WriteHeader(path, tableArray: false);
 				this.RenderTable(childMap, path);
 				path.RemoveAt(path.Count - 1);
 			}
-			else if (canUseHeader && value is VectorNode { Items.Count: > 0 } vector && vector.Items.All(static item => item is MapNode))
+			else if (value is VectorNode { Items.Count: > 0 } vector && vector.Items.All(static item => item is MapNode))
 			{
 				path.Add(name);
 				foreach (MapNode item in vector.Items.Cast<MapNode>())
@@ -238,13 +242,6 @@ public ref struct TomlEncoder : IEncoder
 				}
 
 				path.RemoveAt(path.Count - 1);
-			}
-			else
-			{
-				this.BeginLine();
-				this.WriteKey(name);
-				this.writer.Write(" = ");
-				this.WriteInlineValue(value);
 			}
 		}
 	}

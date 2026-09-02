@@ -35,6 +35,21 @@ public partial class TomlSerializerTests : TestBase
 	}
 
 	[Test]
+	public async Task DecimalReadIsRejected()
+	{
+		await Assert.That(ReadDecimal).Throws<NotSupportedException>();
+
+		static void ReadDecimal()
+		{
+			StringReader reader = new("value = 0.1");
+			TomlDecoder decoder = new(reader);
+			decoder.ReadStartMap();
+			decoder.ReadPropertyName();
+			decoder.ReadDecimal();
+		}
+	}
+
+	[Test]
 	public async Task SimpleRecordWithDefaultCtor()
 	{
 		Person person = new() { FirstName = "John", LastName = "Doe" };
@@ -69,8 +84,6 @@ public partial class TomlSerializerTests : TestBase
 		StringWriter writer = new(CultureInfo.InvariantCulture);
 		TomlEncoder encoder = new(writer);
 		encoder.WriteStartMap(2);
-		encoder.WritePropertyName("title");
-		encoder.WriteValue("TOML Example");
 		encoder.WritePropertyName("owner");
 		encoder.WriteStartMap(1);
 		encoder.WritePropertyName("names");
@@ -79,6 +92,8 @@ public partial class TomlSerializerTests : TestBase
 		encoder.WriteValue("Grace");
 		encoder.WriteEndVector();
 		encoder.WriteEndMap();
+		encoder.WritePropertyName("title");
+		encoder.WriteValue("TOML Example");
 		encoder.WriteEndMap();
 
 		await Assert.That(writer.ToString()).Contains("[owner]");

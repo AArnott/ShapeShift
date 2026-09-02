@@ -119,7 +119,7 @@ public ref struct TomlDecoder : IDecoder
 	public double ReadDouble() => this.ReadFloatingPoint<double>(double.TryParse, "Double");
 
 	/// <inheritdoc/>
-	public decimal ReadDecimal() => this.ReadFloatingPoint<decimal>(decimal.TryParse, "Decimal");
+	public decimal ReadDecimal() => throw new NotSupportedException("TOML floating-point values use binary64 and cannot represent decimal values exactly.");
 
 	/// <inheritdoc/>
 	public DateTime ReadDateTime()

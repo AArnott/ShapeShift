@@ -63,6 +63,15 @@ public sealed record FormatConformanceOptions
 	public bool SupportsHeterogeneousVectors { get; init; } = true;
 
 	/// <summary>
+	/// Gets a value indicating whether map entries retain their relative order when they round-trip.
+	/// </summary>
+	/// <remarks>
+	/// Formats such as TOML may require parent assignments to precede nested table headers and therefore
+	/// cannot preserve relative order between those entry kinds.
+	/// </remarks>
+	public bool PreservesMapEntryOrder { get; init; } = true;
+
+	/// <summary>
 	/// Gets a value indicating whether a map with no entries round-trips.
 	/// </summary>
 	public bool SupportsEmptyMaps { get; init; } = true;
