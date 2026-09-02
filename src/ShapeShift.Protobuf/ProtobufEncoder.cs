@@ -30,7 +30,7 @@ public ref struct ProtobufEncoder(Stream stream) : IEncoder
 	public void WriteStartMap(int? propertyCount)
 	{
 		this.WriteTag(0x70);
-		this.WriteCount(propertyCount ?? 0);
+		this.WriteCount(propertyCount);
 		this.Push(ContainerKind.Map);
 	}
 
@@ -46,7 +46,7 @@ public ref struct ProtobufEncoder(Stream stream) : IEncoder
 	public void WriteStartVector(int? itemCount)
 	{
 		this.WriteTag(0x80);
-		this.WriteCount(itemCount ?? 0);
+		this.WriteCount(itemCount);
 		this.Push(ContainerKind.Vector);
 	}
 
@@ -192,9 +192,18 @@ public ref struct ProtobufEncoder(Stream stream) : IEncoder
 	private void WriteTag(byte tag)
 		=> this.stream.WriteByte(tag);
 
-	private void WriteCount(int value)
+	/// <summary>
+	/// Writes a container count, distinguishing a known count from an unknown one.
+	/// </summary>
+	/// <param name="value">The count, or <see langword="null"/> if the caller does not know how many elements will follow.</param>
+	/// <remarks>
+	/// Zero is reserved to mean "unknown"; a known count <c>n</c> is written as <c>n + 1</c> so the decoder
+	/// can tell the two cases apart. Protobuf containers always have explicit end tokens, so this encoding
+	/// never needs to be relied upon for framing -- only for the count reported back to callers.
+	/// </remarks>
+	private void WriteCount(int? value)
 	{
-		this.WriteVarint((uint)value);
+		this.WriteVarint(value is int count ? checked((uint)count + 1) : 0);
 	}
 
 	private void WriteLength(int length)

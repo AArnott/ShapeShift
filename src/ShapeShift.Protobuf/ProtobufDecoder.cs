@@ -85,7 +85,7 @@ public ref struct ProtobufDecoder(byte[] buffer) : IDecoder
 		}
 
 		this.position++;
-		int count = this.ReadCount();
+		int? count = this.ReadCount();
 		this.Push(ContainerKind.Map);
 		return count;
 	}
@@ -112,7 +112,7 @@ public ref struct ProtobufDecoder(byte[] buffer) : IDecoder
 		}
 
 		this.position++;
-		int count = this.ReadCount();
+		int? count = this.ReadCount();
 		this.Push(ContainerKind.Vector);
 		return count;
 	}
@@ -515,11 +515,22 @@ public ref struct ProtobufDecoder(byte[] buffer) : IDecoder
 		return text;
 	}
 
-	private int ReadCount()
+	/// <summary>
+	/// Reads a container count previously written by <see cref="ProtobufEncoder"/>, distinguishing
+	/// a known count from an unknown one.
+	/// </summary>
+	/// <returns>The count, or <see langword="null"/> if the writer did not know the count when it wrote the container start.</returns>
+	private int? ReadCount()
 	{
+		uint raw = this.ReadVarint();
+		if (raw == 0)
+		{
+			return null;
+		}
+
 		try
 		{
-			return checked((int)this.ReadVarint());
+			return checked((int)(raw - 1));
 		}
 		catch (OverflowException ex)
 		{

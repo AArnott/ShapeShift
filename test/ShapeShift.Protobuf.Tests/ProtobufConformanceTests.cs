@@ -59,7 +59,7 @@ public class ProtobufConformanceTests
 		/// <inheritdoc/>
 		public override FormatConformanceOptions Options { get; } = new()
 		{
-			ReportsContainerCounts = true,
+			ReportsContainerCounts = false,
 			SupportsReferencePreservation = false,
 		};
 
