@@ -67,7 +67,7 @@ internal abstract class ObjectConverter<T, TEncoder, TDecoder> : ShapeShiftConve
 				continue;
 			}
 
-			encoder.WritePropertyName(name);
+			encoder.WritePropertyName(name, property.PreparedName);
 			try
 			{
 				property.Write(ref encoder, in value, context);

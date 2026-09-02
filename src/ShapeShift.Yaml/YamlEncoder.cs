@@ -83,6 +83,9 @@ public ref struct YamlEncoder(TextWriter writer) : IEncoder
 	}
 
 	/// <inheritdoc/>
+	public void WritePropertyName(scoped ReadOnlySpan<char> name, object? preparedName) => this.WritePropertyName(name);
+
+	/// <inheritdoc/>
 	public void WriteNull()
 	{
 		this.WriteScalar("null".AsSpan());

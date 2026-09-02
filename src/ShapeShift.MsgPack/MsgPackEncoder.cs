@@ -15,6 +15,9 @@ public ref struct MsgPackEncoder(IBufferWriter<byte> output) : IEncoder
 	public IBufferWriter<byte> Output => output;
 
 	/// <inheritdoc/>
+	public static object PreparePropertyName(string name) => Encoding.UTF8.GetBytes(name);
+
+	/// <inheritdoc/>
 	public void WriteStartMap(int? propertyCount) => this.WriteMapHeader(RequireCount(propertyCount));
 
 	/// <inheritdoc/>
@@ -32,6 +35,15 @@ public ref struct MsgPackEncoder(IBufferWriter<byte> output) : IEncoder
 
 	/// <inheritdoc/>
 	public void WritePropertyName(scoped ReadOnlySpan<char> name) => this.WriteString(name);
+
+	/// <inheritdoc/>
+	public void WritePropertyName(scoped ReadOnlySpan<char> name, object? preparedName)
+	{
+		ArgumentNullException.ThrowIfNull(preparedName);
+		byte[] utf8Name = (byte[])preparedName;
+		this.WriteStringHeader(utf8Name.Length);
+		this.WriteBytes(utf8Name);
+	}
 
 	/// <inheritdoc/>
 	public void WriteNull() => this.WriteByte(0xc0);

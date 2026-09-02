@@ -22,7 +22,7 @@ namespace ShapeShift;
 /// <para>
 /// Every write must be balanced: each <see cref="WriteStartMap"/> is matched by a
 /// <see cref="WriteEndMap"/>, each <see cref="WriteStartVector"/> by a <see cref="WriteEndVector"/>,
-/// and inside a map every <see cref="WritePropertyName"/> is followed by exactly one value.
+/// and inside a map every <see cref="WritePropertyName(ReadOnlySpan{char})"/> is followed by exactly one value.
 /// </para>
 /// </remarks>
 public interface IEncoder
@@ -64,6 +64,30 @@ public interface IEncoder
 	/// so this is a distinct operation rather than a call to <see cref="WriteValue(ReadOnlySpan{char})"/>.
 	/// </remarks>
 	void WritePropertyName(scoped ReadOnlySpan<char> name);
+
+	/// <summary>
+	/// Prepares a declared property name for repeated writes by this encoder type.
+	/// </summary>
+	/// <param name="name">The property name.</param>
+	/// <returns>
+	/// Opaque encoder-specific state, or <see langword="null" /> when this encoder does not prepare property names.
+	/// </returns>
+	/// <remarks>
+	/// The returned state is cached with serializer contract metadata. Implementations must therefore return
+	/// immutable, thread-safe state that does not refer to a particular encoder instance or output destination.
+	/// </remarks>
+	static virtual object? PreparePropertyName(string name) => null;
+
+	/// <summary>
+	/// Writes a previously prepared declared property name.
+	/// </summary>
+	/// <param name="name">The property name.</param>
+	/// <param name="preparedName">The state returned by <see cref="PreparePropertyName(string)"/>.</param>
+	/// <remarks>
+	/// Implementations that return non-null state from <see cref="PreparePropertyName(string)"/> should consume it
+	/// here. Other implementations should forward to <see cref="WritePropertyName(ReadOnlySpan{char})"/>.
+	/// </remarks>
+	void WritePropertyName(scoped ReadOnlySpan<char> name, object? preparedName);
 
 	/// <summary>
 	/// Writes an explicit null.

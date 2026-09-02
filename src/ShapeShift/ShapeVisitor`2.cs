@@ -94,7 +94,7 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 
 				if (converters.Write is not null)
 				{
-					propertyWriters.Add(name, new(converters.Write, converters.ShouldWrite));
+					propertyWriters.Add(name, new(converters.Write, converters.ShouldWrite, TEncoder.PreparePropertyName(name)));
 				}
 			}
 
@@ -123,7 +123,7 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 				var converters = (PropertyConverter<TDeclaringType, TEncoder, TDecoder>)property.Accept(this, matchingParameter)!;
 				if (converters.Write is not null)
 				{
-					propertyWriters.Add(name, new(converters.Write, converters.ShouldWrite));
+					propertyWriters.Add(name, new(converters.Write, converters.ShouldWrite, TEncoder.PreparePropertyName(name)));
 				}
 			}
 

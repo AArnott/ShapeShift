@@ -62,6 +62,20 @@ public partial class JsonSerializerTests : TestBase
 	}
 
 	[Test]
+	public async Task PreparedPropertyNames_UseRfc8259Escaping()
+	{
+		const string Prefix = "<\u00E9\u2028\u2029>";
+		JsonSerializer serializer = this.serializer with { PropertyNamingPolicy = new PrefixNamingPolicy(Prefix) };
+		NullableItems value = new(["value"]);
+
+		string json = serializer.Serialize(value);
+		NullableItems? actual = serializer.Deserialize<NullableItems>(json);
+
+		await Assert.That(json).IsEqualTo($"{{\"{Prefix}Items\":[\"value\"]}}");
+		await Assert.That(actual?.Items.SequenceEqual(value.Items)).IsTrue();
+	}
+
+	[Test]
 	public async Task Object_RoundTrips()
 	{
 		Person value = new("Ada", 37, Status.Active);
@@ -433,4 +447,11 @@ public partial class JsonSerializerTests : TestBase
 	[GenerateShapeFor<bool>]
 	[GenerateShapeFor<double>]
 	private partial class Witness;
+
+	private sealed class PrefixNamingPolicy(string prefix) : ShapeShiftNamingPolicy
+	{
+		private readonly string prefix = prefix;
+
+		public override string ConvertName(string name) => this.prefix + name;
+	}
 }
