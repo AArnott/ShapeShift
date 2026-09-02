@@ -14,6 +14,11 @@ internal abstract class ObjectConverter<T, TEncoder, TDecoder> : ShapeShiftConve
 	/// </summary>
 	internal required bool HasConditionalProperties { get; init; }
 
+	/// <summary>
+	/// Gets the declared property names used to detect extension-data conflicts, when extension data is supported.
+	/// </summary>
+	internal HashSet<string>? DeclaredPropertyNames { get; init; }
+
 	internal ExtensionDataProperty<T, TEncoder, TDecoder>? ExtensionData { get; init; }
 
 	public override void Write(ref TEncoder encoder, in T? value, SerializationContext<TEncoder, TDecoder> context)
@@ -47,12 +52,9 @@ internal abstract class ObjectConverter<T, TEncoder, TDecoder> : ShapeShiftConve
 		{
 			foreach (string name in extensionData.Keys)
 			{
-				foreach ((string declaredName, _) in this.PropertyWriters)
+				if (this.DeclaredPropertyNames!.Contains(name))
 				{
-					if (string.Equals(name, declaredName, StringComparison.Ordinal))
-					{
-						throw new ShapeShiftSerializationException($"Extension property '{name}' conflicts with a declared property on {typeof(T).FullName}.", null, new ShapeShiftPath(name));
-					}
+					throw new ShapeShiftSerializationException($"Extension property '{name}' conflicts with a declared property on {typeof(T).FullName}.", null, new ShapeShiftPath(name));
 				}
 			}
 

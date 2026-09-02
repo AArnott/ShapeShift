@@ -22,7 +22,8 @@ namespace ShapeShift;
 /// <para>
 /// Every write must be balanced: each <see cref="WriteStartMap"/> is matched by a
 /// <see cref="WriteEndMap"/>, each <see cref="WriteStartVector"/> by a <see cref="WriteEndVector"/>,
-/// and inside a map every <see cref="WritePropertyName(ReadOnlySpan{char})"/> is followed by exactly one value.
+/// and inside a map every call to <see cref="WritePropertyName(ReadOnlySpan{char})"/> or
+/// <see cref="WritePropertyName(ReadOnlySpan{char}, object)"/> is followed by exactly one value.
 /// </para>
 /// </remarks>
 public interface IEncoder

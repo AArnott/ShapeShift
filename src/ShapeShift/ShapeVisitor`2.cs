@@ -102,7 +102,8 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 			{
 				PropertyReaders = propertyReaders,
 				PropertyWriters = [.. propertyWriters],
-				HasConditionalProperties = propertyWriters.Values.Any(static property => property.ShouldWrite is not null),
+				HasConditionalProperties = ContainsConditionalProperty(propertyWriters),
+				DeclaredPropertyNames = extensionData is null ? null : new(propertyWriters.Keys, StringComparer.Ordinal),
 				ExtensionData = extensionData,
 			};
 		}
@@ -138,7 +139,7 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 			{
 				PropertyReaders = propertyReaders,
 				PropertyWriters = [.. propertyWriters],
-				HasConditionalProperties = propertyWriters.Values.Any(static property => property.ShouldWrite is not null),
+				HasConditionalProperties = ContainsConditionalProperty(propertyWriters),
 				Parameters = constructorShape.Parameters,
 				DefaultValuesPolicy = this.owner.DeserializeDefaultValues,
 			};
@@ -397,6 +398,19 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 		}
 
 		return (ConverterResult<TEncoder, TDecoder>)this.context.GetOrAdd(shape, state)!;
+	}
+
+	private static bool ContainsConditionalProperty<TDeclaringType>(Dictionary<string, ObjectPropertyWriter<TDeclaringType, TEncoder, TDecoder>> propertyWriters)
+	{
+		foreach (ObjectPropertyWriter<TDeclaringType, TEncoder, TDecoder> property in propertyWriters.Values)
+		{
+			if (property.ShouldWrite is not null)
+			{
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	private ExtensionDataProperty<TDeclaringType, TEncoder, TDecoder> CreateExtensionDataProperty<TDeclaringType, TPropertyType>(
