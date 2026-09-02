@@ -117,7 +117,7 @@ public ref struct TomlEncoder : IEncoder
 	public void WriteValue(double value) => this.AddValue(new ScalarNode(value));
 
 	/// <inheritdoc/>
-	public void WriteValue(decimal value) => this.AddValue(new ScalarNode((double)value));
+	public void WriteValue(decimal value) => throw new NotSupportedException("TOML floating-point values use binary64 and cannot represent decimal values exactly.");
 
 	/// <inheritdoc/>
 	public void WriteValue(DateTime value) => this.AddValue(new ScalarNode(value));

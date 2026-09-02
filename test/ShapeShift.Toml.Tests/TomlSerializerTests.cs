@@ -20,6 +20,21 @@ public partial class TomlSerializerTests : TestBase
 	}
 
 	[Test]
+	public async Task DecimalIsRejected()
+	{
+		await Assert.That(WriteDecimal).Throws<NotSupportedException>();
+
+		static void WriteDecimal()
+		{
+			StringWriter writer = new(CultureInfo.InvariantCulture);
+			TomlEncoder encoder = new(writer);
+			encoder.WriteStartMap(1);
+			encoder.WritePropertyName("value");
+			encoder.WriteValue(0.1m);
+		}
+	}
+
+	[Test]
 	public async Task SimpleRecordWithDefaultCtor()
 	{
 		Person person = new() { FirstName = "John", LastName = "Doe" };
