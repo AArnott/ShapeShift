@@ -21,7 +21,7 @@ internal sealed class TokenSuite<TEncoder, TDecoder> : IConformanceSuite<TEncode
 	{
 		Requires.NotNull(collector);
 
-		AddScalar(collector, "Null", ConformanceValueKind.Null, static (ref TEncoder e) => e.WriteNull(), null);
+		AddScalar(collector, "Null", ConformanceValueKind.Null, static (ref TEncoder e) => e.WriteNull(), collector.Options.SupportsNull ? null : "The format has no null representation.");
 		AddScalar(collector, "Boolean", ConformanceValueKind.Boolean, static (ref TEncoder e) => e.WriteValue(true), null);
 		AddScalar(collector, "Integer", ConformanceValueKind.Integer, static (ref TEncoder e) => e.WriteValue(42L), null);
 		AddScalar(collector, "Float", ConformanceValueKind.Float, static (ref TEncoder e) => e.WriteValue(1.5d), null);

@@ -20,6 +20,7 @@ internal sealed class StateSuite<TEncoder, TDecoder> : IConformanceSuite<TEncode
 	public void AddTests(ConformanceTestCollector<TEncoder, TDecoder> collector)
 	{
 		Requires.NotNull(collector);
+		string? mapOrderSkipReason = collector.Options.PreservesMapEntryOrder ? null : "The format does not preserve map entry order.";
 
 		collector.AddIf(
 			"EmptyMap",
@@ -63,7 +64,7 @@ internal sealed class StateSuite<TEncoder, TDecoder> : IConformanceSuite<TEncode
 				});
 			});
 
-		collector.Add("MapEntriesAreOrdered", adapter =>
+		collector.Add("MapEntriesAreOrdered", mapOrderSkipReason, adapter =>
 		{
 			byte[] payload = adapter.Encode(static (ref TEncoder encoder) =>
 			{
@@ -122,7 +123,7 @@ internal sealed class StateSuite<TEncoder, TDecoder> : IConformanceSuite<TEncode
 			});
 		});
 
-		collector.Add("MapInsideMap", adapter =>
+		collector.Add("MapInsideMap", mapOrderSkipReason, adapter =>
 		{
 			byte[] payload = adapter.Encode(static (ref TEncoder encoder) =>
 			{

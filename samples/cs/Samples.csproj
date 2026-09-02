@@ -9,6 +9,7 @@
     <ProjectReference Include="..\..\src\ShapeShift\ShapeShift.csproj" />
     <ProjectReference Include="..\..\src\ShapeShift.Json\ShapeShift.Json.csproj" />
     <ProjectReference Include="..\..\src\ShapeShift.MsgPack\ShapeShift.MsgPack.csproj" />
+    <ProjectReference Include="..\..\src\ShapeShift.Toml\ShapeShift.Toml.csproj" />
     <ProjectReference Include="..\..\src\ShapeShift.Yaml\ShapeShift.Yaml.csproj" />
   </ItemGroup>
 
