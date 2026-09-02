@@ -7,7 +7,7 @@ internal abstract class ObjectConverter<T, TEncoder, TDecoder> : ShapeShiftConve
 	where TEncoder : IEncoder, allows ref struct
 	where TDecoder : IDecoder, allows ref struct
 {
-	internal required Dictionary<string, ObjectPropertyWriter<T, TEncoder, TDecoder>> PropertyWriters { get; init; }
+	internal required KeyValuePair<string, ObjectPropertyWriter<T, TEncoder, TDecoder>>[] PropertyWriters { get; init; }
 
 	/// <summary>
 	/// Gets a value indicating whether any declared property may be omitted during serialization.
@@ -29,11 +29,11 @@ internal abstract class ObjectConverter<T, TEncoder, TDecoder> : ShapeShiftConve
 
 		context.DepthStep();
 
-		int count = this.PropertyWriters.Count;
+		int count = this.PropertyWriters.Length;
 		if (this.HasConditionalProperties)
 		{
 			count = 0;
-			foreach (ObjectPropertyWriter<T, TEncoder, TDecoder> property in this.PropertyWriters.Values)
+			foreach ((_, ObjectPropertyWriter<T, TEncoder, TDecoder> property) in this.PropertyWriters)
 			{
 				if (property.ShouldWrite is null || property.ShouldWrite(value))
 				{
@@ -47,9 +47,12 @@ internal abstract class ObjectConverter<T, TEncoder, TDecoder> : ShapeShiftConve
 		{
 			foreach (string name in extensionData.Keys)
 			{
-				if (this.PropertyWriters.ContainsKey(name))
+				foreach ((string declaredName, _) in this.PropertyWriters)
 				{
-					throw new ShapeShiftSerializationException($"Extension property '{name}' conflicts with a declared property on {typeof(T).FullName}.", null, new ShapeShiftPath(name));
+					if (string.Equals(name, declaredName, StringComparison.Ordinal))
+					{
+						throw new ShapeShiftSerializationException($"Extension property '{name}' conflicts with a declared property on {typeof(T).FullName}.", null, new ShapeShiftPath(name));
+					}
 				}
 			}
 

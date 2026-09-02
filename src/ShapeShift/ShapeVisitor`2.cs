@@ -101,7 +101,7 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 			converter = new ObjectConverterWithDefaultCtor<TDeclaringType, TEncoder, TDecoder>(constructorShape.GetDefaultConstructor())
 			{
 				PropertyReaders = propertyReaders,
-				PropertyWriters = propertyWriters,
+				PropertyWriters = [.. propertyWriters],
 				HasConditionalProperties = propertyWriters.Values.Any(static property => property.ShouldWrite is not null),
 				ExtensionData = extensionData,
 			};
@@ -137,7 +137,7 @@ internal class ShapeVisitor<TEncoder, TDecoder> : TypeShapeVisitor, ITypeShapeFu
 			converter = new ObjectConverterWithNonDefaultCtor<TDeclaringType, TArgumentState, TEncoder, TDecoder>(constructorShape.GetArgumentStateConstructor(), constructorShape.GetParameterizedConstructor())
 			{
 				PropertyReaders = propertyReaders,
-				PropertyWriters = propertyWriters,
+				PropertyWriters = [.. propertyWriters],
 				HasConditionalProperties = propertyWriters.Values.Any(static property => property.ShouldWrite is not null),
 				Parameters = constructorShape.Parameters,
 				DefaultValuesPolicy = this.owner.DeserializeDefaultValues,
