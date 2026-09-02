@@ -12,6 +12,8 @@
 - Avoid introducing binary breaking changes in public APIs of projects under `src` unless their project files have `IsPackable` set to `false`.
 - Keep the `ShapeShift` core format-neutral. Format packages should be thin adapters over the shared converter and PolyType infrastructure.
 - Make it straightforward for third parties to add format packages, following `ShapeShift.Taml` as the smallest reference implementation. Public extension points require documentation and conformance tests.
+- Every new format package must add its own `test/ShapeShift.<Format>.Tests` project and format documentation under `docfx/docs/`, with an entry in `docfx/docs/toc.yml`. Add both projects to `ShapeShift.slnx`.
+- NativeAOT coverage discovers runtime projects matching `src/ShapeShift*/ShapeShift*.csproj` and test projects matching `test/ShapeShift*.Tests/ShapeShift*.Tests.csproj`. New runtime libraries and format test projects must follow these conventions; compiler-hosted analyzer projects remain explicitly excluded. Non-`ShapeShift.*` sample test projects are intentionally listed explicitly in `test/dirs.proj`.
 - All shipping libraries and default code paths must be trimming-safe and NativeAOT-ready.
 - Any useful feature that cannot be NativeAOT-safe must be disabled by default and activated only by an explicit method call. Not calling that method must leave the application NativeAOT-safe.
 - Do not use `InternalsVisibleTo`. Test through public APIs or move reusable test support into an appropriate public test-support package.

@@ -106,16 +106,27 @@ if ($isMTP) {
     if ($LASTEXITCODE -ne 0) { $failedTests += 1 }
 
     if ($IncludeNativeAOT) {
-        foreach ($TestExecutableName in 'ShapeShift.Tests', 'ShapeShift.Yaml.Tests', 'ShapeShift.Taml.Tests') {
-            $TestDirName = $TestExecutableName
+        $nativeAotPublishDirs = @(Get-ChildItem -Directory "$RepoRoot/bin/*.Tests/$Configuration/*/*/publish")
+        if ($nativeAotPublishDirs.Count -eq 0) {
+            Write-Error "IncludeNativeAOT was set, but no NativeAOT-published test directories were found under $RepoRoot/bin."
+            $failedTests += 1
+        }
+        $nativeAotPublishDirs | % {
+            $TestDirName = $_.Parent.Parent.Parent.Parent.Name
+            $TestExecutableName = $TestDirName
             $NativeAOTArgs = $mtpArgs
             if (!($IsMacOS -or $IsLinux)) {
                 $TestExecutableName += '.exe'
                 $NativeAOTArgs += $dumpSwitches # dump-related switches only work on NativeAOT exe's on Windows.
             }
-            Get-ChildItem "$RepoRoot/bin/$TestDirName/$Configuration/*/*/publish/$TestExecutableName" | % {
-                & $_ @NativeAOTArgs @extraArgs
+            $TestExecutablePath = Join-Path $_.FullName $TestExecutableName
+            if (Test-Path -LiteralPath $TestExecutablePath -PathType Leaf) {
+                & $TestExecutablePath @NativeAOTArgs @extraArgs
                 if ($LASTEXITCODE -ne 0) { $failedTests += 1 }
+            }
+            else {
+                Write-Error "NativeAOT test executable not found: $TestExecutablePath"
+                $failedTests += 1
             }
         }
     }

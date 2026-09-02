@@ -11,6 +11,8 @@ items:
   href: msgpack.md
 - name: CBOR
   href: cbor.md
+- name: Protobuf
+  href: protobuf.md
 - name: TOML
   href: toml.md
 - name: Schema and contract inspection

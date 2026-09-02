@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\AOT.props" />
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ShapeShift*\ShapeShift*.csproj" Exclude="..\..\src\ShapeShift.Analyzers\ShapeShift.Analyzers.csproj;..\..\src\ShapeShift.Analyzers.CodeFixes\ShapeShift.Analyzers.CodeFixes.csproj" />
+    <TrimmerRootAssembly Include="@(ProjectReference->'%(Filename)')" />
+  </ItemGroup>
+</Project>
