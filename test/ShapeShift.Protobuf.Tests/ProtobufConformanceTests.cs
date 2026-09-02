@@ -80,7 +80,7 @@ public class ProtobufConformanceTests
 		public override TResult Decode<TResult>(ReadOnlyMemory<byte> payload, DecodeFunc<ProtobufDecoder, TResult> func)
 		{
 			ArgumentNullException.ThrowIfNull(func);
-			ProtobufDecoder decoder = new(payload.ToArray());
+			ProtobufDecoder decoder = new(payload.Span);
 			return func(ref decoder);
 		}
 	}
