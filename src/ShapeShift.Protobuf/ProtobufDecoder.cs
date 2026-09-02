@@ -26,6 +26,7 @@ public ref struct ProtobufDecoder(byte[] buffer) : IDecoder
 		Vector,
 	}
 
+	/// <inheritdoc/>
 	public TokenType NextTokenType
 	{
 		get
@@ -54,6 +55,7 @@ public ref struct ProtobufDecoder(byte[] buffer) : IDecoder
 		}
 	}
 
+	/// <inheritdoc/>
 	public bool TryReadNull()
 	{
 		if (this.NextTokenType != TokenType.Null)
@@ -65,6 +67,7 @@ public ref struct ProtobufDecoder(byte[] buffer) : IDecoder
 		return true;
 	}
 
+	/// <inheritdoc/>
 	public void ReadNull()
 	{
 		if (!this.TryReadNull())
@@ -73,6 +76,7 @@ public ref struct ProtobufDecoder(byte[] buffer) : IDecoder
 		}
 	}
 
+	/// <inheritdoc/>
 	public int? ReadStartMap()
 	{
 		if (this.NextTokenType != TokenType.StartMap)
@@ -86,6 +90,7 @@ public ref struct ProtobufDecoder(byte[] buffer) : IDecoder
 		return count;
 	}
 
+	/// <inheritdoc/>
 	public void ReadEndMap()
 	{
 		if (this.NextTokenType != TokenType.EndMap)
@@ -93,10 +98,12 @@ public ref struct ProtobufDecoder(byte[] buffer) : IDecoder
 			throw new DecoderException($"Expected an end-of-map token but found {this.NextTokenType}.");
 		}
 
+		this.AssertCurrentContainer(ContainerKind.Map);
 		this.position++;
 		this.Pop();
 	}
 
+	/// <inheritdoc/>
 	public int? ReadStartVector()
 	{
 		if (this.NextTokenType != TokenType.StartVector)
@@ -110,6 +117,7 @@ public ref struct ProtobufDecoder(byte[] buffer) : IDecoder
 		return count;
 	}
 
+	/// <inheritdoc/>
 	public void ReadEndVector()
 	{
 		if (this.NextTokenType != TokenType.EndVector)
@@ -117,10 +125,12 @@ public ref struct ProtobufDecoder(byte[] buffer) : IDecoder
 			throw new DecoderException($"Expected an end-of-vector token but found {this.NextTokenType}.");
 		}
 
+		this.AssertCurrentContainer(ContainerKind.Vector);
 		this.position++;
 		this.Pop();
 	}
 
+	/// <inheritdoc/>
 	public ReadOnlySpan<char> ReadPropertyName()
 	{
 		if (this.NextTokenType != TokenType.PropertyName)
@@ -133,6 +143,7 @@ public ref struct ProtobufDecoder(byte[] buffer) : IDecoder
 		return this.currentString.AsSpan();
 	}
 
+	/// <inheritdoc/>
 	public void Skip()
 	{
 		switch (this.NextTokenType)
@@ -157,29 +168,50 @@ public ref struct ProtobufDecoder(byte[] buffer) : IDecoder
 				this.Skip();
 				return;
 			case TokenType.StartMap:
-			{
-				int count = this.ReadStartMap() ?? 0;
-				for (int i = 0; i < count; i++)
 				{
-					this.ReadPropertyName();
-					this.Skip();
-				}
+					int? count = this.ReadStartMap();
+					if (count is int mapCount)
+					{
+						for (int i = 0; i < mapCount; i++)
+						{
+							this.ReadPropertyName();
+							this.Skip();
+						}
+					}
+					else
+					{
+						while (this.NextTokenType != TokenType.EndMap)
+						{
+							this.ReadPropertyName();
+							this.Skip();
+						}
+					}
 
-				this.ReadEndMap();
-				return;
-			}
+					this.ReadEndMap();
+					return;
+				}
 
 			case TokenType.StartVector:
-			{
-				int count = this.ReadStartVector() ?? 0;
-				for (int i = 0; i < count; i++)
 				{
-					this.Skip();
-				}
+					int? count = this.ReadStartVector();
+					if (count is int vectorCount)
+					{
+						for (int i = 0; i < vectorCount; i++)
+						{
+							this.Skip();
+						}
+					}
+					else
+					{
+						while (this.NextTokenType != TokenType.EndVector)
+						{
+							this.Skip();
+						}
+					}
 
-				this.ReadEndVector();
-				return;
-			}
+					this.ReadEndVector();
+					return;
+				}
 
 			case TokenType.EndMap:
 				this.ReadEndMap();
@@ -194,6 +226,7 @@ public ref struct ProtobufDecoder(byte[] buffer) : IDecoder
 		}
 	}
 
+	/// <inheritdoc/>
 	public bool ReadBoolean()
 	{
 		if (this.NextTokenType != TokenType.Boolean)
@@ -202,50 +235,162 @@ public ref struct ProtobufDecoder(byte[] buffer) : IDecoder
 		}
 
 		this.position++;
+		if (this.position >= this.buffer.Length)
+		{
+			throw new DecoderException("Boolean payload is truncated.");
+		}
+
 		bool value = this.buffer[this.position] != 0;
 		this.position++;
 		return value;
 	}
 
+	/// <inheritdoc/>
 	public long ReadInt64()
-		=> long.Parse(this.ReadNumericString(), CultureInfo.InvariantCulture);
+	{
+		try
+		{
+			return long.Parse(this.ReadNumericString(), CultureInfo.InvariantCulture);
+		}
+		catch (Exception ex) when (ex is FormatException or OverflowException)
+		{
+			throw new DecoderException("The numeric payload is not a valid Int64.", ex);
+		}
+	}
 
+	/// <inheritdoc/>
 	public ulong ReadUInt64()
-		=> ulong.Parse(this.ReadNumericString(), CultureInfo.InvariantCulture);
+	{
+		try
+		{
+			return ulong.Parse(this.ReadNumericString(), CultureInfo.InvariantCulture);
+		}
+		catch (Exception ex) when (ex is FormatException or OverflowException)
+		{
+			throw new DecoderException("The numeric payload is not a valid UInt64.", ex);
+		}
+	}
 
+	/// <inheritdoc/>
 	public Int128 ReadInt128()
-		=> Int128.Parse(this.ReadNumericString(), CultureInfo.InvariantCulture);
+	{
+		try
+		{
+			return Int128.Parse(this.ReadNumericString(), CultureInfo.InvariantCulture);
+		}
+		catch (Exception ex) when (ex is FormatException or OverflowException)
+		{
+			throw new DecoderException("The numeric payload is not a valid Int128.", ex);
+		}
+	}
 
+	/// <inheritdoc/>
 	public UInt128 ReadUInt128()
-		=> UInt128.Parse(this.ReadNumericString(), CultureInfo.InvariantCulture);
+	{
+		try
+		{
+			return UInt128.Parse(this.ReadNumericString(), CultureInfo.InvariantCulture);
+		}
+		catch (Exception ex) when (ex is FormatException or OverflowException)
+		{
+			throw new DecoderException("The numeric payload is not a valid UInt128.", ex);
+		}
+	}
 
+	/// <inheritdoc/>
 	public Half ReadHalf()
-		=> Half.Parse(this.ReadNumericString(), CultureInfo.InvariantCulture);
+	{
+		try
+		{
+			return Half.Parse(this.ReadNumericString(), CultureInfo.InvariantCulture);
+		}
+		catch (Exception ex) when (ex is FormatException or OverflowException)
+		{
+			throw new DecoderException("The numeric payload is not a valid Half.", ex);
+		}
+	}
 
+	/// <inheritdoc/>
 	public float ReadSingle()
-		=> float.Parse(this.ReadNumericString(), CultureInfo.InvariantCulture);
+	{
+		try
+		{
+			return float.Parse(this.ReadNumericString(), CultureInfo.InvariantCulture);
+		}
+		catch (Exception ex) when (ex is FormatException or OverflowException)
+		{
+			throw new DecoderException("The numeric payload is not a valid Single.", ex);
+		}
+	}
 
+	/// <inheritdoc/>
 	public double ReadDouble()
-		=> double.Parse(this.ReadNumericString(), CultureInfo.InvariantCulture);
+	{
+		try
+		{
+			return double.Parse(this.ReadNumericString(), CultureInfo.InvariantCulture);
+		}
+		catch (Exception ex) when (ex is FormatException or OverflowException)
+		{
+			throw new DecoderException("The numeric payload is not a valid Double.", ex);
+		}
+	}
 
+	/// <inheritdoc/>
 	public decimal ReadDecimal()
-		=> decimal.Parse(this.ReadNumericString(), CultureInfo.InvariantCulture);
+	{
+		try
+		{
+			return decimal.Parse(this.ReadNumericString(), CultureInfo.InvariantCulture);
+		}
+		catch (Exception ex) when (ex is FormatException or OverflowException)
+		{
+			throw new DecoderException("The numeric payload is not a valid Decimal.", ex);
+		}
+	}
 
+	/// <inheritdoc/>
 	public DateTime ReadDateTime()
 	{
 		string text = this.ReadString();
-		return DateTime.Parse(text, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
+		try
+		{
+			return DateTime.Parse(text, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
+		}
+		catch (FormatException ex)
+		{
+			throw new DecoderException($"\"{text}\" is not valid ISO 8601 date/time text.", ex);
+		}
 	}
 
+	/// <inheritdoc/>
 	public TimeSpan ReadTimeSpan()
 	{
 		string text = this.ReadString();
-		return TimeSpan.Parse(text, CultureInfo.InvariantCulture);
+		try
+		{
+			return TimeSpan.Parse(text, CultureInfo.InvariantCulture);
+		}
+		catch (FormatException ex)
+		{
+			throw new DecoderException($"\"{text}\" is not valid duration text.", ex);
+		}
 	}
 
+	/// <inheritdoc/>
 	public BigInteger ReadBigInteger()
-		=> BigInteger.Parse(this.ReadNumericString(), CultureInfo.InvariantCulture);
+	{
+		try
+		{
+			return BigInteger.Parse(this.ReadNumericString(), CultureInfo.InvariantCulture);
+		}
+		catch (Exception ex) when (ex is FormatException or OverflowException)
+		{
+			throw new DecoderException("The numeric payload is not a valid BigInteger.", ex);
+		}
+	}
 
+	/// <inheritdoc/>
 	public string ReadString()
 	{
 		if (this.NextTokenType != TokenType.String)
@@ -258,6 +403,7 @@ public ref struct ProtobufDecoder(byte[] buffer) : IDecoder
 		return this.currentString;
 	}
 
+	/// <inheritdoc/>
 	public ReadOnlySpan<char> ReadCharSpan()
 	{
 		if (this.NextTokenType != TokenType.String)
@@ -270,6 +416,7 @@ public ref struct ProtobufDecoder(byte[] buffer) : IDecoder
 		return this.currentString.AsSpan();
 	}
 
+	/// <inheritdoc/>
 	public byte[] ReadByteArray()
 	{
 		if (this.NextTokenType != TokenType.Binary)
@@ -279,16 +426,36 @@ public ref struct ProtobufDecoder(byte[] buffer) : IDecoder
 
 		this.position++;
 		int length = this.ReadLength();
+		if (this.position + length > this.buffer.Length)
+		{
+			throw new DecoderException("Binary payload is truncated.");
+		}
+
 		this.currentBinary = new byte[length];
 		Buffer.BlockCopy(this.buffer, this.position, this.currentBinary, 0, length);
 		this.position += length;
 		return this.currentBinary;
 	}
 
+	/// <inheritdoc/>
 	public ShapeShiftNumber ReadDynamicNumber() => new ShapeShiftDecimal(this.ReadDecimal());
 
 	private static void ThrowUnsupportedNumericFormat(byte tag)
 		=> throw new DecoderException($"Unsupported numeric tag 0x{tag:X2}.");
+
+	private void AssertCurrentContainer(ContainerKind expected)
+	{
+		if (this.depth == 0)
+		{
+			throw new DecoderException($"Attempted to close a {expected} container when none is open.");
+		}
+
+		ContainerKind actual = this.containerKinds[this.depth - 1];
+		if (actual != expected)
+		{
+			throw new DecoderException($"Expected to close a {expected} container, but found a {actual} container.");
+		}
+	}
 
 	private void Push(ContainerKind kind)
 	{
@@ -304,7 +471,7 @@ public ref struct ProtobufDecoder(byte[] buffer) : IDecoder
 	{
 		if (this.depth == 0)
 		{
-			throw new InvalidOperationException("Attempted to pop a container when none are open.");
+			throw new DecoderException("Attempted to pop a container when none are open.");
 		}
 
 		this.depth--;
@@ -312,7 +479,17 @@ public ref struct ProtobufDecoder(byte[] buffer) : IDecoder
 
 	private string ReadNumericString()
 	{
+		if (this.position >= this.buffer.Length)
+		{
+			throw new DecoderException("Numeric payload is truncated.");
+		}
+
 		byte tag = this.buffer[this.position];
+		if (tag is not 0x20 and not 0x21 and not 0x22)
+		{
+			ThrowUnsupportedNumericFormat(tag);
+		}
+
 		this.position++;
 		int length = this.ReadLength();
 		if (this.position + length > this.buffer.Length)
@@ -340,12 +517,26 @@ public ref struct ProtobufDecoder(byte[] buffer) : IDecoder
 
 	private int ReadCount()
 	{
-		return checked((int)this.ReadVarint());
+		try
+		{
+			return checked((int)this.ReadVarint());
+		}
+		catch (OverflowException ex)
+		{
+			throw new DecoderException("Container count is too large for this decoder.", ex);
+		}
 	}
 
 	private int ReadLength()
 	{
-		return checked((int)this.ReadVarint());
+		try
+		{
+			return checked((int)this.ReadVarint());
+		}
+		catch (OverflowException ex)
+		{
+			throw new DecoderException("Value length is too large for this decoder.", ex);
+		}
 	}
 
 	private uint ReadVarint()

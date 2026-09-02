@@ -26,6 +26,7 @@ public ref struct ProtobufEncoder(Stream stream) : IEncoder
 	/// <inheritdoc/>
 	public static object? PreparePropertyName(string name) => name;
 
+	/// <inheritdoc/>
 	public void WriteStartMap(int? propertyCount)
 	{
 		this.WriteTag(0x70);
@@ -33,6 +34,7 @@ public ref struct ProtobufEncoder(Stream stream) : IEncoder
 		this.Push(ContainerKind.Map);
 	}
 
+	/// <inheritdoc/>
 	public void WriteEndMap()
 	{
 		this.AssertCurrentContainer(ContainerKind.Map);
@@ -40,6 +42,7 @@ public ref struct ProtobufEncoder(Stream stream) : IEncoder
 		this.WriteTag(0x71);
 	}
 
+	/// <inheritdoc/>
 	public void WriteStartVector(int? itemCount)
 	{
 		this.WriteTag(0x80);
@@ -47,6 +50,7 @@ public ref struct ProtobufEncoder(Stream stream) : IEncoder
 		this.Push(ContainerKind.Vector);
 	}
 
+	/// <inheritdoc/>
 	public void WriteEndVector()
 	{
 		this.AssertCurrentContainer(ContainerKind.Vector);
@@ -54,61 +58,77 @@ public ref struct ProtobufEncoder(Stream stream) : IEncoder
 		this.WriteTag(0x81);
 	}
 
+	/// <inheritdoc/>
 	public void WritePropertyName(scoped ReadOnlySpan<char> name)
 	{
 		this.WriteStringPayload(0x60, name);
 	}
 
+	/// <inheritdoc/>
 	public void WritePropertyName(scoped ReadOnlySpan<char> name, object? preparedName)
 	{
 		string propertyName = preparedName as string ?? name.ToString();
 		this.WriteStringPayload(0x60, propertyName);
 	}
 
+	/// <inheritdoc/>
 	public void WriteNull()
 	{
 		this.WriteTag(0x50);
 	}
 
+	/// <inheritdoc/>
 	public void WriteValue(bool value)
 	{
 		this.WriteTag(0x40);
 		this.stream.WriteByte((byte)(value ? 1 : 0));
 	}
 
+	/// <inheritdoc/>
 	public void WriteValue(long value)
 		=> this.WriteNumericPayload(0x20, value.ToString(CultureInfo.InvariantCulture));
 
+	/// <inheritdoc/>
 	public void WriteValue(ulong value)
 		=> this.WriteNumericPayload(0x20, value.ToString(CultureInfo.InvariantCulture));
 
+	/// <inheritdoc/>
 	public void WriteValue(Int128 value)
 		=> this.WriteNumericPayload(0x20, value.ToString(CultureInfo.InvariantCulture));
 
+	/// <inheritdoc/>
 	public void WriteValue(UInt128 value)
 		=> this.WriteNumericPayload(0x20, value.ToString(CultureInfo.InvariantCulture));
 
+	/// <inheritdoc/>
 	public void WriteValue(Half value)
 		=> this.WriteNumericPayload(0x21, value.ToString(CultureInfo.InvariantCulture));
 
+	/// <inheritdoc/>
 	public void WriteValue(float value)
 		=> this.WriteNumericPayload(0x21, value.ToString(CultureInfo.InvariantCulture));
 
+	/// <inheritdoc/>
 	public void WriteValue(double value)
 		=> this.WriteNumericPayload(0x21, value.ToString(CultureInfo.InvariantCulture));
 
+	/// <inheritdoc/>
 	public void WriteValue(decimal value)
 		=> this.WriteNumericPayload(0x22, value.ToString(CultureInfo.InvariantCulture));
 
+	/// <inheritdoc/>
 	public void WriteValue(DateTime value)
 		=> this.WriteStringPayload(0x30, value.ToString("O", CultureInfo.InvariantCulture));
 
+	/// <inheritdoc/>
 	public void WriteValue(TimeSpan value)
 		=> this.WriteStringPayload(0x30, value.ToString("c", CultureInfo.InvariantCulture));
 
+	/// <inheritdoc/>
 	public void WriteValue(BigInteger value)
 		=> this.WriteNumericPayload(0x20, value.ToString(CultureInfo.InvariantCulture));
 
+	/// <inheritdoc/>
 	public void WriteValue(string value)
 	{
 		if (value is null)
@@ -120,9 +140,11 @@ public ref struct ProtobufEncoder(Stream stream) : IEncoder
 		this.WriteStringPayload(0x30, value);
 	}
 
+	/// <inheritdoc/>
 	public void WriteValue(scoped ReadOnlySpan<char> value)
 		=> this.WriteStringPayload(0x30, value);
 
+	/// <inheritdoc/>
 	public void WriteValue(scoped ReadOnlySpan<byte> value)
 	{
 		this.WriteTag(0x31);
