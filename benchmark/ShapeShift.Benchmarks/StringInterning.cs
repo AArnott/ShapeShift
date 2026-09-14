@@ -92,6 +92,16 @@ public partial class StringInterning
 	[BenchmarkCategory("YAML", "Duplicated")]
 	public void DeserializeDuplicatedYamlWithInterning() => YamlInterning.Deserialize<StringProperties>(DuplicatedYaml);
 
+	/// <summary>Deserializes unique YAML strings without interning.</summary>
+	[Benchmark(Baseline = true)]
+	[BenchmarkCategory("YAML", "Unique")]
+	public void DeserializeUniqueYamlWithoutInterning() => YamlNonInterning.Deserialize<StringProperties>(UniqueYaml);
+
+	/// <summary>Deserializes unique YAML strings with interning.</summary>
+	[Benchmark]
+	[BenchmarkCategory("YAML", "Unique")]
+	public void DeserializeUniqueYamlWithInterning() => YamlInterning.Deserialize<StringProperties>(UniqueYaml);
+
 	/// <summary>Deserializes duplicated escaped YAML strings without interning.</summary>
 	[Benchmark(Baseline = true)]
 	[BenchmarkCategory("YAML", "Escaped")]
