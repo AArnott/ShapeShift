@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Description>A test-framework neutral conformance kit that authors of third-party ShapeShift format packages reuse to verify their IEncoder and IDecoder implementations against the contracts that ShapeShift's format-agnostic layer relies on.</Description>
+    <PackageTags>shapeshift;serialization;conformance;testing</PackageTags>
+    <!-- <PackageValidationBaselineVersion>1.0.0</PackageValidationBaselineVersion> -->
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ShapeShift\ShapeShift.csproj" />
+  </ItemGroup>
+</Project>

@@ -15,6 +15,8 @@ internal record SerializerConfiguration<TEncoder, TDecoder>
 	public static readonly SerializerConfiguration<TEncoder, TDecoder> Default = new();
 
 	private ConverterCache<TEncoder, TDecoder>? converterCache;
+	private SerializeDefaultValuesPolicy serializeDefaultValues = SerializeDefaultValuesPolicy.Always;
+	private bool serializeEnumValuesByName = true;
 
 	private SerializerConfiguration()
 	{
@@ -107,6 +109,33 @@ internal record SerializerConfiguration<TEncoder, TDecoder>
 	{
 		get => field;
 		init => this.ChangeSetting(ref field, value);
+	}
+
+	/// <summary>
+	/// Gets the policy that controls whether properties with default values are serialized.
+	/// </summary>
+	public SerializeDefaultValuesPolicy SerializeDefaultValues
+	{
+		get => this.serializeDefaultValues;
+		init => this.ChangeSetting(ref this.serializeDefaultValues, value);
+	}
+
+	/// <summary>
+	/// Gets the policy that controls missing and null values during deserialization.
+	/// </summary>
+	public DeserializeDefaultValuesPolicy DeserializeDefaultValues
+	{
+		get => field;
+		init => this.ChangeSetting(ref field, value);
+	}
+
+	/// <summary>
+	/// Gets a value indicating whether enum values are serialized by name instead of by ordinal.
+	/// </summary>
+	public bool SerializeEnumValuesByName
+	{
+		get => this.serializeEnumValuesByName;
+		init => this.ChangeSetting(ref this.serializeEnumValuesByName, value);
 	}
 
 	/// <summary>

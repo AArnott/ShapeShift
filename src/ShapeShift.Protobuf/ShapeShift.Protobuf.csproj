@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Description>Protocol Buffers-style binary format support for ShapeShift.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ShapeShift\ShapeShift.csproj" />
+  </ItemGroup>
+</Project>

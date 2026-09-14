@@ -3,7 +3,7 @@
 		{
 			"src": [
 				{
-					"src": "../src/ShapeShift",
+					"src": "../src",
 					"files": [
 						"**/*.csproj"
 					]

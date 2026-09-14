@@ -13,7 +13,7 @@ namespace ShapeShift.Yaml;
 /// <param name="reader">The underlying text reader from which to get the YAML.</param>
 public ref struct YamlDecoder(TextReader reader) : IDecoder
 {
-	private const NumberStyles FloatingPointStyle = NumberStyles.Float | NumberStyles.AllowHexSpecifier;
+	private const NumberStyles FloatingPointStyle = NumberStyles.Float;
 	private const NumberStyles IntegerPointStyle = NumberStyles.Integer; // | NumberStyles.AllowHexSpecifier (cannot be combined with allowing leading signs).
 
 	private readonly string text = reader.ReadToEnd();
@@ -37,11 +37,20 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 	}
 
 	/// <inheritdoc/>
+	/// <remarks>
+	/// Reports <see cref="TokenType.EndDocument"/> once the input is exhausted rather than throwing, so
+	/// callers may always ask what comes next -- which is exactly what a loop that reads until a container
+	/// or document ends needs to do.
+	/// </remarks>
 	public TokenType NextTokenType
 	{
 		get
 		{
-			this.EnsureBufferedToken();
+			if (!this.TryEnsureBufferedToken())
+			{
+				return TokenType.EndDocument;
+			}
+
 			return this.bufferedToken.Type;
 		}
 	}
@@ -49,7 +58,13 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 	/// <inheritdoc/>
 	public bool TryReadNull()
 	{
-		return this.NextTokenType == TokenType.Null;
+		if (this.NextTokenType != TokenType.Null)
+		{
+			return false;
+		}
+
+		this.ReadNull();
+		return true;
 	}
 
 	/// <inheritdoc/>
@@ -268,8 +283,8 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 	/// <inheritdoc/>
 	public DateTime ReadDateTime()
 	{
-		ReadOnlySpan<char> token = this.ReadToken(TokenType.Number);
-		if (!DateTime.TryParse(token, CultureInfo.InvariantCulture, out DateTime value))
+		ReadOnlySpan<char> token = this.ReadToken(TokenType.String);
+		if (!DateTime.TryParse(token, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out DateTime value))
 		{
 			throw new DecoderException($"Invalid DateTime value: {token.ToString()}.");
 		}
@@ -293,20 +308,98 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 	public string ReadString()
 	{
 		ReadOnlySpan<char> token = this.ReadToken(TokenType.String);
-		return UnescapeString(token);
+		return this.UnescapeString(token);
 	}
 
 	public ReadOnlySpan<char> ReadCharSpan()
 	{
 		ReadOnlySpan<char> token = this.ReadToken(TokenType.String);
-		return UnescapeString(token, Span<char>.Empty, out _);
+		return this.UnescapeString(token, Span<char>.Empty, out _);
 	}
 
 	/// <inheritdoc/>
 	public ReadOnlySpan<char> ReadCharSpan(scoped Span<char> buffer, out int charactersWritten)
 	{
 		ReadOnlySpan<char> token = this.ReadToken(TokenType.String);
-		return UnescapeString(token, buffer, out charactersWritten);
+		return this.UnescapeString(token, buffer, out charactersWritten);
+	}
+
+	/// <inheritdoc/>
+	public byte[] ReadByteArray() => throw new NotSupportedException("YAML binary values are not yet supported.");
+
+	/// <inheritdoc/>
+	public ShapeShiftNumber ReadDynamicNumber() => new ShapeShiftDecimal(this.ReadDecimal());
+
+	/// <summary>
+	/// Determines whether an unquoted scalar should be classified as <see cref="TokenType.Number"/>.
+	/// </summary>
+	/// <param name="span">The trimmed scalar text.</param>
+	/// <returns><see langword="true" /> when the text is a decimal number in the round-trip form the encoder writes.</returns>
+	/// <remarks>
+	/// This recognizes the same shapes .NET's <see cref="NumberStyles.Float"/> parsing accepts -- an optional sign,
+	/// digits with an optional fractional part, and an optional exponent -- because the encoder writes every
+	/// numeric type with its invariant round-trip form. Recognizing only whole numbers would classify a
+	/// <see cref="double"/> or <see cref="decimal"/> as a string, and the matching read would then fail on a
+	/// value this decoder itself had written.
+	/// </remarks>
+	internal static bool LooksLikeNumberCore(ReadOnlySpan<char> span)
+	{
+		if (span.IsEmpty)
+		{
+			return false;
+		}
+
+		int i = 0;
+		if (span[i] is '-' or '+')
+		{
+			i++;
+		}
+
+		int integerDigits = 0;
+		while (i < span.Length && char.IsAsciiDigit(span[i]))
+		{
+			i++;
+			integerDigits++;
+		}
+
+		int fractionDigits = 0;
+		if (i < span.Length && span[i] == '.')
+		{
+			i++;
+			while (i < span.Length && char.IsAsciiDigit(span[i]))
+			{
+				i++;
+				fractionDigits++;
+			}
+		}
+
+		if (integerDigits == 0 && fractionDigits == 0)
+		{
+			return false;
+		}
+
+		if (i < span.Length && (span[i] is 'e' or 'E'))
+		{
+			i++;
+			if (i < span.Length && span[i] is '-' or '+')
+			{
+				i++;
+			}
+
+			int exponentDigits = 0;
+			while (i < span.Length && char.IsAsciiDigit(span[i]))
+			{
+				i++;
+				exponentDigits++;
+			}
+
+			if (exponentDigits == 0)
+			{
+				return false;
+			}
+		}
+
+		return i == span.Length;
 	}
 
 	private ReadOnlySpan<char> ReadToken(TokenType expectedType)
@@ -324,26 +417,35 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 
 	private void EnsureBufferedToken()
 	{
+		if (!this.TryEnsureBufferedToken())
+		{
+			throw new DecoderException("Unexpected end of YAML input.");
+		}
+	}
+
+	private bool TryEnsureBufferedToken()
+	{
 		if (this.hasBufferedToken)
 		{
-			return;
+			return true;
 		}
 
 		if (this.queuedTokenCount > 0)
 		{
 			this.bufferedToken = this.DequeueToken();
 			this.hasBufferedToken = true;
-			return;
+			return true;
 		}
 
 		this.EnqueueNextTokens();
 		if (this.queuedTokenCount == 0)
 		{
-			throw new DecoderException("Unexpected end of YAML input.");
+			return false;
 		}
 
 		this.bufferedToken = this.DequeueToken();
 		this.hasBufferedToken = true;
+		return true;
 	}
 
 	private void ConsumeBufferedToken()
@@ -586,34 +688,7 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 		this.Enqueue(new Token { Type = TokenType.String, Start = trimmedStart, Length = length, IsSynthetic = false });
 	}
 
-	private bool LooksLikeNumber(ReadOnlySpan<char> span)
-	{
-		if (span.IsEmpty)
-		{
-			return false;
-		}
-
-		int i = 0;
-		if (span[0] == '-')
-		{
-			if (span.Length == 1)
-			{
-				return false;
-			}
-
-			i = 1;
-		}
-
-		for (; i < span.Length; i++)
-		{
-			if (!char.IsAsciiDigit(span[i]))
-			{
-				return false;
-			}
-		}
-
-		return true;
-	}
+	private bool LooksLikeNumber(ReadOnlySpan<char> span) => LooksLikeNumberCore(span);
 
 	private int FindNextSignificantLineStart(int from, out int indent)
 	{
@@ -801,7 +876,7 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 		return true;
 	}
 
-	private static string UnescapeString(scoped ReadOnlySpan<char> token)
+	private string UnescapeString(scoped ReadOnlySpan<char> token)
 	{
 		token = token.Trim();
 		if (token.Length >= 2 && token[0] == '"' && token[^1] == '"')
@@ -846,7 +921,7 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 		return token.ToString();
 	}
 
-	private static ReadOnlySpan<char> UnescapeString(ReadOnlySpan<char> token, scoped Span<char> buffer, out int charactersWritten)
+	private ReadOnlySpan<char> UnescapeString(ReadOnlySpan<char> token, scoped Span<char> buffer, out int charactersWritten)
 	{
 		charactersWritten = -1;
 		token = token.Trim();
@@ -860,7 +935,7 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 
 			if (buffer.Length < inner.Length)
 			{
-				return UnescapeString(token);
+				return this.UnescapeString(token);
 			}
 
 			int length = 0;
@@ -898,7 +973,7 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 
 			if (buffer.Length < inner.Length)
 			{
-				return UnescapeString(token);
+				return this.UnescapeString(token);
 			}
 
 			int length = 0;

@@ -111,7 +111,8 @@ internal class DateTimeOffsetConverter<TEncoder, TDecoder> : ShapeShiftConverter
 		}
 
 		DateTime utcDateTime = decoder.ReadDateTime();
-		short offsetMinutes = decoder.ReadInt16();
+		short offsetMinutes = checked((short)decoder.ReadInt64());
+		decoder.ReadEndVector();
 
 		// We construct the offset very carefully so that it knows it's being initialized with UTC time
 		// *and* that we want the time expressed in the offset specified.
@@ -157,7 +158,7 @@ internal class RuneConverter<TEncoder, TDecoder> : ShapeShiftConverter<Rune, TEn
 	where TDecoder : IDecoder, allows ref struct
 {
 	/// <inheritdoc/>
-	public override Rune Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => new Rune(decoder.ReadInt32());
+	public override Rune Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => new Rune(checked((int)decoder.ReadInt64()));
 
 	/// <inheritdoc/>
 	public override void Write(ref TEncoder encoder, in Rune value, SerializationContext<TEncoder, TDecoder> context) => encoder.WriteValue(value.Value);
@@ -186,11 +187,12 @@ internal class StringConverter<TEncoder, TDecoder> : ShapeShiftConverter<string,
 	{
 		if (decoder.TryReadNull())
 		{
-			decoder.ReadNull();
 			return null;
 		}
 
-		return decoder.ReadString();
+		string value = decoder.ReadString();
+		ValidateStringLength(value.Length, context);
+		return value;
 	}
 
 	/// <inheritdoc/>
@@ -202,7 +204,16 @@ internal class StringConverter<TEncoder, TDecoder> : ShapeShiftConverter<string,
 		}
 		else
 		{
+			ValidateStringLength(value.Length, context);
 			encoder.WriteValue(value);
+		}
+	}
+
+	private static void ValidateStringLength(int length, SerializationContext<TEncoder, TDecoder> context)
+	{
+		if (length > context.MaxStringLength)
+		{
+			throw new ShapeShiftSerializationException($"String length {length} exceeds the configured maximum of {context.MaxStringLength}.");
 		}
 	}
 }
@@ -216,7 +227,6 @@ internal class InterningStringConverter<TEncoder, TDecoder> : ShapeShiftConverte
 	{
 		if (decoder.TryReadNull())
 		{
-			decoder.ReadNull();
 			return null;
 		}
 
@@ -225,9 +235,11 @@ internal class InterningStringConverter<TEncoder, TDecoder> : ShapeShiftConverte
 		if (charactersWritten >= 0)
 		{
 			ReadOnlySpan<char> bufferedValue = buffer[..charactersWritten];
+			ValidateStringLength(bufferedValue.Length, context);
 			return context.StringInterning?.Intern(bufferedValue) ?? bufferedValue.ToString();
 		}
 
+		ValidateStringLength(value.Length, context);
 		return context.StringInterning?.Intern(value) ?? value.ToString();
 	}
 
@@ -240,7 +252,16 @@ internal class InterningStringConverter<TEncoder, TDecoder> : ShapeShiftConverte
 		}
 		else
 		{
+			ValidateStringLength(value.Length, context);
 			encoder.WriteValue(value);
+		}
+	}
+
+	private static void ValidateStringLength(int length, SerializationContext<TEncoder, TDecoder> context)
+	{
+		if (length > context.MaxStringLength)
+		{
+			throw new ShapeShiftSerializationException($"String length {length} exceeds the configured maximum of {context.MaxStringLength}.");
 		}
 	}
 }

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <PropertyGroup>
+    <!-- Identifies assemblies that load inside a compiler or IDE and need the isolated compatibility baseline. -->
+    <IsAnalyzerCompatibilityProject>true</IsAnalyzerCompatibilityProject>
+  </PropertyGroup>
+
+  <!-- Import analyzer-only central versions after the repository's normal central package versions are available. -->
+  <Import Project="..\Directory.Packages.Analyzers.props" Condition="'$(IsAnalyzerCompatibilityProject)' == 'true'" />
+</Project>

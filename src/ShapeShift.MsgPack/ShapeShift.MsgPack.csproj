@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <!-- <PackageValidationBaselineVersion>1.0.0</PackageValidationBaselineVersion> -->
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\PooledByteBufferWriter.cs" Link="PooledByteBufferWriter.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ShapeShift\ShapeShift.csproj" />
+  </ItemGroup>
+</Project>

@@ -12,7 +12,7 @@ namespace ShapeShift;
 /// <para>
 /// The following snippet demonstrates a common pattern for properly using this attribute.
 /// </para>
-/// <code source="../../samples/cs/CustomizingSerialization.cs" region="CustomComparerOnMember" lang="C#" />
+/// <code source="../../samples/cs/CoreCustomization.cs" region="CustomComparerOnMember" lang="C#" />
 /// <para>
 /// Notice how the comparer is specified both by attribute (which influences deserialized instances) and
 /// in the property initializer (which influences new instantiations created by user code).

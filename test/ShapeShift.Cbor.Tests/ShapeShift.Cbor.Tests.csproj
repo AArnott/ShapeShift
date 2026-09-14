@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net10.0</TargetFrameworks>
+  </PropertyGroup>
+  <Import Project="../AOT.props" />
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ShapeShift.Cbor\ShapeShift.Cbor.csproj" />
+    <ProjectReference Include="..\..\src\ShapeShift.Conformance\ShapeShift.Conformance.csproj" />
+    <ProjectReference Include="..\ShapeShift.Tests\ShapeShift.Tests.csproj" GlobalPropertiesToRemove="" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="TUnit" />
+  </ItemGroup>
+</Project>
