@@ -1,7 +1,6 @@
 // Copyright (c) Andrew Arnott. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 namespace ShapeShift;
@@ -12,11 +11,9 @@ namespace ShapeShift;
 internal class StringInterning : IPoolableObject
 {
 	private const int InitialCapacity = 32;
-	private const uint HashCollisionThreshold = 100;
 
 	private int[]? buckets;
 	private Entry[]? entries;
-	private bool useSecureHash;
 	private int count;
 
 	/// <inheritdoc/>
@@ -34,7 +31,6 @@ internal class StringInterning : IPoolableObject
 		{
 			Array.Clear(this.buckets!);
 			Array.Clear(this.entries!, 0, this.count);
-			this.useSecureHash = false;
 			this.count = 0;
 		}
 	}
@@ -54,10 +50,7 @@ internal class StringInterning : IPoolableObject
 	internal string Intern(string value) => this.GetOrAdd(value.AsSpan(), value);
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	private static uint CalculateHashCode(scoped ReadOnlySpan<char> value, bool secureHash)
-	{
-		return unchecked((uint)string.GetHashCode(value, StringComparison.Ordinal));
-	}
+	private static uint CalculateHashCode(scoped ReadOnlySpan<char> value) => unchecked((uint)string.GetHashCode(value, StringComparison.Ordinal));
 
 	private string GetOrAdd(scoped ReadOnlySpan<char> value, string? candidateValue)
 	{
@@ -67,9 +60,8 @@ internal class StringInterning : IPoolableObject
 		}
 
 		Entry[] entries = this.entries!;
-		uint hashCode = CalculateHashCode(value, this.useSecureHash);
+		uint hashCode = CalculateHashCode(value);
 		ref int bucket = ref this.GetBucket(hashCode);
-		uint collisionCount = 0;
 
 		for (int probeIndex = bucket - 1; (uint)probeIndex < (uint)entries.Length; probeIndex = entries[probeIndex].Next)
 		{
@@ -77,12 +69,6 @@ internal class StringInterning : IPoolableObject
 			if (entry.HashCode == hashCode && entry.Value.AsSpan().SequenceEqual(value))
 			{
 				return entry.Value;
-			}
-
-			if (!this.useSecureHash && ++collisionCount > HashCollisionThreshold)
-			{
-				this.SwitchToSecureHashing();
-				return this.GetOrAdd(value, candidateValue);
 			}
 		}
 
@@ -100,22 +86,6 @@ internal class StringInterning : IPoolableObject
 		newEntry.Value = interned;
 		bucket = ++this.count;
 		return interned;
-	}
-
-	private void SwitchToSecureHashing()
-	{
-		Debug.Assert(!this.useSecureHash, "This method should only be called once.");
-		this.useSecureHash = true;
-		Array.Clear(this.buckets!);
-
-		for (int i = 0; i < this.count; i++)
-		{
-			ref Entry entry = ref this.entries![i];
-			entry.HashCode = CalculateHashCode(entry.Value.AsSpan(), secureHash: true);
-			ref int bucket = ref this.GetBucket(entry.HashCode);
-			entry.Next = bucket - 1;
-			bucket = i + 1;
-		}
 	}
 
 	private void Initialize(int capacity)
