@@ -80,12 +80,12 @@ internal record SerializerConfiguration<TEncoder, TDecoder>
 	/// </summary>
 	/// <remarks>
 	/// <para>
-	/// String interning means that a string that appears multiple times (within a single deserialization or across many)
+	/// String interning means that a string that appears multiple times within a single deserialization
 	/// in the msgpack data will be deserialized as the same <see cref="string"/> instance, reducing GC pressure.
 	/// </para>
 	/// <para>
-	/// When enabled, all deserialized strings are retained with a weak reference, allowing them to be garbage collected
-	/// while also being reusable for future deserializations as long as they are in memory.
+	/// When enabled, all deserialized strings are retained with a strong reference for the duration of the deserialization
+	/// operation, then released for garbage collection.
 	/// </para>
 	/// <para>
 	/// This feature has a positive impact on memory usage but may have a negative impact on performance due to searching
@@ -99,7 +99,7 @@ internal record SerializerConfiguration<TEncoder, TDecoder>
 	/// multiple string objects for the same value, so deserialization would produce the same result.
 	/// Preserving references alone will never reuse strings across top-level deserialization operations either.
 	/// Interning strings however, has no impact on the serialized result and is always safe to use.
-	/// Interning strings will guarantee string objects are reused within and across deserialization operations so long as their values are equal.
+	/// Interning strings will guarantee string objects are reused within a deserialization operation so long as their values are equal.
 	/// The combination of the two features will ensure the most compact msgpack, and will produce faster deserialization times than string interning alone.
 	/// Combining the two features also activates special behavior to ensure that serialization only writes a string once
 	/// and references that string later in that same serialization, even if the equal strings were unique objects.

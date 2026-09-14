@@ -293,7 +293,14 @@ public ref struct TamlDecoder(TextReader reader) : IDecoder
 	public ReadOnlySpan<char> ReadCharSpan()
 	{
 		ReadOnlySpan<char> token = this.ReadToken(TokenType.String);
-		return this.UnescapeString(token);
+		return this.UnescapeString(token, Span<char>.Empty, out _);
+	}
+
+	/// <inheritdoc/>
+	public ReadOnlySpan<char> ReadCharSpan(scoped Span<char> buffer, out int charactersWritten)
+	{
+		ReadOnlySpan<char> token = this.ReadToken(TokenType.String);
+		return this.UnescapeString(token, buffer, out charactersWritten);
 	}
 
 	public byte[] ReadByteArray() => throw new NotSupportedException("TAML binary values are not supported.");
@@ -911,6 +918,51 @@ public ref struct TamlDecoder(TextReader reader) : IDecoder
 		}
 
 		return token.ToString();
+	}
+
+	private ReadOnlySpan<char> UnescapeString(ReadOnlySpan<char> token, scoped Span<char> buffer, out int charactersWritten)
+	{
+		charactersWritten = -1;
+		token = token.Trim();
+		if (token is not ['"', .., '"'])
+		{
+			return token;
+		}
+
+		ReadOnlySpan<char> inner = token[1..^1];
+		if (inner.IndexOf('\\') < 0)
+		{
+			return inner;
+		}
+
+		if (buffer.Length < inner.Length)
+		{
+			return this.UnescapeString(token);
+		}
+
+		int length = 0;
+		for (int i = 0; i < inner.Length; i++)
+		{
+			char c = inner[i];
+			if (c == '\\' && i + 1 < inner.Length)
+			{
+				char esc = inner[++i];
+				c = esc switch
+				{
+					'n' => '\n',
+					'r' => '\r',
+					't' => '\t',
+					'\\' => '\\',
+					'"' => '"',
+					_ => esc,
+				};
+			}
+
+			buffer[length++] = c;
+		}
+
+		charactersWritten = length;
+		return ReadOnlySpan<char>.Empty;
 	}
 
 	private void Push(ContainerKind kind, int indent, bool isVectorItem = false)

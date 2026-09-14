@@ -6,7 +6,6 @@
 
 using System.Numerics;
 using System.Text;
-using Microsoft.NET.StringTools;
 
 namespace ShapeShift.Converters;
 
@@ -231,9 +230,17 @@ internal class InterningStringConverter<TEncoder, TDecoder> : ShapeShiftConverte
 			return null;
 		}
 
-		ReadOnlySpan<char> span = decoder.ReadCharSpan();
-		ValidateStringLength(span.Length, context);
-		return Strings.WeakIntern(span);
+		Span<char> buffer = stackalloc char[256];
+		ReadOnlySpan<char> value = decoder.ReadCharSpan(buffer, out int charactersWritten);
+		if (charactersWritten >= 0)
+		{
+			ReadOnlySpan<char> bufferedValue = buffer[..charactersWritten];
+			ValidateStringLength(bufferedValue.Length, context);
+			return context.StringInterning?.Intern(bufferedValue) ?? bufferedValue.ToString();
+		}
+
+		ValidateStringLength(value.Length, context);
+		return context.StringInterning?.Intern(value) ?? value.ToString();
 	}
 
 	/// <inheritdoc/>

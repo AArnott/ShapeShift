@@ -434,6 +434,13 @@ public ref struct ProtobufDecoder(ReadOnlySpan<byte> buffer) : IDecoder
 	}
 
 	/// <inheritdoc/>
+	public ReadOnlySpan<char> ReadCharSpan(scoped Span<char> buffer, out int charactersWritten)
+	{
+		charactersWritten = -1;
+		return this.ReadCharSpan();
+	}
+
+	/// <inheritdoc/>
 	public byte[] ReadByteArray()
 	{
 		if (this.NextTokenType != TokenType.Binary)

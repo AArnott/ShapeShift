@@ -153,6 +153,13 @@ public ref struct TomlDecoder : IDecoder
 	}
 
 	/// <inheritdoc/>
+	public ReadOnlySpan<char> ReadCharSpan(scoped Span<char> buffer, out int charactersWritten)
+	{
+		charactersWritten = -1;
+		return this.ReadCharSpan();
+	}
+
+	/// <inheritdoc/>
 	public byte[] ReadByteArray() => throw new NotSupportedException("TOML has no binary value.");
 
 	/// <inheritdoc/>

@@ -382,6 +382,13 @@ public ref struct UbjsonDecoder : IDecoder
     /// <inheritdoc/>
     public ReadOnlySpan<char> ReadCharSpan() => this.ReadString();
 
+    /// <inheritdoc/>
+    public ReadOnlySpan<char> ReadCharSpan(scoped Span<char> buffer, out int charactersWritten)
+    {
+        charactersWritten = -1;
+        return this.ReadCharSpan();
+    }
+
     #region DecoderNativeChar
     /// <summary>
     /// Consumes the next value if -- and only if -- it is UBJSON's native <c>C</c> character.
@@ -400,7 +407,7 @@ public ref struct UbjsonDecoder : IDecoder
     /// </para>
     /// <para>
     /// Reporting <see langword="false" /> rather than throwing is what lets
-    /// <see cref="UbjsonCharConverter"/> fall back to <see cref="ReadCharSpan"/>, so a payload written
+    /// <see cref="UbjsonCharConverter"/> fall back to <see cref="ReadCharSpan()"/>, so a payload written
     /// by an implementation that used an ordinary <c>S</c> string still reads. A format-specific
     /// representation should never make the format unable to read the representation it replaced.
     /// </para>

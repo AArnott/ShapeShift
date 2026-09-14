@@ -522,6 +522,13 @@ public ref struct CborDecoder : IDecoder
 	}
 
 	/// <inheritdoc/>
+	public ReadOnlySpan<char> ReadCharSpan(scoped Span<char> buffer, out int charactersWritten)
+	{
+		charactersWritten = -1;
+		return this.ReadCharSpan();
+	}
+
+	/// <inheritdoc/>
 	public byte[] ReadByteArray()
 	{
 		try

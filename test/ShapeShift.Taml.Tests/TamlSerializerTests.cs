@@ -20,6 +20,32 @@ public partial class TamlSerializerTests : TestBase
 		await Assert.That(this.lastSerializedTaml).IsEqualTo(original);
 	}
 
+	[Test]
+	public async Task InternStrings()
+	{
+		TamlSerializer serializer = new() { InternStrings = true };
+		Person original = new() { FirstName = new('a', 1), LastName = new('a', 1) };
+		string serialized = serializer.Serialize<Person, Person>(original);
+
+		Person? deserialized = serializer.Deserialize<Person, Person>(serialized);
+
+		await Assert.That(deserialized).IsNotNull();
+		await Assert.That(ReferenceEquals(deserialized!.FirstName, deserialized.LastName)).IsTrue();
+	}
+
+	[Test]
+	public async Task InternEscapedStrings()
+	{
+		TamlSerializer serializer = new() { InternStrings = true };
+		Person original = new() { FirstName = "First line\nSecond line", LastName = "First line\nSecond line" };
+		string serialized = serializer.Serialize<Person, Person>(original);
+
+		Person? deserialized = serializer.Deserialize<Person, Person>(serialized);
+
+		await Assert.That(deserialized).IsNotNull();
+		await Assert.That(ReferenceEquals(deserialized!.FirstName, deserialized.LastName)).IsTrue();
+	}
+
 	[Test, MatrixDataSource]
 	public async Task SimpleBoolean(bool original)
 	{

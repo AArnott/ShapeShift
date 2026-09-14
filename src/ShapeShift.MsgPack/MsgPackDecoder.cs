@@ -385,6 +385,13 @@ public ref struct MsgPackDecoder : IDecoder
 	public ReadOnlySpan<char> ReadCharSpan() => this.ReadStringCore(expectPropertyName: false);
 
 	/// <inheritdoc/>
+	public ReadOnlySpan<char> ReadCharSpan(scoped Span<char> buffer, out int charactersWritten)
+	{
+		charactersWritten = -1;
+		return this.ReadCharSpan();
+	}
+
+	/// <inheritdoc/>
 	public byte[] ReadByteArray()
 	{
 		int length = this.ReadBinaryHeader();

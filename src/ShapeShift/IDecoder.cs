@@ -238,6 +238,21 @@ public interface IDecoder
 	public ReadOnlySpan<char> ReadCharSpan();
 
 	/// <summary>
+	/// Reads a string as a character span, using the supplied buffer when unescaping is required.
+	/// </summary>
+	/// <param name="buffer">The buffer available for unescaping the string.</param>
+	/// <param name="charactersWritten">Receives the number of unescaped characters written to <paramref name="buffer"/>, or <c>-1</c> when the returned span contains the result.</param>
+	/// <returns>The characters that make up the string when <paramref name="charactersWritten"/> is <c>-1</c>; otherwise, an empty span.</returns>
+	/// <remarks>
+	/// Implementations should return a span into their input when unescaping is unnecessary.
+	/// </remarks>
+	public ReadOnlySpan<char> ReadCharSpan(scoped Span<char> buffer, out int charactersWritten)
+	{
+		charactersWritten = -1;
+		return this.ReadCharSpan();
+	}
+
+	/// <summary>
 	/// Reads a binary value.
 	/// </summary>
 	/// <returns>The decoded bytes.</returns>

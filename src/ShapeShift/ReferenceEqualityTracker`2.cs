@@ -3,7 +3,6 @@
 
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using Microsoft.NET.StringTools;
 
 namespace ShapeShift;
 
@@ -53,9 +52,9 @@ internal class ReferenceEqualityTracker<TEncoder, TDecoder> : IPoolableObject
 		Requires.NotNullAllowStructs(value);
 		Verify.Operation(this.Owner is not null, $"{nameof(this.Owner)} must be set before use.");
 
-		if (this.Owner.InternStrings && value is string)
+		if (context.StringInterning is { } interning && value is string)
 		{
-			value = (T)(object)Strings.WeakIntern((string)(object)value);
+			value = (T)(object)interning.Intern((string)(object)value);
 		}
 
 		if (this.TryGetSerializedObject(value, out int referenceId))
