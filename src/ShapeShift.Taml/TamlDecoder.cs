@@ -737,12 +737,12 @@ public ref struct TamlDecoder(TextReader reader) : IDecoder
 	{
 		charactersWritten = -1;
 		token = token.Trim();
-		if (token.Length < 2 || token[0] != '"' || token[^1] != '"')
+		if (token is not ['"', .., '"'])
 		{
 			return token;
 		}
 
-		ReadOnlySpan<char> inner = token.Slice(1, token.Length - 2);
+		ReadOnlySpan<char> inner = token[1..^1];
 		if (inner.IndexOf('\\') < 0)
 		{
 			return inner;

@@ -224,7 +224,7 @@ internal class InterningStringConverter<TEncoder, TDecoder> : ShapeShiftConverte
 		ReadOnlySpan<char> value = decoder.ReadCharSpan(buffer, out int charactersWritten);
 		if (charactersWritten >= 0)
 		{
-			ReadOnlySpan<char> bufferedValue = buffer.Slice(0, charactersWritten);
+			ReadOnlySpan<char> bufferedValue = buffer[..charactersWritten];
 			return context.StringInterning?.Intern(bufferedValue) ?? bufferedValue.ToString();
 		}
 

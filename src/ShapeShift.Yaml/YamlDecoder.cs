@@ -293,20 +293,20 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 	public string ReadString()
 	{
 		ReadOnlySpan<char> token = this.ReadToken(TokenType.String);
-		return this.UnescapeString(token);
+		return UnescapeString(token);
 	}
 
 	public ReadOnlySpan<char> ReadCharSpan()
 	{
 		ReadOnlySpan<char> token = this.ReadToken(TokenType.String);
-		return this.UnescapeString(token, Span<char>.Empty, out _);
+		return UnescapeString(token, Span<char>.Empty, out _);
 	}
 
 	/// <inheritdoc/>
 	public ReadOnlySpan<char> ReadCharSpan(scoped Span<char> buffer, out int charactersWritten)
 	{
 		ReadOnlySpan<char> token = this.ReadToken(TokenType.String);
-		return this.UnescapeString(token, buffer, out charactersWritten);
+		return UnescapeString(token, buffer, out charactersWritten);
 	}
 
 	private ReadOnlySpan<char> ReadToken(TokenType expectedType)
@@ -801,7 +801,7 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 		return true;
 	}
 
-	private string UnescapeString(ReadOnlySpan<char> token)
+	private static string UnescapeString(scoped ReadOnlySpan<char> token)
 	{
 		token = token.Trim();
 		if (token.Length >= 2 && token[0] == '"' && token[^1] == '"')
@@ -846,13 +846,13 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 		return token.ToString();
 	}
 
-	private ReadOnlySpan<char> UnescapeString(ReadOnlySpan<char> token, scoped Span<char> buffer, out int charactersWritten)
+	private static ReadOnlySpan<char> UnescapeString(ReadOnlySpan<char> token, scoped Span<char> buffer, out int charactersWritten)
 	{
 		charactersWritten = -1;
 		token = token.Trim();
-		if (token.Length >= 2 && token[0] == '"' && token[^1] == '"')
+		if (token is ['"', .., '"'])
 		{
-			ReadOnlySpan<char> inner = token.Slice(1, token.Length - 2);
+			ReadOnlySpan<char> inner = token[1..^1];
 			if (inner.IndexOf('\\') < 0)
 			{
 				return inner;
@@ -860,7 +860,7 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 
 			if (buffer.Length < inner.Length)
 			{
-				return this.UnescapeString(token);
+				return UnescapeString(token);
 			}
 
 			int length = 0;
@@ -885,10 +885,10 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 			}
 
 			charactersWritten = length;
-			return ReadOnlySpan<char>.Empty;
+			return [];
 		}
 
-		if (token.Length >= 2 && token[0] == '\'' && token[^1] == '\'')
+		if (token is ['\'', .., '\''])
 		{
 			ReadOnlySpan<char> inner = token.Slice(1, token.Length - 2);
 			if (inner.IndexOf("''") < 0)
@@ -898,7 +898,7 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 
 			if (buffer.Length < inner.Length)
 			{
-				return this.UnescapeString(token);
+				return UnescapeString(token);
 			}
 
 			int length = 0;
@@ -914,7 +914,7 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 			}
 
 			charactersWritten = length;
-			return ReadOnlySpan<char>.Empty;
+			return [];
 		}
 
 		return token;
