@@ -174,6 +174,27 @@ that two unrelated components cannot collide on the same string.
 
 [!code-csharp[ConverterState](../../samples/cs/CoreCustomization.cs#ConverterState)]
 
+### Per-call context
+
+When state or limits vary per call, such as a tenant identifier or a tighter
+limit for one untrusted payload, pass a context directly instead of deriving a
+new serializer. The core `Serialize`, `Deserialize`, `TryDeserializeFragment`,
+`DeserializeFragment`, `CreateSequenceReader`, and `CreateDocumentReader`
+methods each have an overload that takes a `SerializationContext` in place of
+the `CancellationToken`. That context's limits, state, and `CancellationToken`
+apply to that call only, and `StartingContext` is ignored. Start from
+`StartingContext` if you want to keep its settings:
+
+[!code-csharp[PerCallContext](../../samples/cs/CoreCustomization.cs#PerCallContext)]
+
+Do not pass these overloads a context that a converter received during another
+operation, because it throws `ArgumentException`. A converter that needs to
+convert a nested value should get the converter it needs from
+`context.GetConverter(...)` instead of calling top-level serializer methods.
+Classes that derive from `ShapeShiftSerializer` can accept a per-call context
+from their callers by passing it to the protected `CreateSerializationContext`
+overload that takes a `SerializationContext`.
+
 ## Reflection-based activation
 
 `WithReflectionConverterTypes` accepts converter `Type` objects and activates

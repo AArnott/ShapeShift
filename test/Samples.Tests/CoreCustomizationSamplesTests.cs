@@ -98,6 +98,20 @@ public class CoreCustomizationSamplesTests
 	}
 
 	/// <summary>
+	/// Verifies that a per-call context supplies state for one call without changing the serializer.
+	/// </summary>
+	/// <returns>A task tracking the assertions.</returns>
+	[Test]
+	public async Task PerCallContext()
+	{
+		JsonSerializer serializer = CoreCustomizationSamples.CreateConfiguredSerializer();
+		Reservation reservation = CoreCustomizationSamples.ApplyPerCallContext(serializer, """{"GuestName":"Ada","Deposit":"25.00"}""");
+
+		await Assert.That(reservation.Deposit).IsEqualTo(new Money(25.00m, "EUR"));
+		await Assert.That(serializer.StartingContext[MoneyConverter.DefaultCurrencyKey]).IsNull();
+	}
+
+	/// <summary>
 	/// Verifies that the visitor-based factory reads a null array as an empty list.
 	/// </summary>
 	/// <returns>A task tracking the assertions.</returns>
