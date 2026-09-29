@@ -202,6 +202,20 @@ public static class CoreCustomizationSamples
     }
     #endregion
 
+    #region PerCallContext
+    // Supplies state and limits for one call only, leaving the shared serializer and its
+    // StartingContext untouched.
+    public static Reservation ApplyPerCallContext(JsonSerializer serializer, string json)
+    {
+        SerializationContext<JsonEncoder, JsonDecoder> context = serializer.StartingContext;
+        context[MoneyConverter.DefaultCurrencyKey] = "EUR";
+        context.MaxStringLength = 1024;
+
+        JsonDecoder decoder = new(Encoding.UTF8.GetBytes(json));
+        return serializer.Deserialize(ref decoder, TypeShapeResolver.Resolve<Reservation>(), context)!;
+    }
+    #endregion
+
     #region NullTolerantList
     // The registered factory turns a null JSON array into an empty list instead of a null property.
     public static Reservation ReadNullCollection()

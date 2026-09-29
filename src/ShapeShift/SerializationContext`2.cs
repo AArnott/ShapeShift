@@ -87,6 +87,11 @@ public struct SerializationContext<TEncoder, TDecoder>
 	internal StringInterning? StringInterning { get; private init; }
 
 	/// <summary>
+	/// Gets a value indicating whether this context has not been started for a serialization operation.
+	/// </summary>
+	internal bool IsPristine => this.Cache is null && this.TypeShapeProvider is null && this.ReferenceEqualityTracker is null && this.StringInterning is null && this.ReferenceIndex == -1;
+
+	/// <summary>
 	/// Gets or sets special state to be exposed to converters during serialization.
 	/// </summary>
 	/// <param name="key">Any object that can act as a key in a dictionary.</param>
@@ -254,6 +259,21 @@ public struct SerializationContext<TEncoder, TDecoder>
 		Verify.Operation(this.Cache is not null, "No serialization operation is in progress.");
 		var result = (IShapeShiftConverterInternal<TEncoder, TDecoder>)this.Cache.GetOrAddConverter(type, provider ?? this.TypeShapeProvider ?? throw new UnreachableException()).ValueOrThrow;
 		return this.ReferenceEqualityTracker is null ? (ShapeShiftConverter<TEncoder, TDecoder>)result : result.WrapWithReferencePreservation();
+	}
+
+	/// <summary>
+	/// Throws an <see cref="ArgumentException"/> if this context has already been used to start a serialization operation.
+	/// </summary>
+	/// <param name="paramName">The name of the parameter that supplied this context.</param>
+	/// <exception cref="ArgumentException">Thrown when this context is not <see cref="IsPristine">pristine</see>.</exception>
+	internal void ThrowIfInUse(string paramName)
+	{
+		if (!this.IsPristine)
+		{
+			throw new ArgumentException(
+				"This serialization context has already been used to start a serialization operation or was captured from a converter during one. Pass a fresh starting context instead. Converters must not call top-level serializer methods; use context.GetConverter(...) to (de)serialize nested values instead.",
+				paramName);
+		}
 	}
 
 	/// <summary>

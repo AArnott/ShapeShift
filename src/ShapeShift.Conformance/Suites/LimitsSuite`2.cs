@@ -126,6 +126,21 @@ internal sealed class LimitsSuite<TEncoder, TDecoder> : IConformanceSuite<TEncod
 					$"deserializing a {Length}-byte binary value with MaxBinaryLength set to {Length / 2}");
 			});
 
+		collector.Add("PerCallContextLimitsAreEnforced", adapter =>
+		{
+			const int Length = 512;
+			ShapeShiftSerializer<TEncoder, TDecoder> serializer = adapter.CreateSerializer();
+			SerializationContext<TEncoder, TDecoder> context = serializer.StartingContext;
+			context.MaxStringLength = Length / 2;
+			ITypeShape<string> shape = Shapes.Of<string, ConformanceWitness>();
+			byte[] payload = RootHarness.EncodeScalar(adapter, static (ref TEncoder encoder) => encoder.WriteValue(new string('x', Length)));
+
+			ConformanceAssert.FailsCleanly(
+				() => RootHarness.DecodeScalar(adapter, payload, (ref TDecoder decoder) => serializer.Deserialize(ref decoder, shape, context)),
+				$"deserializing a {Length}-character string with a per-call MaxStringLength of {Length / 2}");
+			ConformanceAssert.Equal(Length, RootHarness.DecodeScalar(adapter, payload, (ref TDecoder decoder) => serializer.Deserialize(ref decoder, shape))?.Length ?? -1, "the string length when the per-call limit is not supplied");
+		});
+
 		collector.Add("LimitsPermitValuesAtTheBoundary", rootVectorSkip, adapter =>
 		{
 			const int Count = 8;

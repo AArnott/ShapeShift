@@ -233,14 +233,53 @@ public abstract record ShapeShiftSerializer<TEncoder, TDecoder> : IShapeShiftSer
 	public void Serialize<T>(ref TEncoder encoder, in T? value, ITypeShape<T> typeShape, CancellationToken cancellationToken = default)
 	{
 		Requires.NotNull(typeShape);
-		using DisposableSerializationContext context = this.CreateSerializationContext(typeShape.Provider, cancellationToken);
+		using DisposableSerializationContext context = new(this.StartContext(this.StartingContext, typeShape.Provider, cancellationToken));
+		this.GetConverter(typeShape).Write(ref encoder, value, context.Value);
+	}
+
+	/// <summary>
+	/// Serializes a value using a caller-supplied starting context instead of <see cref="StartingContext"/>.
+	/// </summary>
+	/// <typeparam name="T">The type of value to serialize.</typeparam>
+	/// <param name="encoder">The encoder to write to.</param>
+	/// <param name="value">The value to serialize.</param>
+	/// <param name="typeShape">The shape of <typeparamref name="T"/>.</param>
+	/// <param name="startingContext">
+	/// The context to begin this operation with. Its limits, state and <see cref="SerializationContext{TEncoder, TDecoder}.CancellationToken"/> apply to this call only.
+	/// It must be a fresh starting context; contexts previously passed to a serializer or received by a converter are rejected.
+	/// </param>
+	/// <exception cref="ArgumentException">Thrown when <paramref name="startingContext"/> has already been used to start a serialization operation or was captured from a converter.</exception>
+	[OverloadResolutionPriority(-1)] // for 'default' arguments, prefer the CancellationToken overload.
+	public void Serialize<T>(ref TEncoder encoder, in T? value, ITypeShape<T> typeShape, SerializationContext<TEncoder, TDecoder> startingContext)
+	{
+		Requires.NotNull(typeShape);
+		startingContext.ThrowIfInUse(nameof(startingContext));
+		using DisposableSerializationContext context = new(this.StartContext(startingContext, typeShape.Provider, startingContext.CancellationToken));
 		this.GetConverter(typeShape).Write(ref encoder, value, context.Value);
 	}
 
 	public T? Deserialize<T>(ref TDecoder decoder, ITypeShape<T> typeShape, CancellationToken cancellationToken = default)
 	{
 		Requires.NotNull(typeShape);
-		using DisposableSerializationContext context = this.CreateSerializationContext(typeShape.Provider, cancellationToken);
+		using DisposableSerializationContext context = new(this.StartContext(this.StartingContext, typeShape.Provider, cancellationToken));
+		return this.GetConverter(typeShape).Read(ref decoder, context.Value);
+	}
+
+	/// <summary>
+	/// Deserializes a value using a caller-supplied starting context instead of <see cref="StartingContext"/>.
+	/// </summary>
+	/// <typeparam name="T">The type of value to deserialize.</typeparam>
+	/// <param name="decoder">The decoder to read from.</param>
+	/// <param name="typeShape">The shape of <typeparamref name="T"/>.</param>
+	/// <param name="startingContext"><inheritdoc cref="Serialize{T}(ref TEncoder, in T, ITypeShape{T}, SerializationContext{TEncoder, TDecoder})" path="/param[@name='startingContext']"/></param>
+	/// <returns>The deserialized value.</returns>
+	/// <exception cref="ArgumentException">Thrown when <paramref name="startingContext"/> has already been used to start a serialization operation or was captured from a converter.</exception>
+	[OverloadResolutionPriority(-1)] // for 'default' arguments, prefer the CancellationToken overload.
+	public T? Deserialize<T>(ref TDecoder decoder, ITypeShape<T> typeShape, SerializationContext<TEncoder, TDecoder> startingContext)
+	{
+		Requires.NotNull(typeShape);
+		startingContext.ThrowIfInUse(nameof(startingContext));
+		using DisposableSerializationContext context = new(this.StartContext(startingContext, typeShape.Provider, startingContext.CancellationToken));
 		return this.GetConverter(typeShape).Read(ref decoder, context.Value);
 	}
 
@@ -275,6 +314,35 @@ public abstract record ShapeShiftSerializer<TEncoder, TDecoder> : IShapeShiftSer
 	}
 
 	/// <summary>
+	/// Attempts to deserialize the value found at a given <see cref="ShapeShiftPath"/> using a caller-supplied starting context,
+	/// skipping over everything else in the document without fully parsing or buffering it.
+	/// </summary>
+	/// <typeparam name="T">The type to deserialize the fragment as.</typeparam>
+	/// <param name="decoder"><inheritdoc cref="TryDeserializeFragment{T}(ref TDecoder, ShapeShiftPath, ITypeShape{T}, out T, CancellationToken)" path="/param[@name='decoder']"/></param>
+	/// <param name="path"><inheritdoc cref="TryDeserializeFragment{T}(ref TDecoder, ShapeShiftPath, ITypeShape{T}, out T, CancellationToken)" path="/param[@name='path']"/></param>
+	/// <param name="typeShape"><inheritdoc cref="TryDeserializeFragment{T}(ref TDecoder, ShapeShiftPath, ITypeShape{T}, out T, CancellationToken)" path="/param[@name='typeShape']"/></param>
+	/// <param name="value"><inheritdoc cref="TryDeserializeFragment{T}(ref TDecoder, ShapeShiftPath, ITypeShape{T}, out T, CancellationToken)" path="/param[@name='value']"/></param>
+	/// <param name="startingContext"><inheritdoc cref="Serialize{T}(ref TEncoder, in T, ITypeShape{T}, SerializationContext{TEncoder, TDecoder})" path="/param[@name='startingContext']"/></param>
+	/// <returns><inheritdoc cref="TryDeserializeFragment{T}(ref TDecoder, ShapeShiftPath, ITypeShape{T}, out T, CancellationToken)" path="/returns"/></returns>
+	/// <exception cref="DecoderException">Thrown when a step along <paramref name="path"/> expects a map or vector but finds some other, non-null token.</exception>
+	/// <exception cref="ArgumentException">Thrown when <paramref name="startingContext"/> has already been used to start a serialization operation or was captured from a converter.</exception>
+	/// <remarks><inheritdoc cref="TryDeserializeFragment{T}(ref TDecoder, ShapeShiftPath, ITypeShape{T}, out T, CancellationToken)" path="/remarks"/></remarks>
+	[OverloadResolutionPriority(-1)] // for 'default' arguments, prefer the CancellationToken overload.
+	public bool TryDeserializeFragment<T>(ref TDecoder decoder, ShapeShiftPath path, ITypeShape<T> typeShape, out T? value, SerializationContext<TEncoder, TDecoder> startingContext)
+	{
+		Requires.NotNull(typeShape);
+		startingContext.ThrowIfInUse(nameof(startingContext));
+		if (!DecoderExtensions.TrySeekCore(ref decoder, path))
+		{
+			value = default;
+			return false;
+		}
+
+		value = this.Deserialize(ref decoder, typeShape, startingContext);
+		return true;
+	}
+
+	/// <summary>
 	/// Deserializes the value found at a given <see cref="ShapeShiftPath"/>, skipping over
 	/// everything else in the document without fully parsing or buffering it.
 	/// </summary>
@@ -297,6 +365,30 @@ public abstract record ShapeShiftSerializer<TEncoder, TDecoder> : IShapeShiftSer
 	}
 
 	/// <summary>
+	/// Deserializes the value found at a given <see cref="ShapeShiftPath"/> using a caller-supplied starting context,
+	/// skipping over everything else in the document without fully parsing or buffering it.
+	/// </summary>
+	/// <typeparam name="T">The type to deserialize the fragment as.</typeparam>
+	/// <param name="decoder"><inheritdoc cref="DeserializeFragment{T}(ref TDecoder, ShapeShiftPath, ITypeShape{T}, CancellationToken)" path="/param[@name='decoder']"/></param>
+	/// <param name="path"><inheritdoc cref="DeserializeFragment{T}(ref TDecoder, ShapeShiftPath, ITypeShape{T}, CancellationToken)" path="/param[@name='path']"/></param>
+	/// <param name="typeShape"><inheritdoc cref="DeserializeFragment{T}(ref TDecoder, ShapeShiftPath, ITypeShape{T}, CancellationToken)" path="/param[@name='typeShape']"/></param>
+	/// <param name="startingContext"><inheritdoc cref="Serialize{T}(ref TEncoder, in T, ITypeShape{T}, SerializationContext{TEncoder, TDecoder})" path="/param[@name='startingContext']"/></param>
+	/// <returns>The deserialized value.</returns>
+	/// <exception cref="ShapeShiftSerializationException">Thrown when <paramref name="path"/> could not be found.</exception>
+	/// <exception cref="DecoderException">Thrown when a step along <paramref name="path"/> expects a map or vector but finds some other, non-null token.</exception>
+	/// <exception cref="ArgumentException">Thrown when <paramref name="startingContext"/> has already been used to start a serialization operation or was captured from a converter.</exception>
+	[OverloadResolutionPriority(-1)] // for 'default' arguments, prefer the CancellationToken overload.
+	public T? DeserializeFragment<T>(ref TDecoder decoder, ShapeShiftPath path, ITypeShape<T> typeShape, SerializationContext<TEncoder, TDecoder> startingContext)
+	{
+		if (!this.TryDeserializeFragment(ref decoder, path, typeShape, out T? value, startingContext))
+		{
+			throw new ShapeShiftSerializationException($"No value was found at path \"{path}\".");
+		}
+
+		return value;
+	}
+
+	/// <summary>
 	/// Creates a reader that incrementally enumerates the elements of a vector,
 	/// whether that vector is the root of a document or reached by first seeking into an enclosing document.
 	/// </summary>
@@ -307,7 +399,28 @@ public abstract record ShapeShiftSerializer<TEncoder, TDecoder> : IShapeShiftSer
 	public ShapeShiftSequenceReader<T, TEncoder, TDecoder> CreateSequenceReader<T>(ITypeShape<T> typeShape, CancellationToken cancellationToken = default)
 	{
 		Requires.NotNull(typeShape);
-		SerializationContext<TEncoder, TDecoder> context = this.StartingContext.Start(this, this.ConverterCache, typeShape.Provider, cancellationToken);
+		SerializationContext<TEncoder, TDecoder> context = this.StartContext(this.StartingContext, typeShape.Provider, cancellationToken);
+		return new(this.GetConverter(typeShape), context);
+	}
+
+	/// <summary>
+	/// Creates a reader that incrementally enumerates the elements of a vector using a caller-supplied starting context,
+	/// whether that vector is the root of a document or reached by first seeking into an enclosing document.
+	/// </summary>
+	/// <typeparam name="T">The type of each element in the vector.</typeparam>
+	/// <param name="typeShape">The shape of <typeparamref name="T"/>.</param>
+	/// <param name="startingContext">
+	/// The context to begin reading with. Its limits, state and <see cref="SerializationContext{TEncoder, TDecoder}.CancellationToken"/> apply throughout the lifetime of the reader.
+	/// It must be a fresh starting context; contexts previously passed to a serializer or received by a converter are rejected.
+	/// </param>
+	/// <returns>The reader. Callers should dispose of it (or use a <see langword="using" /> statement) when done.</returns>
+	/// <exception cref="ArgumentException">Thrown when <paramref name="startingContext"/> has already been used to start a serialization operation or was captured from a converter.</exception>
+	[OverloadResolutionPriority(-1)] // for 'default' arguments, prefer the CancellationToken overload.
+	public ShapeShiftSequenceReader<T, TEncoder, TDecoder> CreateSequenceReader<T>(ITypeShape<T> typeShape, SerializationContext<TEncoder, TDecoder> startingContext)
+	{
+		Requires.NotNull(typeShape);
+		startingContext.ThrowIfInUse(nameof(startingContext));
+		SerializationContext<TEncoder, TDecoder> context = this.StartContext(startingContext, typeShape.Provider, startingContext.CancellationToken);
 		return new(this.GetConverter(typeShape), context);
 	}
 
@@ -322,7 +435,25 @@ public abstract record ShapeShiftSerializer<TEncoder, TDecoder> : IShapeShiftSer
 	public ShapeShiftDocumentReader<T, TEncoder, TDecoder> CreateDocumentReader<T>(ITypeShape<T> typeShape, CancellationToken cancellationToken = default)
 	{
 		Requires.NotNull(typeShape);
-		SerializationContext<TEncoder, TDecoder> context = this.StartingContext.Start(this, this.ConverterCache, typeShape.Provider, cancellationToken);
+		SerializationContext<TEncoder, TDecoder> context = this.StartContext(this.StartingContext, typeShape.Provider, cancellationToken);
+		return new(this.GetConverter(typeShape), context);
+	}
+
+	/// <summary>
+	/// Creates a reader that incrementally enumerates a sequence of whole top-level values sharing one decoder,
+	/// using a caller-supplied starting context.
+	/// </summary>
+	/// <typeparam name="T">The type of each top-level value.</typeparam>
+	/// <param name="typeShape">The shape of <typeparamref name="T"/>.</param>
+	/// <param name="startingContext"><inheritdoc cref="CreateSequenceReader{T}(ITypeShape{T}, SerializationContext{TEncoder, TDecoder})" path="/param[@name='startingContext']"/></param>
+	/// <returns>The reader. Callers should dispose of it (or use a <see langword="using" /> statement) when done.</returns>
+	/// <exception cref="ArgumentException">Thrown when <paramref name="startingContext"/> has already been used to start a serialization operation or was captured from a converter.</exception>
+	[OverloadResolutionPriority(-1)] // for 'default' arguments, prefer the CancellationToken overload.
+	public ShapeShiftDocumentReader<T, TEncoder, TDecoder> CreateDocumentReader<T>(ITypeShape<T> typeShape, SerializationContext<TEncoder, TDecoder> startingContext)
+	{
+		Requires.NotNull(typeShape);
+		startingContext.ThrowIfInUse(nameof(startingContext));
+		SerializationContext<TEncoder, TDecoder> context = this.StartContext(startingContext, typeShape.Provider, startingContext.CancellationToken);
 		return new(this.GetConverter(typeShape), context);
 	}
 
@@ -339,13 +470,52 @@ public abstract record ShapeShiftSerializer<TEncoder, TDecoder> : IShapeShiftSer
 	/// <param name="cancellationToken">A cancellation token for the operation.</param>
 	/// <returns>The serialization context.</returns>
 	/// <remarks>
+	/// <para>
 	/// Callers should be sure to always call <see cref="DisposableSerializationContext.Dispose"/> when done with the context.
+	/// </para>
+	/// <para>
+	/// The context begins from <see cref="StartingContext"/>.
+	/// Derived serializers that accept a per-call context from their callers should use
+	/// <see cref="CreateSerializationContext(ITypeShapeProvider, SerializationContext{TEncoder, TDecoder})"/> instead.
+	/// </para>
 	/// </remarks>
 	protected DisposableSerializationContext CreateSerializationContext(ITypeShapeProvider provider, CancellationToken cancellationToken = default)
 	{
 		Requires.NotNull(provider);
-		return new(this.StartingContext.Start(this, this.ConverterCache, provider, cancellationToken));
+		return new(this.StartContext(this.StartingContext, provider, cancellationToken));
 	}
+
+	/// <summary>
+	/// Creates a new serialization context from a caller-supplied starting context that is ready to process a serialization job.
+	/// </summary>
+	/// <param name="provider"><inheritdoc cref="CreateSerializationContext(ITypeShapeProvider, CancellationToken)" path="/param[@name='provider']"/></param>
+	/// <param name="startingContext">
+	/// The context to begin the job with, instead of <see cref="StartingContext"/>.
+	/// Its <see cref="SerializationContext{TEncoder, TDecoder}.CancellationToken"/> applies to the job.
+	/// It must be a fresh starting context; contexts previously passed to a serializer or received by a converter are rejected.
+	/// </param>
+	/// <returns>The serialization context.</returns>
+	/// <exception cref="ArgumentException">Thrown when <paramref name="startingContext"/> has already been used to start a serialization operation or was captured from a converter.</exception>
+	/// <remarks>
+	/// Callers should be sure to always call <see cref="DisposableSerializationContext.Dispose"/> when done with the context.
+	/// </remarks>
+	[OverloadResolutionPriority(-1)] // for 'default' arguments, prefer the CancellationToken overload.
+	protected DisposableSerializationContext CreateSerializationContext(ITypeShapeProvider provider, SerializationContext<TEncoder, TDecoder> startingContext)
+	{
+		Requires.NotNull(provider);
+		startingContext.ThrowIfInUse(nameof(startingContext));
+		return new(this.StartContext(startingContext, provider, startingContext.CancellationToken));
+	}
+
+	/// <summary>
+	/// Starts a serialization job from a given starting context.
+	/// </summary>
+	/// <param name="startingContext">The context to start from.</param>
+	/// <param name="provider">The shape provider for the job.</param>
+	/// <param name="cancellationToken">The cancellation token for the job.</param>
+	/// <returns>The started context.</returns>
+	private SerializationContext<TEncoder, TDecoder> StartContext(SerializationContext<TEncoder, TDecoder> startingContext, ITypeShapeProvider provider, CancellationToken cancellationToken)
+		=> startingContext.Start(this, this.ConverterCache, provider, cancellationToken);
 
 	private ShapeShiftConverter<T, TEncoder, TDecoder> GetConverter<T>(ITypeShape<T> typeShape) => (ShapeShiftConverter<T, TEncoder, TDecoder>)this.ConverterCache.GetOrAddConverter(typeShape).ValueOrThrow;
 
