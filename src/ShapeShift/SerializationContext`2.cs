@@ -262,7 +262,7 @@ public struct SerializationContext<TEncoder, TDecoder>
 	}
 
 	/// <summary>
-	/// Throws an <see cref="ArgumentException"/> if this context already belongs to an in-progress serialization operation.
+	/// Throws an <see cref="ArgumentException"/> if this context has already been used to start a serialization operation.
 	/// </summary>
 	/// <param name="paramName">The name of the parameter that supplied this context.</param>
 	/// <exception cref="ArgumentException">Thrown when this context is not <see cref="IsPristine">pristine</see>.</exception>
@@ -271,7 +271,7 @@ public struct SerializationContext<TEncoder, TDecoder>
 		if (!this.IsPristine)
 		{
 			throw new ArgumentException(
-				"This serialization context belongs to a serialization operation that is already in progress. Converters must not call top-level serializer methods; use context.GetConverter(...) to (de)serialize nested values instead.",
+				"This serialization context has already been used to start a serialization operation or was captured from a converter during one. Pass a fresh starting context instead. Converters must not call top-level serializer methods; use context.GetConverter(...) to (de)serialize nested values instead.",
 				paramName);
 		}
 	}

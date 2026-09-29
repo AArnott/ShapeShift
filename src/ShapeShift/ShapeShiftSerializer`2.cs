@@ -246,9 +246,9 @@ public abstract record ShapeShiftSerializer<TEncoder, TDecoder> : IShapeShiftSer
 	/// <param name="typeShape">The shape of <typeparamref name="T"/>.</param>
 	/// <param name="startingContext">
 	/// The context to begin this operation with. Its limits, state and <see cref="SerializationContext{TEncoder, TDecoder}.CancellationToken"/> apply to this call only.
-	/// It must not be a context received by a converter during another operation.
+	/// It must be a fresh starting context; contexts previously passed to a serializer or received by a converter are rejected.
 	/// </param>
-	/// <exception cref="ArgumentException">Thrown when <paramref name="startingContext"/> belongs to a serialization operation that is already in progress.</exception>
+	/// <exception cref="ArgumentException">Thrown when <paramref name="startingContext"/> has already been used to start a serialization operation or was captured from a converter.</exception>
 	[OverloadResolutionPriority(-1)] // for 'default' arguments, prefer the CancellationToken overload.
 	public void Serialize<T>(ref TEncoder encoder, in T? value, ITypeShape<T> typeShape, SerializationContext<TEncoder, TDecoder> startingContext)
 	{
@@ -273,7 +273,7 @@ public abstract record ShapeShiftSerializer<TEncoder, TDecoder> : IShapeShiftSer
 	/// <param name="typeShape">The shape of <typeparamref name="T"/>.</param>
 	/// <param name="startingContext"><inheritdoc cref="Serialize{T}(ref TEncoder, in T, ITypeShape{T}, SerializationContext{TEncoder, TDecoder})" path="/param[@name='startingContext']"/></param>
 	/// <returns>The deserialized value.</returns>
-	/// <exception cref="ArgumentException">Thrown when <paramref name="startingContext"/> belongs to a serialization operation that is already in progress.</exception>
+	/// <exception cref="ArgumentException">Thrown when <paramref name="startingContext"/> has already been used to start a serialization operation or was captured from a converter.</exception>
 	[OverloadResolutionPriority(-1)] // for 'default' arguments, prefer the CancellationToken overload.
 	public T? Deserialize<T>(ref TDecoder decoder, ITypeShape<T> typeShape, SerializationContext<TEncoder, TDecoder> startingContext)
 	{
@@ -325,7 +325,7 @@ public abstract record ShapeShiftSerializer<TEncoder, TDecoder> : IShapeShiftSer
 	/// <param name="startingContext"><inheritdoc cref="Serialize{T}(ref TEncoder, in T, ITypeShape{T}, SerializationContext{TEncoder, TDecoder})" path="/param[@name='startingContext']"/></param>
 	/// <returns><inheritdoc cref="TryDeserializeFragment{T}(ref TDecoder, ShapeShiftPath, ITypeShape{T}, out T, CancellationToken)" path="/returns"/></returns>
 	/// <exception cref="DecoderException">Thrown when a step along <paramref name="path"/> expects a map or vector but finds some other, non-null token.</exception>
-	/// <exception cref="ArgumentException">Thrown when <paramref name="startingContext"/> belongs to a serialization operation that is already in progress.</exception>
+	/// <exception cref="ArgumentException">Thrown when <paramref name="startingContext"/> has already been used to start a serialization operation or was captured from a converter.</exception>
 	/// <remarks><inheritdoc cref="TryDeserializeFragment{T}(ref TDecoder, ShapeShiftPath, ITypeShape{T}, out T, CancellationToken)" path="/remarks"/></remarks>
 	[OverloadResolutionPriority(-1)] // for 'default' arguments, prefer the CancellationToken overload.
 	public bool TryDeserializeFragment<T>(ref TDecoder decoder, ShapeShiftPath path, ITypeShape<T> typeShape, out T? value, SerializationContext<TEncoder, TDecoder> startingContext)
@@ -376,7 +376,7 @@ public abstract record ShapeShiftSerializer<TEncoder, TDecoder> : IShapeShiftSer
 	/// <returns>The deserialized value.</returns>
 	/// <exception cref="ShapeShiftSerializationException">Thrown when <paramref name="path"/> could not be found.</exception>
 	/// <exception cref="DecoderException">Thrown when a step along <paramref name="path"/> expects a map or vector but finds some other, non-null token.</exception>
-	/// <exception cref="ArgumentException">Thrown when <paramref name="startingContext"/> belongs to a serialization operation that is already in progress.</exception>
+	/// <exception cref="ArgumentException">Thrown when <paramref name="startingContext"/> has already been used to start a serialization operation or was captured from a converter.</exception>
 	[OverloadResolutionPriority(-1)] // for 'default' arguments, prefer the CancellationToken overload.
 	public T? DeserializeFragment<T>(ref TDecoder decoder, ShapeShiftPath path, ITypeShape<T> typeShape, SerializationContext<TEncoder, TDecoder> startingContext)
 	{
@@ -411,10 +411,10 @@ public abstract record ShapeShiftSerializer<TEncoder, TDecoder> : IShapeShiftSer
 	/// <param name="typeShape">The shape of <typeparamref name="T"/>.</param>
 	/// <param name="startingContext">
 	/// The context to begin reading with. Its limits, state and <see cref="SerializationContext{TEncoder, TDecoder}.CancellationToken"/> apply throughout the lifetime of the reader.
-	/// It must not be a context received by a converter during another operation.
+	/// It must be a fresh starting context; contexts previously passed to a serializer or received by a converter are rejected.
 	/// </param>
 	/// <returns>The reader. Callers should dispose of it (or use a <see langword="using" /> statement) when done.</returns>
-	/// <exception cref="ArgumentException">Thrown when <paramref name="startingContext"/> belongs to a serialization operation that is already in progress.</exception>
+	/// <exception cref="ArgumentException">Thrown when <paramref name="startingContext"/> has already been used to start a serialization operation or was captured from a converter.</exception>
 	[OverloadResolutionPriority(-1)] // for 'default' arguments, prefer the CancellationToken overload.
 	public ShapeShiftSequenceReader<T, TEncoder, TDecoder> CreateSequenceReader<T>(ITypeShape<T> typeShape, SerializationContext<TEncoder, TDecoder> startingContext)
 	{
@@ -447,7 +447,7 @@ public abstract record ShapeShiftSerializer<TEncoder, TDecoder> : IShapeShiftSer
 	/// <param name="typeShape">The shape of <typeparamref name="T"/>.</param>
 	/// <param name="startingContext"><inheritdoc cref="CreateSequenceReader{T}(ITypeShape{T}, SerializationContext{TEncoder, TDecoder})" path="/param[@name='startingContext']"/></param>
 	/// <returns>The reader. Callers should dispose of it (or use a <see langword="using" /> statement) when done.</returns>
-	/// <exception cref="ArgumentException">Thrown when <paramref name="startingContext"/> belongs to a serialization operation that is already in progress.</exception>
+	/// <exception cref="ArgumentException">Thrown when <paramref name="startingContext"/> has already been used to start a serialization operation or was captured from a converter.</exception>
 	[OverloadResolutionPriority(-1)] // for 'default' arguments, prefer the CancellationToken overload.
 	public ShapeShiftDocumentReader<T, TEncoder, TDecoder> CreateDocumentReader<T>(ITypeShape<T> typeShape, SerializationContext<TEncoder, TDecoder> startingContext)
 	{
@@ -492,10 +492,10 @@ public abstract record ShapeShiftSerializer<TEncoder, TDecoder> : IShapeShiftSer
 	/// <param name="startingContext">
 	/// The context to begin the job with, instead of <see cref="StartingContext"/>.
 	/// Its <see cref="SerializationContext{TEncoder, TDecoder}.CancellationToken"/> applies to the job.
-	/// It must not be a context received by a converter during another operation.
+	/// It must be a fresh starting context; contexts previously passed to a serializer or received by a converter are rejected.
 	/// </param>
 	/// <returns>The serialization context.</returns>
-	/// <exception cref="ArgumentException">Thrown when <paramref name="startingContext"/> belongs to a serialization operation that is already in progress.</exception>
+	/// <exception cref="ArgumentException">Thrown when <paramref name="startingContext"/> has already been used to start a serialization operation or was captured from a converter.</exception>
 	/// <remarks>
 	/// Callers should be sure to always call <see cref="DisposableSerializationContext.Dispose"/> when done with the context.
 	/// </remarks>
