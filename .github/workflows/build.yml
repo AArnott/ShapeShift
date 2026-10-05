@@ -50,7 +50,9 @@ jobs:
       run: tools/dotnet-test-cloud.ps1 -Configuration ${{ env.BUILDCONFIGURATION }} -Agent ${{ runner.os }} -IncludeNativeAOT
       shell: pwsh
     - name: 💅🏻 Verify formatted code
-      run: dotnet format --verify-no-changes --no-restore
+      run: |
+        dotnet restore ShapeShift.slnx
+        dotnet format ShapeShift.slnx --verify-no-changes --no-restore
       shell: pwsh
       if: runner.os == 'Linux'
     - name: 📚 Verify docfx build
