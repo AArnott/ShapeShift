@@ -16,7 +16,7 @@
     <PackageVersion Include="PolyType" Version="1.4.1" />
     <PackageVersion Include="System.Formats.Cbor" Version="10.0.1" />
     <PackageVersion Include="Tomlyn" Version="0.19.0" />
-    <PackageVersion Include="TUnit" Version="1.7.7" />
+    <PackageVersion Include="TUnit.Assertions" Version="1.7.7" />
   </ItemGroup>
   <ItemGroup Label="Library.Template">
     <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.11.2" />
@@ -25,6 +25,9 @@
     <PackageVersion Include="Microsoft.Testing.Extensions.HangDump" Version="$(MicrosoftTestingPlatformVersion)" />
     <PackageVersion Include="Microsoft.Testing.Extensions.Telemetry" Version="$(MicrosoftTestingPlatformVersion)" />
     <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="$(MicrosoftTestingPlatformVersion)" />
+    <PackageVersion Include="TUnit.Engine" Version="1.65.68" />
+    <PackageVersion Include="xunit.v3.assert" Version="4.0.1" />
+    <PackageVersion Include="xunit.v3.assert.aot" Version="4.0.1" />
   </ItemGroup>
   <ItemGroup>
     <!-- Put repo-specific GlobalPackageReference items in this group. -->

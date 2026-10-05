@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <PublishNativeAOTTests>false</PublishNativeAOTTests>
 
     <!--
       The Roslyn workspace host used by the code fix tests relies on MEF composition,
@@ -21,7 +22,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" />
     <PackageReference Include="PolyType" />
-    <PackageReference Include="TUnit" />
+    <PackageReference Include="TUnit.Engine" />
+    <PackageReference Include="TUnit.Assertions" />
   </ItemGroup>
 
   <Target Name="PackShapeShiftForAnalyzerTests" AfterTargets="Build" Condition="'$(DesignTimeBuild)' != 'true'">

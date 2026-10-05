@@ -3,14 +3,13 @@
   <PropertyGroup>
     <TargetFrameworks>net10.0</TargetFrameworks>
   </PropertyGroup>
-  <Import Project="../AOT.props" />
-
   <ItemGroup>
     <ProjectReference Include="..\..\src\ShapeShift\ShapeShift.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="TUnit" />
+    <PackageReference Include="TUnit.Engine" />
+    <PackageReference Include="TUnit.Assertions" />
   </ItemGroup>
 
 </Project>

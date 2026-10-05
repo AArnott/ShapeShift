@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <IsAotCompatible Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net8.0'))">true</IsAotCompatible>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- <PackageValidationBaselineVersion>1.0.0</PackageValidationBaselineVersion> -->
   </PropertyGroup>
