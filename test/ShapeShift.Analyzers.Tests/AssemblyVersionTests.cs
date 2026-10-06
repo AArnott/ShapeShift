@@ -4,7 +4,7 @@
 namespace ShapeShift.Analyzers.Tests;
 
 /// <summary>
-/// Verifies that projects with their own version.json get its revision-level assembly version,
+/// Verifies that these assemblies get the revision-level assembly versions that their projects' own version.json files specify,
 /// rather than the root version.json's x.y.0.0 (e.g. when a root GitVersionBaseDirectory overrides it).
 /// </summary>
 public class AssemblyVersionTests
