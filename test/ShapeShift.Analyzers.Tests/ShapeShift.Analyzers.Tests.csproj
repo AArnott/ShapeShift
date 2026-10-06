@@ -36,4 +36,9 @@
       Properties="Configuration=$(Configuration);BuildProjectReferences=false;PackageOutputPath=$(AnalyzerPackageTestOutput)" />
   </Target>
 
+  <ItemGroup>
+    <!-- Projects with their own version.json. AssemblyVersionTests verifies that it (not the root version.json) determines their assembly version. -->
+    <NestedVersionJsonProject Include="..\..\src\ShapeShift.Analyzers\ShapeShift.Analyzers.csproj" />
+    <NestedVersionJsonProject Include="..\..\src\ShapeShift.Analyzers.CodeFixes\ShapeShift.Analyzers.CodeFixes.csproj" />
+  </ItemGroup>
 </Project>
