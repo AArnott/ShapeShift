@@ -3,8 +3,6 @@
   <PropertyGroup>
     <TargetFrameworks>net10.0</TargetFrameworks>
   </PropertyGroup>
-  <Import Project="../AOT.props" />
-
   <ItemGroup>
     <ProjectReference Include="..\..\samples\cs\Samples.csproj" />
   </ItemGroup>

@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <PublishNativeAOTTests>false</PublishNativeAOTTests>
 
     <!--
       The Roslyn workspace host used by the code fix tests relies on MEF composition,

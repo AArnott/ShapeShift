@@ -1,47 +1,36 @@
 {
 	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
-	"extends": [
-		"config:best-practices",
-		"helpers:pinGitHubActionDigestsToSemver"
-	],
-	"labels": [
-		"dependencies"
-	],
+	"extends": ["config:best-practices","helpers:pinGitHubActionDigestsToSemver"],
+	"labels": ["dependencies"],
 	"packageRules": [
 		{
-			"matchPackageNames": [
-				"nbgv",
-				"nerdbank.gitversioning"
-			],
+			"matchPackageNames": ["nbgv", "nerdbank.gitversioning"],
 			"groupName": "nbgv and nerdbank.gitversioning updates"
 		},
 		{
-			"matchPackageNames": [
-				"Microsoft.Testing.Extensions.*"
-			],
+			"matchPackageNames": ["xunit*"],
+			"groupName": "xunit"
+		},
+		{
+			"matchPackageNames": ["tunit*"],
+			"groupName": "tunit",
+			"schedule": ["on the first day of the month"]
+		},
+		{
+			"matchPackageNames": ["Microsoft.Testing.Extensions.*"],
 			"groupName": "Microsoft Testing Platform"
 		},
 		{
-			"matchFileNames": [
-				"Directory.Packages.Analyzers.props"
-			],
+			"matchFileNames": ["Directory.Packages.Analyzers.props"],
 			"enabled": false
 		},
 		{
-			"matchDatasources": [
-				"dotnet-version",
-				"docker"
-			],
-			"matchDepNames": [
-				"dotnet-sdk",
-				"mcr.microsoft.com/dotnet/sdk"
-			],
+			"matchDatasources": ["dotnet-version", "docker"],
+			"matchDepNames": ["dotnet-sdk", "mcr.microsoft.com/dotnet/sdk"],
 			"groupName": "Dockerfile and global.json updates"
 		},
 		{
-			"matchPackageNames": [
-				"*"
-			],
+			"matchPackageNames": ["*"],
 			"allowedVersions": "!/-g[a-f0-9]+$/"
 		}
 	]

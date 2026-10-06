@@ -3,9 +3,14 @@
   <Import Project="$([MSBuild]::GetPathOfFileAbove($(MSBuildThisFile), $(MSBuildThisFileDirectory)..))" />
 
   <PropertyGroup>
+    <IsTestProject Condition="'$(MSBuildProjectExtension)' == '.csproj'">true</IsTestProject>
     <IsPackable>false</IsPackable>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-    <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+    <PublishNativeAOTTests Condition="'$(MSBuildProjectExtension)' == '.csproj'">true</PublishNativeAOTTests>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(NativeAOT)' == 'true' and '$(PublishNativeAOTTests)' == 'true'">
+    <RuntimeIdentifier>$(DefaultRuntimeIdentifier)</RuntimeIdentifier>
   </PropertyGroup>
 
 </Project>
