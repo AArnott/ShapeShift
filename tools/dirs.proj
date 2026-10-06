@@ -3,5 +3,7 @@
     <ProjectReference Include="..\samples\dirs.proj" />
     <ProjectReference Include="..\src\dirs.proj" />
     <ProjectReference Include="..\test\dirs.proj" />
+    <!-- Benchmarks are in the solution, so restore and compile them; they are never packed or published. -->
+    <ProjectReference Include="..\benchmark\**\*.csproj" Pack="false" Publish="false" />
   </ItemGroup>
 </Project>

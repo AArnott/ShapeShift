@@ -109,6 +109,10 @@ if ($isMTP) {
 
     if ($IncludeNativeAOT) {
         $nativeAotTests = @(& "$PSScriptRoot/Get-NativeAOTTestProjects.ps1" -Configuration $Configuration)
+        if ($nativeAotTests.Count -eq 0) {
+            Write-Error "IncludeNativeAOT was set, but MSBuild discovered no NativeAOT test executables."
+            $failedTests += 1
+        }
         foreach ($nativeAotTest in $nativeAotTests) {
             $testExecutable = $nativeAotTest.ExecutablePath
             if (-not (Test-Path -LiteralPath $testExecutable -PathType Leaf)) {
