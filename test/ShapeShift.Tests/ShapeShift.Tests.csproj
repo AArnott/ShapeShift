@@ -8,8 +8,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="TUnit.Engine" />
-    <PackageReference Include="TUnit.Assertions" />
+    <PackageReference Include="TUnit" />
   </ItemGroup>
 
 </Project>

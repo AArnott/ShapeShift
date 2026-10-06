@@ -22,8 +22,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" />
     <PackageReference Include="PolyType" />
-    <PackageReference Include="TUnit.Engine" />
-    <PackageReference Include="TUnit.Assertions" />
+    <PackageReference Include="TUnit" />
   </ItemGroup>
 
   <Target Name="PackShapeShiftForAnalyzerTests" AfterTargets="Build" Condition="'$(DesignTimeBuild)' != 'true'">

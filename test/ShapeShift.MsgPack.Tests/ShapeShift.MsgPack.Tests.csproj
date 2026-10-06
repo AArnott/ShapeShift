@@ -9,7 +9,6 @@
     <ProjectReference Include="..\ShapeShift.Tests\ShapeShift.Tests.csproj" GlobalPropertiesToRemove="" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="TUnit.Engine" />
-    <PackageReference Include="TUnit.Assertions" />
+    <PackageReference Include="TUnit" />
   </ItemGroup>
 </Project>
