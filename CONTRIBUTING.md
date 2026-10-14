@@ -87,6 +87,9 @@ You should set `NUGET_USER` as a repo secret to satisfy Trusted Publishing requi
 
 ## Tutorial and API documentation
 
+Markup links are checked in CI with [mlc](https://github.com/becheran/mlc).
+Run `mlc` from the repository root to use the same settings, configured in `.mlc.toml`.
+
 API and hand-written docs are found under the `docfx/` directory and are built by [docfx](https://dotnet.github.io/docfx/).
 
 You can make changes and host the site locally to preview them by switching to that directory and running the `dotnet docfx --serve` command.
