@@ -86,7 +86,7 @@ public class PackagedAnalyzerTests
 			{
 				string[] packages = [.. Directory.EnumerateFiles(packageDirectory, "ShapeShift.*.nupkg")
 					.Where(path => !path.EndsWith(".symbols.nupkg", StringComparison.OrdinalIgnoreCase))
-					.OrderByDescending(File.GetLastWriteTimeUtc)];
+					.OrderByDescending(File.GetLastWriteTimeUtc),];
 				if (packages is [string package, ..])
 				{
 					return package;

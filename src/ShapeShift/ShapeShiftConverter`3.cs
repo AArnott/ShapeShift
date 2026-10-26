@@ -14,10 +14,10 @@ public abstract class ShapeShiftConverter<T, TEncoder, TDecoder> : ShapeShiftCon
 	public abstract T? Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context);
 
 	/// <inheritdoc/>
-	public override sealed void WriteObject(ref TEncoder writer, object? value, SerializationContext<TEncoder, TDecoder> context) => this.Write(ref writer, (T?)value, context);
+	public override sealed void WriteObject(ref TEncoder encoder, object? value, SerializationContext<TEncoder, TDecoder> context) => this.Write(ref encoder, (T?)value, context);
 
 	/// <inheritdoc/>
-	public override sealed object? ReadObject(ref TDecoder reader, SerializationContext<TEncoder, TDecoder> context) => this.Read(ref reader, context);
+	public override sealed object? ReadObject(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context) => this.Read(ref decoder, context);
 
 	ShapeShiftConverter<TEncoder, TDecoder> IShapeShiftConverterInternal<TEncoder, TDecoder>.WrapWithReferencePreservation() => this.WrapWithReferencePreservation();
 

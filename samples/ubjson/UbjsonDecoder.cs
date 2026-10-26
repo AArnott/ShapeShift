@@ -502,12 +502,7 @@ public ref struct UbjsonDecoder : IDecoder
             : throw new DecoderException($"The number {value.ToString(CultureInfo.InvariantCulture)} cannot be represented as a decimal.");
 
     private static ShapeShiftNumber ParseHighPrecision(string text)
-        => long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out long signed) ? new ShapeShiftInteger(signed)
-            : ulong.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out ulong unsigned) ? new ShapeShiftUnsignedInteger(unsigned)
-            : BigInteger.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out BigInteger big) ? new ShapeShiftBigInteger(big)
-            : decimal.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out decimal exact) ? new ShapeShiftDecimal(exact)
-            : double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double approximate) ? new ShapeShiftFloat(approximate)
-            : throw new DecoderException($"\"{text}\" is not a number this decoder can represent.");
+        => long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out long signed) ? new ShapeShiftInteger(signed) : ulong.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out ulong unsigned) ? new ShapeShiftUnsignedInteger(unsigned) : BigInteger.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out BigInteger big) ? new ShapeShiftBigInteger(big) : decimal.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out decimal exact) ? new ShapeShiftDecimal(exact) : double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double approximate) ? new ShapeShiftFloat(approximate) : throw new DecoderException($"\"{text}\" is not a number this decoder can represent.");
 
     private readonly TokenType TokenForMarker(byte marker) => marker switch
     {

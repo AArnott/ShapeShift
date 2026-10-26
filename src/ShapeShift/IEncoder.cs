@@ -29,6 +29,19 @@ namespace ShapeShift;
 public interface IEncoder
 {
 	/// <summary>
+	/// Prepares a declared property name for repeated writes by this encoder type.
+	/// </summary>
+	/// <param name="name">The property name.</param>
+	/// <returns>
+	/// Opaque encoder-specific state, or <see langword="null" /> when this encoder does not prepare property names.
+	/// </returns>
+	/// <remarks>
+	/// The returned state is cached with serializer contract metadata. Implementations must therefore return
+	/// immutable, thread-safe state that does not refer to a particular encoder instance or output destination.
+	/// </remarks>
+	static virtual object? PreparePropertyName(string name) => null;
+
+	/// <summary>
 	/// Writes the beginning of a map.
 	/// </summary>
 	/// <param name="propertyCount">
@@ -65,19 +78,6 @@ public interface IEncoder
 	/// so this is a distinct operation rather than a call to <see cref="WriteValue(ReadOnlySpan{char})"/>.
 	/// </remarks>
 	void WritePropertyName(scoped ReadOnlySpan<char> name);
-
-	/// <summary>
-	/// Prepares a declared property name for repeated writes by this encoder type.
-	/// </summary>
-	/// <param name="name">The property name.</param>
-	/// <returns>
-	/// Opaque encoder-specific state, or <see langword="null" /> when this encoder does not prepare property names.
-	/// </returns>
-	/// <remarks>
-	/// The returned state is cached with serializer contract metadata. Implementations must therefore return
-	/// immutable, thread-safe state that does not refer to a particular encoder instance or output destination.
-	/// </remarks>
-	static virtual object? PreparePropertyName(string name) => null;
 
 	/// <summary>
 	/// Writes a previously prepared declared property name.

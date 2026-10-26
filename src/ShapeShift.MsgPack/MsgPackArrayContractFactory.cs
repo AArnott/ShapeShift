@@ -169,8 +169,7 @@ internal sealed class MsgPackArrayContractBuilder(SerializeDefaultValuesPolicy s
 
 		return new MsgPackArrayMember<TDeclaringType, TDeclaringType>
 		{
-			Write = getter is null ? null : (ref MsgPackEncoder encoder, in TDeclaringType target, SerializationContext<MsgPackEncoder, MsgPackDecoder> context)
-				=> converter.Get(context).Write(ref encoder, getter(ref Unsafe.AsRef(in target)), context),
+			Write = getter is null ? null : (ref MsgPackEncoder encoder, in TDeclaringType target, SerializationContext<MsgPackEncoder, MsgPackDecoder> context) => converter.Get(context).Write(ref encoder, getter(ref Unsafe.AsRef(in target)), context),
 			Read = setter is null ? null : Read,
 			ShouldWrite = shouldWrite,
 			Description = new MsgPackArraySlotDescription(0, propertyShape.Name, propertyShape.PropertyType)

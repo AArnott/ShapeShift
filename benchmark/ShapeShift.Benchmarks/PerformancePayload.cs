@@ -9,6 +9,10 @@ namespace ShapeShift.Benchmarks;
 /// <summary>
 /// A deterministic, representative order payload shared by all serializer benchmarks.
 /// </summary>
+/// <param name="CustomerId">The identifier of the customer placing the orders.</param>
+/// <param name="CustomerName">The customer's display name.</param>
+/// <param name="Orders">The orders placed by the customer.</param>
+/// <param name="Metadata">Additional string metadata for the customer.</param>
 [GenerateShape]
 public sealed partial record PerformancePayload(string CustomerId, string CustomerName, List<PerformanceOrder> Orders, Dictionary<string, string> Metadata)
 {

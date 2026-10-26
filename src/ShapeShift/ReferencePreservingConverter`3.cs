@@ -18,28 +18,28 @@ internal class ReferencePreservingConverter<T, TEncoder, TDecoder>(ShapeShiftCon
 	where TDecoder : IDecoder, allows ref struct
 {
 	/// <inheritdoc/>
-	public override T? Read(ref TDecoder reader, SerializationContext<TEncoder, TDecoder> context)
+	public override T? Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context)
 	{
-		if (reader.TryReadNull())
+		if (decoder.TryReadNull())
 		{
 			return default;
 		}
 
 		Assumes.NotNull(context.ReferenceEqualityTracker);
-		return context.ReferenceEqualityTracker.ReadObject(ref reader, inner, context);
+		return context.ReferenceEqualityTracker.ReadObject(ref decoder, inner, context);
 	}
 
 	/// <inheritdoc/>
-	public override void Write(ref TEncoder writer, in T? value, SerializationContext<TEncoder, TDecoder> context)
+	public override void Write(ref TEncoder encoder, in T? value, SerializationContext<TEncoder, TDecoder> context)
 	{
 		if (value is null)
 		{
-			writer.WriteNull();
+			encoder.WriteNull();
 			return;
 		}
 
 		Assumes.NotNull(context.ReferenceEqualityTracker);
-		context.ReferenceEqualityTracker.WriteObject(ref writer, value, inner, context);
+		context.ReferenceEqualityTracker.WriteObject(ref encoder, value, inner, context);
 	}
 
 	/// <inheritdoc/>

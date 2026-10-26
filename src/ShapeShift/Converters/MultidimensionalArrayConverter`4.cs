@@ -12,6 +12,8 @@ namespace ShapeShift.Converters;
 /// <typeparam name="TElement">The element type.</typeparam>
 /// <typeparam name="TEncoder">The encoder type.</typeparam>
 /// <typeparam name="TDecoder">The decoder type.</typeparam>
+/// <param name="elementConverter">The converter for individual array elements.</param>
+/// <param name="rank">The number of dimensions in the array.</param>
 internal sealed class MultidimensionalArrayConverter<TArray, TElement, TEncoder, TDecoder>(
 	ShapeShiftConverter<TElement, TEncoder, TDecoder> elementConverter,
 	int rank) : ShapeShiftConverter<TArray, TEncoder, TDecoder>

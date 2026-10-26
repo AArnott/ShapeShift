@@ -10,6 +10,10 @@ namespace ShapeShift.Converters;
 /// <typeparam name="TElement">The wrapped element type.</typeparam>
 /// <typeparam name="TEncoder">The encoder type.</typeparam>
 /// <typeparam name="TDecoder">The decoder type.</typeparam>
+/// <param name="elementConverter">The converter for the wrapped element.</param>
+/// <param name="deconstructor">Separates an optional value into its element, when present.</param>
+/// <param name="noneConstructor">Creates an empty optional value.</param>
+/// <param name="someConstructor">Creates an optional value containing an element.</param>
 internal sealed class OptionalConverter<TOptional, TElement, TEncoder, TDecoder>(
 	ShapeShiftConverter<TElement, TEncoder, TDecoder> elementConverter,
 	OptionDeconstructor<TOptional, TElement> deconstructor,
