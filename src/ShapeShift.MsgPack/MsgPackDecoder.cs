@@ -571,7 +571,7 @@ public ref struct MsgPackDecoder : IDecoder
 		throw new DecoderException($"Unsupported or reserved MessagePack code 0x{code:x2}.");
 	}
 
-	private static bool IsExtensionCode(byte code) => code is 0xc7 or 0xc8 or 0xc9 or >= 0xd4 and <= 0xd8;
+	private static bool IsExtensionCode(byte code) => code is 0xc7 or 0xc8 or 0xc9 or (>= 0xd4 and <= 0xd8);
 
 	/// <summary>
 	/// Gets the byte at the decoder's current position.

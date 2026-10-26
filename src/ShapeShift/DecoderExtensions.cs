@@ -15,11 +15,15 @@ public static class DecoderExtensions
 		where TDecoder : IDecoder, allows ref struct
 	{
 		public byte ReadByte() => checked((byte)decoder.ReadUInt64());
+
 		public ushort ReadUInt16() => checked((ushort)decoder.ReadUInt64());
+
 		public uint ReadUInt32() => checked((ushort)decoder.ReadUInt64());
 
 		public sbyte ReadSByte() => checked((sbyte)decoder.ReadInt64());
+
 		public short ReadInt16() => checked((short)decoder.ReadInt64());
+
 		public int ReadInt32() => checked((int)decoder.ReadInt64());
 	}
 

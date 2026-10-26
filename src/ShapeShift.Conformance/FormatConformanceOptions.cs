@@ -21,6 +21,11 @@ namespace ShapeShift.Conformance;
 public sealed record FormatConformanceOptions
 {
 	/// <summary>
+	/// Gets the shared instance describing a fully self-describing format that supports everything.
+	/// </summary>
+	public static FormatConformanceOptions Default { get; } = new();
+
+	/// <summary>
 	/// Gets a value indicating whether the format has a null representation.
 	/// </summary>
 	public bool SupportsNull { get; init; } = true;
@@ -213,9 +218,4 @@ public sealed record FormatConformanceOptions
 	/// Gets the deepest nesting the format supports, which bounds the depth the suite tests.
 	/// </summary>
 	public int MaxTestedNestingDepth { get; init; } = 24;
-
-	/// <summary>
-	/// Gets the shared instance describing a fully self-describing format that supports everything.
-	/// </summary>
-	public static FormatConformanceOptions Default { get; } = new();
 }

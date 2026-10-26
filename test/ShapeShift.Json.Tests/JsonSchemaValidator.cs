@@ -277,10 +277,7 @@ internal static class JsonSchemaValidator
 	{
 		string leftText = left.ToJsonString();
 		string rightText = right.ToJsonString();
-		return BigInteger.TryParse(leftText, NumberStyles.Integer, CultureInfo.InvariantCulture, out BigInteger leftInteger)
-			&& BigInteger.TryParse(rightText, NumberStyles.Integer, CultureInfo.InvariantCulture, out BigInteger rightInteger)
-			? leftInteger.CompareTo(rightInteger)
-			: double.Parse(leftText, CultureInfo.InvariantCulture).CompareTo(double.Parse(rightText, CultureInfo.InvariantCulture));
+		return BigInteger.TryParse(leftText, NumberStyles.Integer, CultureInfo.InvariantCulture, out BigInteger leftInteger) && BigInteger.TryParse(rightText, NumberStyles.Integer, CultureInfo.InvariantCulture, out BigInteger rightInteger) ? leftInteger.CompareTo(rightInteger) : double.Parse(leftText, CultureInfo.InvariantCulture).CompareTo(double.Parse(rightText, CultureInfo.InvariantCulture));
 	}
 
 	private static string Describe(JsonNode? instance) => instance?.ToJsonString() ?? "null";

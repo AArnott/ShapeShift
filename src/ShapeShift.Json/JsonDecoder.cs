@@ -44,19 +44,7 @@ public ref struct JsonDecoder : IDecoder
 	public readonly Utf8JsonReader Reader => this.reader;
 
 	/// <inheritdoc/>
-	public readonly TokenType NextTokenType => this.hasToken ? this.reader.TokenType switch
-	{
-		JsonTokenType.StartObject => TokenType.StartMap,
-		JsonTokenType.EndObject => TokenType.EndMap,
-		JsonTokenType.StartArray => TokenType.StartVector,
-		JsonTokenType.EndArray => TokenType.EndVector,
-		JsonTokenType.PropertyName => TokenType.PropertyName,
-		JsonTokenType.Null => TokenType.Null,
-		JsonTokenType.Number => TokenType.Number,
-		JsonTokenType.String => TokenType.String,
-		JsonTokenType.True or JsonTokenType.False => TokenType.Boolean,
-		_ => throw new DecoderException($"Unsupported JSON token {this.reader.TokenType}."),
-	} : TokenType.EndDocument;
+	public readonly TokenType NextTokenType => this.hasToken ? this.reader.TokenType switch { JsonTokenType.StartObject => TokenType.StartMap, JsonTokenType.EndObject => TokenType.EndMap, JsonTokenType.StartArray => TokenType.StartVector, JsonTokenType.EndArray => TokenType.EndVector, JsonTokenType.PropertyName => TokenType.PropertyName, JsonTokenType.Null => TokenType.Null, JsonTokenType.Number => TokenType.Number, JsonTokenType.String => TokenType.String, JsonTokenType.True or JsonTokenType.False => TokenType.Boolean, _ => throw new DecoderException($"Unsupported JSON token {this.reader.TokenType}."), } : TokenType.EndDocument;
 
 	/// <summary>
 	/// Gets the type of the token the decoder is positioned at, or <see cref="JsonTokenType.None"/> once the

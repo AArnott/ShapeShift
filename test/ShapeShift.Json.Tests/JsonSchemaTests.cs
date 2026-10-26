@@ -496,7 +496,7 @@ public partial class JsonSchemaTests : TestBase
 		{
 			public Data? Marshal(SurrogateValue? value) => value is null ? null : new(value.a, value.b);
 
-			public SurrogateValue? Unmarshal(Data? surrogate) => surrogate is Data value ? new(value.A, value.B) : null;
+			public SurrogateValue? Unmarshal(Data? value) => value is Data data ? new(data.A, data.B) : null;
 		}
 	}
 

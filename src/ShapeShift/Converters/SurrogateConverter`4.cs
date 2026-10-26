@@ -10,6 +10,8 @@ namespace ShapeShift.Converters;
 /// <typeparam name="TSurrogate">The surrogate type.</typeparam>
 /// <typeparam name="TEncoder">The encoder type.</typeparam>
 /// <typeparam name="TDecoder">The decoder type.</typeparam>
+/// <param name="shape">The shape describing the represented type and its surrogate marshaler.</param>
+/// <param name="surrogateConverter">The converter for the surrogate type.</param>
 internal sealed class SurrogateConverter<T, TSurrogate, TEncoder, TDecoder>(
 	ISurrogateTypeShape<T, TSurrogate> shape,
 	ShapeShiftConverter<TSurrogate, TEncoder, TDecoder> surrogateConverter) : ShapeShiftConverter<T, TEncoder, TDecoder>

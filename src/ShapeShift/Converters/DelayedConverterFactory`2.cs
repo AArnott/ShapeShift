@@ -24,11 +24,11 @@ internal sealed class DelayedConverterFactory<TEncoder, TDecoder> : IDelayedValu
 	internal class DelayedConverter<T>(DelayedValue<ConverterResult<TEncoder, TDecoder>> self) : ShapeShiftConverter<T, TEncoder, TDecoder>
 	{
 		/// <inheritdoc/>
-		public override T? Read(ref TDecoder reader, SerializationContext<TEncoder, TDecoder> context)
-			=> ((ShapeShiftConverter<T, TEncoder, TDecoder>)self.Result.ValueOrThrow).Read(ref reader, context);
+		public override T? Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context)
+			=> ((ShapeShiftConverter<T, TEncoder, TDecoder>)self.Result.ValueOrThrow).Read(ref decoder, context);
 
 		/// <inheritdoc/>
-		public override void Write(ref TEncoder writer, in T? value, SerializationContext<TEncoder, TDecoder> context)
-			=> ((ShapeShiftConverter<T, TEncoder, TDecoder>)self.Result.ValueOrThrow).Write(ref writer, value, context);
+		public override void Write(ref TEncoder encoder, in T? value, SerializationContext<TEncoder, TDecoder> context)
+			=> ((ShapeShiftConverter<T, TEncoder, TDecoder>)self.Result.ValueOrThrow).Write(ref encoder, value, context);
 	}
 }

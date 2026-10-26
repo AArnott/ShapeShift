@@ -13,6 +13,8 @@ namespace ShapeShift.Converters;
 /// <typeparam name="TUnion">The declared union type.</typeparam>
 /// <typeparam name="TEncoder">The encoder type.</typeparam>
 /// <typeparam name="TDecoder">The decoder type.</typeparam>
+/// <param name="inner">The converter for the union case.</param>
+/// <param name="marshaler">Converts between the case and declared union types.</param>
 internal sealed class UnionCaseConverter<TUnionCase, TUnion, TEncoder, TDecoder>(
 	ShapeShiftConverter<TUnionCase, TEncoder, TDecoder> inner,
 	IMarshaler<TUnionCase, TUnion> marshaler) : ShapeShiftConverter<TUnion, TEncoder, TDecoder>
@@ -48,6 +50,9 @@ internal sealed record UnionCase<TUnion, TEncoder, TDecoder>(
 /// <typeparam name="TUnion">The declared union type.</typeparam>
 /// <typeparam name="TEncoder">The encoder type.</typeparam>
 /// <typeparam name="TDecoder">The decoder type.</typeparam>
+/// <param name="baseConverter">The converter for the base union type.</param>
+/// <param name="getUnionCaseIndex">Gets the selected union case index.</param>
+/// <param name="cases">The cases available for this union.</param>
 internal sealed class UnionConverter<TUnion, TEncoder, TDecoder>(
 	ShapeShiftConverter<TUnion, TEncoder, TDecoder> baseConverter,
 	Getter<TUnion, int> getUnionCaseIndex,
