@@ -201,9 +201,11 @@ internal static class AnalyzerHarness
 
 	private static void AssertNoUnexpectedCompilerErrors(Compilation compilation, string[] expectedCompilerErrorIds)
 	{
-		string[] unexpected = [.. compilation.GetDiagnostics()
+		string[] unexpected = [
+			.. compilation.GetDiagnostics()
 			.Where(d => d.Severity == DiagnosticSeverity.Error && !expectedCompilerErrorIds.Contains(d.Id))
-			.Select(d => d.ToString()),];
+			.Select(d => d.ToString()),
+		];
 
 		if (unexpected.Length > 0)
 		{
