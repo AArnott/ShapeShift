@@ -226,14 +226,27 @@ internal static class AnalyzerHarness
 			Path.GetFileName(Path.TrimEndingDirectorySeparator(runtimeDirectory)),
 			"ref",
 			$"net{Environment.Version.Major}.0");
-		if (!Directory.Exists(referenceDirectory))
+		if (Directory.Exists(referenceDirectory))
 		{
-			throw new DirectoryNotFoundException($"Could not locate reference assemblies at '{referenceDirectory}'.");
+			foreach (string path in Directory.EnumerateFiles(referenceDirectory, "*.dll"))
+			{
+				AddReference(path);
+			}
 		}
-
-		foreach (string path in Directory.EnumerateFiles(referenceDirectory, "*.dll"))
+		else
 		{
-			AddReference(path);
+			// The targeting pack is absent when the installed SDK is newer than the runtime the tests run on
+			// (e.g. the .NET 11 SDK running net10.0 tests), so fall back to the runtime's own framework assemblies.
+			string trustedPlatformAssemblies = AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") as string
+				?? throw new DirectoryNotFoundException($"Could not locate reference assemblies at '{referenceDirectory}'.");
+			string normalizedRuntimeDirectory = Path.TrimEndingDirectorySeparator(runtimeDirectory);
+			foreach (string path in trustedPlatformAssemblies.Split(Path.PathSeparator))
+			{
+				if (string.Equals(Path.GetDirectoryName(path), normalizedRuntimeDirectory, StringComparison.OrdinalIgnoreCase))
+				{
+					AddReference(path);
+				}
+			}
 		}
 
 		AddReference(typeof(ShapeShiftSerializer<,>).Assembly.Location);
