@@ -25,6 +25,21 @@
     <PackageReference Include="TUnit" />
   </ItemGroup>
 
+  <!--
+    The .NET 11 SDK restores the net10.0 targeting pack into the NuGet cache instead of
+    packs/Microsoft.NETCore.App.Ref. Record that restored path so the harness compiles
+    against reference assemblies rather than the shared-framework runtime.
+    AssemblyMetadata is the SDK extension point hashed into the generated assembly info,
+    so a changed pack path rebuilds the test assembly.
+  -->
+  <Target Name="AddNetCoreReferencePackMetadata" BeforeTargets="GetAssemblyAttributes" DependsOnTargets="ResolveFrameworkReferences">
+    <ItemGroup>
+      <AssemblyMetadata Include="Microsoft.NETCore.App.Ref" Condition="'%(ResolvedFrameworkReference.Identity)' == 'Microsoft.NETCore.App' and '%(ResolvedFrameworkReference.TargetingPackPath)' != ''">
+        <Value>%(ResolvedFrameworkReference.TargetingPackPath)</Value>
+      </AssemblyMetadata>
+    </ItemGroup>
+  </Target>
+
   <Target Name="PackShapeShiftForAnalyzerTests" AfterTargets="Build" Condition="'$(DesignTimeBuild)' != 'true'">
     <PropertyGroup>
       <AnalyzerPackageTestOutput>$(BaseIntermediateOutputPath)package-under-test\</AnalyzerPackageTestOutput>

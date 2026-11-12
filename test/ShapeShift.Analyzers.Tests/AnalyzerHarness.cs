@@ -3,7 +3,7 @@
 
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
-using System.Runtime.InteropServices;
+using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
@@ -19,14 +19,35 @@ namespace ShapeShift.Analyzers.Tests;
 /// public Roslyn entry points, so the tests never need access to analyzer internals.
 /// </summary>
 /// <remarks>
-/// The harness compiles the supplied source against the assemblies loaded into this test process,
-/// which include ShapeShift and PolyType. PolyType's source generator is deliberately not run:
-/// tests that need a shape-bearing type implement <c>PolyType.IShapeable&lt;T&gt;</c> by hand,
-/// which is exactly the contract the analyzers examine.
+/// Framework types come from the Microsoft.NETCore.App reference pack MSBuild restored for this test
+/// project. ShapeShift and PolyType come from the assemblies loaded into the test process.
+/// PolyType's source generator is deliberately not run: tests that need a shape-bearing type implement
+/// <c>PolyType.IShapeable&lt;T&gt;</c> by hand, which is exactly the contract the analyzers examine.
 /// </remarks>
 internal static class AnalyzerHarness
 {
+	private const string ReferencePackMetadataKey = "Microsoft.NETCore.App.Ref";
+
 	private static readonly Lazy<ImmutableArray<MetadataReference>> ReferenceAssemblies = new(CreateReferences);
+
+	private static string? referenceAssemblyDirectory;
+
+	/// <summary>
+	/// Gets the directory of Microsoft.NETCore.App reference assemblies used to compile analyzer test sources.
+	/// </summary>
+	internal static string ReferenceAssemblyDirectory
+	{
+		get
+		{
+			_ = ReferenceAssemblies.Value;
+			return referenceAssemblyDirectory ?? throw new InvalidOperationException("The reference assembly directory was not recorded.");
+		}
+	}
+
+	/// <summary>
+	/// Gets the metadata references used to compile analyzer test sources.
+	/// </summary>
+	internal static ImmutableArray<MetadataReference> MetadataReferences => ReferenceAssemblies.Value;
 
 	/// <summary>
 	/// Runs an analyzer over a source file and returns the diagnostics it reported.
@@ -201,9 +222,11 @@ internal static class AnalyzerHarness
 
 	private static void AssertNoUnexpectedCompilerErrors(Compilation compilation, string[] expectedCompilerErrorIds)
 	{
-		string[] unexpected = [.. compilation.GetDiagnostics()
+		string[] unexpected = [
+			.. compilation.GetDiagnostics()
 			.Where(d => d.Severity == DiagnosticSeverity.Error && !expectedCompilerErrorIds.Contains(d.Id))
-			.Select(d => d.ToString()),];
+			.Select(d => d.ToString()),
+		];
 
 		if (unexpected.Length > 0)
 		{
@@ -215,20 +238,8 @@ internal static class AnalyzerHarness
 	{
 		ImmutableArray<MetadataReference>.Builder builder = ImmutableArray.CreateBuilder<MetadataReference>();
 		HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
-		string runtimeDirectory = RuntimeEnvironment.GetRuntimeDirectory();
-		DirectoryInfo? dotnetRoot = Directory.GetParent(runtimeDirectory)?.Parent?.Parent?.Parent;
-		string referenceDirectory = Path.Combine(
-			dotnetRoot?.FullName ?? throw new InvalidOperationException("Could not locate the dotnet installation."),
-			"packs",
-			"Microsoft.NETCore.App.Ref",
-			Path.GetFileName(Path.TrimEndingDirectorySeparator(runtimeDirectory)),
-			"ref",
-			$"net{Environment.Version.Major}.0");
-		if (!Directory.Exists(referenceDirectory))
-		{
-			throw new DirectoryNotFoundException($"Could not locate reference assemblies at '{referenceDirectory}'.");
-		}
-
+		string referenceDirectory = GetReferenceAssemblyDirectory();
+		referenceAssemblyDirectory = referenceDirectory;
 		foreach (string path in Directory.EnumerateFiles(referenceDirectory, "*.dll"))
 		{
 			AddReference(path);
@@ -246,6 +257,41 @@ internal static class AnalyzerHarness
 				builder.Add(MetadataReference.CreateFromFile(path));
 			}
 		}
+	}
+
+	/// <summary>
+	/// Locates the reference assemblies from the targeting pack MSBuild resolved for this test assembly.
+	/// </summary>
+	/// <returns>The directory that contains the <c>net</c> reference assemblies.</returns>
+	/// <exception cref="InvalidOperationException">The test assembly does not record a reference pack, or the pack contains runtime assemblies.</exception>
+	/// <exception cref="DirectoryNotFoundException">The recorded targeting pack does not contain reference assemblies for this runtime.</exception>
+	private static string GetReferenceAssemblyDirectory()
+	{
+		string? targetingPackPath = typeof(AnalyzerHarness).Assembly
+			.GetCustomAttributes<AssemblyMetadataAttribute>()
+			.SingleOrDefault(attribute => string.Equals(attribute.Key, ReferencePackMetadataKey, StringComparison.Ordinal))
+			?.Value;
+		if (string.IsNullOrEmpty(targetingPackPath))
+		{
+			throw new InvalidOperationException(
+				"The test assembly does not record the Microsoft.NETCore.App reference pack. Rebuild the analyzer tests so MSBuild can embed the restored targeting pack path.");
+		}
+
+		string tfmDirectory = Path.Combine(targetingPackPath, "ref", $"net{Environment.Version.Major}.0");
+		string referenceDirectory = Directory.Exists(tfmDirectory) ? tfmDirectory : targetingPackPath;
+		if (!Directory.Exists(referenceDirectory) || !Directory.EnumerateFiles(referenceDirectory, "*.dll").Any())
+		{
+			throw new DirectoryNotFoundException(
+				$"Could not locate reference assemblies at '{tfmDirectory}'. The Microsoft.NETCore.App.Ref targeting pack recorded for this build is '{targetingPackPath}'.");
+		}
+
+		if (File.Exists(Path.Combine(referenceDirectory, "System.Private.CoreLib.dll")))
+		{
+			throw new InvalidOperationException(
+				$"'{referenceDirectory}' contains runtime assemblies. Analyzer tests must compile against the Microsoft.NETCore.App reference pack.");
+		}
+
+		return referenceDirectory;
 	}
 
 	private static (string Source, TextSpan? ExpectedSpan) RemoveMarkup([StringSyntax("c#-test")] string source)
