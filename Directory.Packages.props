@@ -4,7 +4,7 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
-    <MicrosoftTestingPlatformVersion>2.5.2</MicrosoftTestingPlatformVersion>
+    <MicrosoftTestingPlatformVersion>2.5.3</MicrosoftTestingPlatformVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
