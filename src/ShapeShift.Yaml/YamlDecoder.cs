@@ -497,11 +497,43 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 		this.Enqueue(new Token { Type = endType, IsSynthetic = true });
 	}
 
+	private bool ShouldCloseTopContainer(int nextLineStart, int nextIndent)
+	{
+		if (nextLineStart < 0 || nextIndent < this.containers[this.containerDepth - 1].Indent)
+		{
+			return true;
+		}
+
+		ContainerFrame top = this.containers[this.containerDepth - 1];
+		if (top.Kind != ContainerKind.Vector || nextIndent != top.Indent)
+		{
+			return false;
+		}
+
+		int lineEnd = this.GetLineEndNoNewline(nextLineStart);
+		if (this.IsSequenceItemLine(nextLineStart, lineEnd, nextIndent, out _, out _))
+		{
+			return false;
+		}
+
+		// A key at this column belongs to an ancestor map, not to this sequence.
+		for (int i = this.containerDepth - 2; i >= 0; i--)
+		{
+			if (this.containers[i].Kind == ContainerKind.Map && this.containers[i].Indent == nextIndent)
+			{
+				return this.TrySplitMappingLine(nextLineStart, lineEnd, nextIndent, out _, out _, out _, out _);
+			}
+		}
+
+		return false;
+	}
+
 	private void EnqueueNextTokens()
 	{
-		// Close containers on dedent or EOF.
+		// Close containers on dedent, EOF, or a mapping key that resumes an ancestor map
+		// at the same column as a block sequence.
 		int nextLineStart = this.FindNextSignificantLineStart(this.scanOffset, out int nextIndent);
-		while (this.containerDepth > 0 && (nextLineStart < 0 || nextIndent < this.containers[this.containerDepth - 1].Indent))
+		while (this.containerDepth > 0 && this.ShouldCloseTopContainer(nextLineStart, nextIndent))
 		{
 			this.EnqueueSyntheticEndForTopContainer();
 			this.Pop();
@@ -636,17 +668,19 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 			return;
 		}
 
+		int childLineEndNoNewline = this.GetLineEndNoNewline(childLineStart);
+
+		// YAML allows a block sequence to start at the parent key's column: "key:\n- item".
+		if (childIndent >= parentIndent && this.IsSequenceItemLine(childLineStart, childLineEndNoNewline, childIndent, out _, out _))
+		{
+			this.EnqueueSyntheticStart(TokenType.StartVector, childIndent);
+			return;
+		}
+
 		if (childIndent <= parentIndent)
 		{
 			// Missing indented value -> null.
 			this.Enqueue(new Token { Type = TokenType.Null, IsSynthetic = true });
-			return;
-		}
-
-		int childLineEndNoNewline = this.GetLineEndNoNewline(childLineStart);
-		if (this.IsSequenceItemLine(childLineStart, childLineEndNoNewline, childIndent, out _, out _))
-		{
-			this.EnqueueSyntheticStart(TokenType.StartVector, childIndent);
 			return;
 		}
 

@@ -80,6 +80,34 @@ public partial class YamlSerializerTests : TestBase
 		await this.AssertRoundtripAsync(family);
 	}
 
+	[Test]
+	public async Task BlockSequence_AtMappingKeyColumn_IsTheValue()
+	{
+		YamlSerializer serializer = new();
+		ShapeShiftValue? value = serializer.Deserialize<ShapeShiftValue>("one:\n- 2\n- 3\nfour: 5\n");
+		ShapeShiftMap map = (ShapeShiftMap)value!;
+		ShapeShiftArray one = (ShapeShiftArray)map.Properties["one"];
+
+		await Assert.That(one.Items.Count).IsEqualTo(2);
+		await Assert.That(one.Items[0]).IsEqualTo((ShapeShiftValue)2m);
+		await Assert.That(one.Items[1]).IsEqualTo((ShapeShiftValue)3m);
+		await Assert.That(map.Properties["four"]).IsEqualTo((ShapeShiftValue)5m);
+
+		ShapeShiftValue? indented = serializer.Deserialize<ShapeShiftValue>("foo:\n- 42\nbar:\n  - 44\n");
+		ShapeShiftMap indentedMap = (ShapeShiftMap)indented!;
+		await Assert.That(((ShapeShiftArray)indentedMap.Properties["foo"]).Items[0]).IsEqualTo((ShapeShiftValue)42m);
+		await Assert.That(((ShapeShiftArray)indentedMap.Properties["bar"]).Items[0]).IsEqualTo((ShapeShiftValue)44m);
+	}
+
+	[Test]
+	public async Task BlockSequence_RejectsKeyAtIndentedItemColumn()
+	{
+		YamlSerializer serializer = new();
+		Func<ShapeShiftValue?> read = () => serializer.Deserialize<ShapeShiftValue>("one:\n  - 2\n  two: 3\n");
+
+		await Assert.That(read).Throws<DecoderException>();
+	}
+
 	protected ValueTask<T?> AssertRoundtripAsync<T>(T? value)
 		where T : IShapeable<T> => this.AssertRoundtripAsync<T, T>(value);
 
