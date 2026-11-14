@@ -194,6 +194,15 @@ public partial class TomlSerializerTests : TestBase
 	[Arguments("offset_z = 1979-05-27T07:32:00Z\noffset = 1979-05-27T00:32:00-07:00\nlocal_datetime = 1979-05-27T07:32:00\nlocal_date = 1979-05-27\nlocal_time = 07:32:00")]
 	[Arguments("basic = \"\"\"first line\\nsecond line\"\"\"\nliteral = '''C:\\\\Users\\nodejs\\templates'''")]
 	[Arguments("[[fruits]]\nname = 'apple'\n[fruits.physical]\ncolor = 'red'\n[[fruits.varieties]]\nname = 'red delicious'\n[[fruits.varieties]]\nname = 'granny smith'\n[[fruits]]\nname = 'banana'\n[[fruits.varieties]]\nname = 'plantain'")]
+	[Arguments("\uFEFFkey = 1")]
+	[Arguments("k = \"a\tb\"")]
+	[Arguments("\"\U0010FFFF\" = 1")]
+	[Arguments("# \U0010FFFF\nk = 1")]
+	[Arguments("a = [1, 2,]")]
+	[Arguments("t = { a = \"\"\"\nhello\n\"\"\" }")]
+	[Arguments("t = { a = [1,\n2] }")]
+	[Arguments("multi = \"\"\"a\r\nb\"\"\"")]
+	[Arguments("when = 9999-12-31T23:59:59")]
 	public async Task Toml10ValidDocumentsAreAccepted(string toml)
 	{
 		StringReader reader = new(toml);
@@ -208,6 +217,15 @@ public partial class TomlSerializerTests : TestBase
 	[Arguments("value = { first = 1, }")]
 	[Arguments("value = 1979-05-27T07:32:00+24:00")]
 	[Arguments("[table]\nvalue = 1\n[table]\nother = 2")]
+	[Arguments("[a.b]\n[a]\n[a]")]
+	[Arguments("[dependencies.foo]\nversion = \"0.16\"\n\n[dependencies]\nlibc = \"0.2\"\n\n[dependencies]\nrand = \"0.3.14\"")]
+	[Arguments("[fruit]\napple.color = \"red\"\n[fruit.apple]\ntexture = \"smooth\"")]
+	[Arguments("value = { first = 1,\n second = 2 }")]
+	[Arguments("str = \"Jos\\xE9\"")]
+	[Arguments("str = \"\\e\"")]
+	[Arguments("t = 13:37")]
+	[Arguments("t = 1979-05-27T07:32")]
+	[Arguments("multi = \"\"\"a\rb\"\"\"")]
 	public async Task Toml10InvalidDocumentsAreRejected(string toml)
 	{
 		void Parse()
@@ -217,6 +235,28 @@ public partial class TomlSerializerTests : TestBase
 		}
 
 		await Assert.That(Parse).Throws<DecoderException>();
+	}
+
+	[Test]
+	public async Task DateTime_DynamicValueIsCanonicalText()
+	{
+		TomlSerializer serializer = new();
+		ShapeShiftValue? value = serializer.Deserialize<ShapeShiftValue>("when = 1979-05-27T07:32:00Z\nlocal = 1979-05-27T07:32:00\n");
+		ShapeShiftMap map = (ShapeShiftMap)value!;
+
+		await Assert.That(map.Properties["when"]).IsEqualTo((ShapeShiftValue)"1979-05-27T07:32:00Z");
+		await Assert.That(map.Properties["local"]).IsEqualTo((ShapeShiftValue)"1979-05-27T07:32:00");
+	}
+
+	[Test]
+	public async Task LocalDateTime_KeepsTheClockTime()
+	{
+		StringReader reader = new("when = 9999-12-31T23:59:59\n");
+		TomlDecoder decoder = new(reader);
+		decoder.ReadStartMap();
+		_ = decoder.ReadPropertyName();
+
+		await Assert.That(decoder.ReadDateTime()).IsEqualTo(new DateTime(9999, 12, 31, 23, 59, 59, DateTimeKind.Unspecified));
 	}
 
 	protected ValueTask<T?> AssertRoundtripAsync<T>(T? value)

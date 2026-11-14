@@ -3,6 +3,7 @@
 
 using System.Globalization;
 using System.Numerics;
+using Tomlyn.Parsing;
 using Tomlyn.Syntax;
 
 namespace ShapeShift.Toml;
@@ -139,18 +140,13 @@ public ref struct TomlDecoder : IDecoder
 	public TimeSpan ReadTimeSpan() => throw new NotSupportedException("TOML has no duration value.");
 
 	/// <inheritdoc/>
-	public string ReadString()
-	{
-		Token token = this.ReadToken(TokenType.String);
-		return token.Value is string value ? value : throw new DecoderException("Expected a TOML string value.");
-	}
+	/// <remarks>
+	/// A TOML date or time is returned as its canonical text. The dynamic model has no date type; use <see cref="ReadDateTime"/> to read the value as a <see cref="DateTime"/>.
+	/// </remarks>
+	public string ReadString() => this.ReadStringToken();
 
 	/// <inheritdoc/>
-	public ReadOnlySpan<char> ReadCharSpan()
-	{
-		Token token = this.ReadToken(TokenType.String);
-		return token.Value is string value ? value.AsSpan() : throw new DecoderException("Expected a TOML string value.");
-	}
+	public ReadOnlySpan<char> ReadCharSpan() => this.ReadStringToken().AsSpan();
 
 	/// <inheritdoc/>
 	public ReadOnlySpan<char> ReadCharSpan(scoped Span<char> buffer, out int charactersWritten)
@@ -218,10 +214,22 @@ public ref struct TomlDecoder : IDecoder
 		return token;
 	}
 
+	private string ReadStringToken()
+	{
+		Token token = this.ReadToken(TokenType.String);
+		return token.Value switch
+		{
+			string value => value,
+			Tomlyn.TomlDateTime => token.Text,
+			_ => throw new DecoderException("Expected a TOML string value."),
+		};
+	}
+
 #pragma warning disable SA1204 // Static model adapters follow the instance token reader they support.
 	private static Token[] Parse(string text)
 	{
-		DocumentSyntax document = Tomlyn.Toml.Parse(text);
+		TomlV1Syntax.RejectLaterExtensions(text);
+		DocumentSyntax document = SyntaxParser.Parse(text);
 		if (document.HasErrors)
 		{
 			throw new DecoderException($"The input is not well-formed TOML 1.0.{Environment.NewLine}{document.Diagnostics}");

@@ -1,7 +1,7 @@
 # TOML 1.0
 
 The `ShapeShift.Toml` package maps PolyType contracts to [TOML 1.0](https://toml.io/en/v1.0.0) (Tom's Obvious, Minimal Language).
-It parses the complete TOML 1.0 syntax through Tomlyn 0.19's validated syntax tree and emits canonical TOML 1.0.
+It parses TOML 1.0 through Tomlyn's syntax tree and emits canonical TOML 1.0. TOML 1.1 extensions that 1.0 does not allow (`\x` and `\e` escapes, newlines and trailing commas in inline tables, and times that omit seconds) are rejected.
 
 Install the `ShapeShift.Toml` package and annotate serialized root types with PolyType's `GenerateShapeAttribute`:
 
@@ -38,7 +38,7 @@ TOML tables are encoded as maps with nested keys. Arrays are encoded as vectors.
 - **Integers**: Signed 64-bit values. The reader accepts decimal, hexadecimal, octal, and binary TOML forms; the writer emits decimal.
 - **Floats**: IEEE 754 binary64 values. The reader accepts TOML decimal and exponent forms; the writer also emits `nan`, `inf`, and `-inf` when appropriate.
 - **Strings**: The reader accepts basic, literal, and multiline strings. The writer emits escaped basic strings.
-- **Dates and times**: The reader accepts offset date-time, local date-time, local date, and local time values. `DateTime` values are written with round-trip precision.
+- **Dates and times**: The reader accepts offset date-time, local date-time, local date, and local time values. `DateTime` properties are read as `DateTime` values. Untyped `ShapeShiftValue` reads return the canonical date text, because the dynamic model has no date type. `DateTime` values are written with round-trip precision.
 
 ## TOML limitations
 
