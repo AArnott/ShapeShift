@@ -77,6 +77,63 @@ public partial class CborSerializerTests : TestBase
 	}
 
 	[Test]
+	public async Task UnixTimeTag_ReadsEpochSeconds()
+	{
+		await AssertEpoch(new byte[] { 0xc1, 0x00 }, 0);
+		await AssertEpoch(new byte[] { 0xc1, 0x01 }, 1);
+		await AssertEpoch(new byte[] { 0xc1, 0x20 }, -1);
+		await AssertEpoch(new byte[] { 0xc1, 0xf9, 0x3c, 0x00 }, 1);
+		await AssertEpoch(new byte[] { 0xc1, 0xfb, 0x3f, 0xf8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, 1.5);
+
+		async Task AssertEpoch(byte[] encoded, double seconds)
+		{
+			DateTime? actual = this.serializer.Deserialize<DateTime, Witness>(encoded);
+			await Assert.That(actual).IsEqualTo(DateTime.UnixEpoch.AddSeconds(seconds));
+		}
+	}
+
+	[Test]
+	public async Task UnixTimeTag_DynamicValueIsTheNumericOffset()
+	{
+		await Assert.That(this.serializer.Deserialize<ShapeShiftValue>(new byte[] { 0xc1, 0x00 })).IsEqualTo(new ShapeShiftUnsignedInteger(0));
+		await Assert.That(this.serializer.Deserialize<ShapeShiftValue>(new byte[] { 0xc1, 0x20 })).IsEqualTo(new ShapeShiftInteger(-1));
+		await Assert.That(this.serializer.Deserialize<ShapeShiftValue>(new byte[] { 0xc1, 0x3b, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff })).IsEqualTo(new ShapeShiftInteger(long.MinValue));
+		await Assert.That(this.serializer.Deserialize<ShapeShiftValue>(new byte[] { 0xc1, 0x3b, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }))
+			.IsEqualTo(new ShapeShiftBigInteger(BigInteger.MinusOne - new BigInteger(ulong.MaxValue)));
+	}
+
+	[Test]
+	public async Task UnixTimeTag_RejectsNestedTags()
+	{
+		Func<ShapeShiftValue?> nested = () => this.serializer.Deserialize<ShapeShiftValue>(new byte[] { 0xc1, 0xc1, 0x00 });
+		await Assert.That(nested).Throws<DecoderException>();
+
+		byte[] repeated = new byte[4096];
+		Array.Fill(repeated, (byte)0xc1);
+		repeated[^1] = 0x00;
+		Func<ShapeShiftValue?> deep = () => this.serializer.Deserialize<ShapeShiftValue>(repeated);
+		await Assert.That(deep).Throws<DecoderException>();
+	}
+
+	[Test]
+	public async Task UnixTimeTag_RejectsValuesOutsideDateTime()
+	{
+		byte[] signed = [0xc1, 0x1b, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
+		byte[] unsigned = [0xc1, 0x1b, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
+		byte[] floating = [0xc1, 0xfb, 0x44, 0x15, 0xaf, 0x1d, 0x78, 0xb5, 0x8c, 0x40];
+		byte[] belowInt64 = [0xc1, 0x3b, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
+		Func<DateTime?> deserializeSigned = () => this.serializer.Deserialize<DateTime, Witness>(signed);
+		Func<DateTime?> deserializeUnsigned = () => this.serializer.Deserialize<DateTime, Witness>(unsigned);
+		Func<DateTime?> deserializeFloating = () => this.serializer.Deserialize<DateTime, Witness>(floating);
+		Func<DateTime?> deserializeBelowInt64 = () => this.serializer.Deserialize<DateTime, Witness>(belowInt64);
+
+		await Assert.That(deserializeSigned).Throws<DecoderException>();
+		await Assert.That(deserializeUnsigned).Throws<DecoderException>();
+		await Assert.That(deserializeFloating).Throws<DecoderException>();
+		await Assert.That(deserializeBelowInt64).Throws<DecoderException>();
+	}
+
+	[Test]
 	public async Task DynamicBigInteger_RoundTrips()
 	{
 		ShapeShiftValue value = new ShapeShiftBigInteger(BigInteger.Parse("123456789012345678901234567890"));
