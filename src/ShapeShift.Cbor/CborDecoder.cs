@@ -444,7 +444,7 @@ public ref struct CborDecoder : IDecoder
 
 	/// <inheritdoc/>
 	/// <remarks>
-	/// Tag 0 is an RFC 3339 date/time string. Tag 1 is the number of seconds from 1970-01-01T00:00:00Z, encoded as an integer or a floating-point number (RFC 8949 section 3.4.2). The returned value is UTC.
+	/// Tag 0 is an RFC 3339 date/time string parsed with <see cref="System.Globalization.DateTimeStyles.RoundtripKind"/>. Tag 1 is seconds from 1970-01-01T00:00:00Z, as an integer or a floating-point number (RFC 8949 section 3.4.2), and is returned as UTC.
 	/// </remarks>
 	public DateTime ReadDateTime()
 	{
