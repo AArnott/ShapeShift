@@ -582,7 +582,7 @@ public ref struct CborDecoder : IDecoder
 		return this.GetNextCborReaderState() switch
 		{
 			CborReaderState.UnsignedInteger => new ShapeShiftUnsignedInteger(this.ReadUInt64()),
-			CborReaderState.NegativeInteger => new ShapeShiftInteger(this.ReadInt64()),
+			CborReaderState.NegativeInteger => this.ReadNegativeInteger(),
 			CborReaderState.HalfPrecisionFloat => new ShapeShiftFloat(ToDouble(this.ReadHalf())),
 			CborReaderState.SinglePrecisionFloat => new ShapeShiftFloat(this.ReadSingle()),
 			CborReaderState.DoublePrecisionFloat => new ShapeShiftFloat(this.ReadDouble()),
@@ -698,7 +698,7 @@ public ref struct CborDecoder : IDecoder
 		return this.GetNextCborReaderState() switch
 		{
 			CborReaderState.UnsignedInteger => new ShapeShiftUnsignedInteger(this.ReadUInt64()),
-			CborReaderState.NegativeInteger => this.ReadNegativeEpochOffset(),
+			CborReaderState.NegativeInteger => this.ReadNegativeInteger(),
 			CborReaderState.HalfPrecisionFloat => new ShapeShiftFloat(ToDouble(this.ReadHalf())),
 			CborReaderState.SinglePrecisionFloat => new ShapeShiftFloat(this.ReadSingle()),
 			CborReaderState.DoublePrecisionFloat => new ShapeShiftFloat(this.ReadDouble()),
@@ -706,7 +706,7 @@ public ref struct CborDecoder : IDecoder
 		};
 	}
 
-	private ShapeShiftNumber ReadNegativeEpochOffset()
+	private ShapeShiftNumber ReadNegativeInteger()
 	{
 		ulong representation;
 		try

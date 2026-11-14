@@ -233,7 +233,7 @@ internal sealed class ShapeShiftValueConverter<TEncoder, TDecoder> : ShapeShiftC
 				// DepthStep stops this walk at the same remaining depth Write uses, so the
 				// hash below never recurses into a key the serializer would reject.
 				this.EnsureWithinRemainingDepth(key, context);
-				if (!seen.TryAdd(NormalizeKey(key), 0))
+				if (!seen.TryAdd(NormalizeKey(key, encoder.NonNegativeIntegersAreUnsigned), 0))
 				{
 					throw new ShapeShiftSerializationException("A dynamic map key appears more than once.");
 				}
@@ -255,15 +255,17 @@ internal sealed class ShapeShiftValueConverter<TEncoder, TDecoder> : ShapeShiftC
 		encoder.WriteEndMap();
 	}
 
-	private static ShapeShiftValue NormalizeKey(ShapeShiftValue value)
+	private static ShapeShiftValue NormalizeKey(ShapeShiftValue value, bool nonNegativeIntegersAreUnsigned)
 	{
 		switch (value)
 		{
+			case ShapeShiftInteger integer when nonNegativeIntegersAreUnsigned && integer.Value >= 0:
+				return new ShapeShiftUnsignedInteger((ulong)integer.Value);
 			case ShapeShiftArray array:
 				ShapeShiftValue[] items = new ShapeShiftValue[array.Items.Count];
 				for (int i = 0; i < items.Length; i++)
 				{
-					items[i] = NormalizeKey(array.Items[i] ?? ShapeShiftValue.Null);
+					items[i] = NormalizeKey(array.Items[i] ?? ShapeShiftValue.Null, nonNegativeIntegersAreUnsigned);
 				}
 
 				return new ShapeShiftArray(items);
@@ -271,26 +273,26 @@ internal sealed class ShapeShiftValueConverter<TEncoder, TDecoder> : ShapeShiftC
 				Dictionary<string, ShapeShiftValue> properties = new(map.Properties.Count, StringComparer.Ordinal);
 				foreach ((string name, ShapeShiftValue item) in map.Properties)
 				{
-					properties.Add(name, NormalizeKey(item ?? ShapeShiftValue.Null));
+					properties.Add(name, NormalizeKey(item ?? ShapeShiftValue.Null, nonNegativeIntegersAreUnsigned));
 				}
 
 				return new ShapeShiftMap(properties);
 			case ShapeShiftDataMap dataMap:
-				return NormalizeDataMap(dataMap);
+				return NormalizeDataMap(dataMap, nonNegativeIntegersAreUnsigned);
 			default:
 				return value;
 		}
 	}
 
-	private static ShapeShiftValue NormalizeDataMap(ShapeShiftDataMap dataMap)
+	private static ShapeShiftValue NormalizeDataMap(ShapeShiftDataMap dataMap, bool nonNegativeIntegersAreUnsigned)
 	{
 		IReadOnlyList<ShapeShiftDataMapEntry> entries = dataMap.Entries ?? throw new ShapeShiftSerializationException("A dynamic map is missing its entries.");
 		ShapeShiftDataMapEntry[] normalized = new ShapeShiftDataMapEntry[entries.Count];
 		bool textKeys = true;
 		for (int i = 0; i < entries.Count; i++)
 		{
-			ShapeShiftValue key = NormalizeKey(entries[i].Key ?? ShapeShiftValue.Null);
-			ShapeShiftValue item = NormalizeKey(entries[i].Value ?? ShapeShiftValue.Null);
+			ShapeShiftValue key = NormalizeKey(entries[i].Key ?? ShapeShiftValue.Null, nonNegativeIntegersAreUnsigned);
+			ShapeShiftValue item = NormalizeKey(entries[i].Value ?? ShapeShiftValue.Null, nonNegativeIntegersAreUnsigned);
 			textKeys &= key is ShapeShiftString;
 			normalized[i] = new(key, item);
 		}

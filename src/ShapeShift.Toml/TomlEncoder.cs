@@ -33,6 +33,9 @@ public ref struct TomlEncoder : IEncoder
 	public bool ArbitraryMapKeys => false;
 
 	/// <inheritdoc/>
+	public bool NonNegativeIntegersAreUnsigned => false;
+
+	/// <inheritdoc/>
 	public void WriteStartMap(int? propertyCount)
 	{
 		MapNode map = new(propertyCount ?? 0);

@@ -208,6 +208,33 @@ public partial class CborDataMapTests
 	}
 
 	[Test]
+	public async Task SignedAndUnsignedMapKeys_MatchAfterCanonicalization()
+	{
+		ShapeShiftValue signed = new ShapeShiftMap(new Dictionary<string, ShapeShiftValue> { ["a"] = 1L, ["b"] = 2UL });
+		ShapeShiftValue unsigned = new ShapeShiftMap(new Dictionary<string, ShapeShiftValue> { ["b"] = 2UL, ["a"] = 1UL });
+		ShapeShiftValue value = new ShapeShiftDataMap(
+		[
+			new ShapeShiftDataMapEntry(signed, "left"),
+			new ShapeShiftDataMapEntry(unsigned, "right"),
+		]);
+		Func<byte[]> write = () => this.serializer.Serialize(value);
+
+		await Assert.That(write).Throws<ShapeShiftSerializationException>();
+		await Assert.That(StructuralEqualityComparer.Create<ShapeShiftValue>().Equals(signed, unsigned)).IsFalse();
+	}
+
+	[Test]
+	public async Task NegativeIntegerBelowInt64Min_ReadsAsABigIntegerKey()
+	{
+		ShapeShiftDataMap map = (ShapeShiftDataMap)this.serializer.Deserialize<ShapeShiftValue>(Convert.FromHexString("A13BFFFFFFFFFFFFFFFF00"))!;
+		BigInteger below = BigInteger.MinusOne - new BigInteger(ulong.MaxValue);
+
+		await Assert.That(map.Entries).Count().IsEqualTo(1);
+		await Assert.That(map.Entries[0].Key).IsEqualTo(new ShapeShiftBigInteger(below));
+		await Assert.That(map.Entries[0].Value).IsEqualTo((ShapeShiftValue)0UL);
+	}
+
+	[Test]
 	public async Task TextOnlyDataMapKey_MatchesTheSameStringMap()
 	{
 		ShapeShiftValue asMap = new ShapeShiftMap(new Dictionary<string, ShapeShiftValue> { ["a"] = 1UL, ["b"] = 2UL });

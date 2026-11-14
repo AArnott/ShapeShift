@@ -34,6 +34,9 @@ public ref struct JsonEncoder(Utf8JsonWriter writer, bool allowNamedFloatingPoin
 	public bool ArbitraryMapKeys => false;
 
 	/// <inheritdoc/>
+	public bool NonNegativeIntegersAreUnsigned => false;
+
+	/// <inheritdoc/>
 	public static object PreparePropertyName(string name) => JsonEncodedText.Encode(name, Rfc8259StringEncoder);
 
 	/// <inheritdoc/>

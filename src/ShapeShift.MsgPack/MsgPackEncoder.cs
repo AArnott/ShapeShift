@@ -18,6 +18,9 @@ public ref struct MsgPackEncoder(IBufferWriter<byte> output) : IEncoder
 	public bool ArbitraryMapKeys => false;
 
 	/// <inheritdoc/>
+	public bool NonNegativeIntegersAreUnsigned => false;
+
+	/// <inheritdoc/>
 	public static object PreparePropertyName(string name) => (ReadOnlyMemory<byte>)Encoding.UTF8.GetBytes(name);
 
 	/// <inheritdoc/>

@@ -46,6 +46,23 @@ public interface IEncoder
 	bool ArbitraryMapKeys => false;
 
 	/// <summary>
+	/// Gets a value indicating whether a non-negative signed integer reads back as an unsigned integer.
+	/// </summary>
+	/// <value>
+	/// <see langword="true"/> when <c>0</c> through <see cref="long.MaxValue"/> use the same encoding as the
+	/// corresponding unsigned integer; <see langword="false"/> when the signed and unsigned forms stay distinct.
+	/// </value>
+	/// <remarks>
+	/// The default is <see langword="false"/>. A <see langword="ref"/> <see langword="struct"/> encoder redeclares
+	/// the property, because it cannot pick up a default interface implementation. CBOR returns <see langword="true"/>
+	/// because major type 0 is the encoding of every non-negative integer that fits in 64 bits.
+	/// The dynamic converter uses this only to decide whether two map keys would become the same value.
+	/// Structural equality still treats <see cref="ShapeShiftInteger"/> and <see cref="ShapeShiftUnsignedInteger"/>
+	/// as different node kinds.
+	/// </remarks>
+	bool NonNegativeIntegersAreUnsigned => false;
+
+	/// <summary>
 	/// Prepares a declared property name for repeated writes by this encoder type.
 	/// </summary>
 	/// <param name="name">The property name.</param>

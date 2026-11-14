@@ -58,7 +58,11 @@ a2 01 63 6f6e65 41 00 02
 
 A positive integer is major type 0, so it reads back as
 `ShapeShiftUnsignedInteger` even when it was written from a signed `long`.
-Negative integers stay `ShapeShiftInteger`. Half-precision numbers, including
+Two map keys that differ only by that signedness, including integers nested
+inside a map used as a key, are the same key and are rejected. Negative
+integers that fit in a signed 64-bit value stay `ShapeShiftInteger`. Major
+type 1 can also encode an integer below `Int64.MinValue`; that value reads as
+`ShapeShiftBigInteger`. Half-precision numbers, including
 negative zero, read as `ShapeShiftFloat` (`double`). Writing a floating-point
 value uses the shortest CBOR float encoding that preserves it, so a
 half-precision infinity, NaN, or zero is written back as half-precision, while

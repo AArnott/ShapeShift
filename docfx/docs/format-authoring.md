@@ -290,6 +290,13 @@ that contains a non-text key and leaves string maps unchanged:
 
 [!code-csharp[PropertyName](../../samples/ubjson/UbjsonEncoder.cs#EncoderPropertyName)]
 
+CBOR also returns `true` from `IEncoder.NonNegativeIntegersAreUnsigned`, because
+a non-negative integer uses major type 0 and reads back unsigned. The dynamic
+converter consults that flag only when rejecting map keys that would round-trip
+as duplicates. Structural equality still treats the signed and unsigned nodes
+as different values. The default is `false`, and a `ref struct` encoder
+redeclares this property too.
+
 ## Primitives the shared interfaces do not expose
 
 The previous section is about types the format has *no* native representation
