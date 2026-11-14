@@ -563,7 +563,7 @@ public ref struct CborDecoder : IDecoder
 
 	/// <inheritdoc/>
 	/// <remarks>
-	/// Tag 1 (epoch-based date/time) is returned as its numeric seconds offset so an untyped value can represent the item. Tag 2 and tag 3 are big integers, and tag 4 is a decimal fraction.
+	/// Tag 1 (epoch-based date/time) is returned as its numeric seconds offset. The tag must wrap an integer or a floating-point number directly. Tag 2 and tag 3 are big integers, and tag 4 is a decimal fraction.
 	/// </remarks>
 	public ShapeShiftNumber ReadDynamicNumber()
 	{
@@ -638,7 +638,8 @@ public ref struct CborDecoder : IDecoder
 				throw this.TokenMismatch(ex);
 			}
 
-			return this.ReadDynamicNumber();
+			// RFC 8949 section 3.4.2: the content is an integer or a float, never another tag.
+			return this.ReadEpochOffset();
 		}
 
 		return tag switch
@@ -646,6 +647,19 @@ public ref struct CborDecoder : IDecoder
 			CborTag.UnsignedBigNum or CborTag.NegativeBigNum => new ShapeShiftBigInteger(this.ReadBigInteger()),
 			CborTag.DecimalFraction => new ShapeShiftDecimal(this.ReadDecimal()),
 			_ => throw new DecoderException($"CBOR tag {tag} is not a number ShapeShift can represent dynamically."),
+		};
+	}
+
+	private ShapeShiftNumber ReadEpochOffset()
+	{
+		return this.GetNextCborReaderState() switch
+		{
+			CborReaderState.UnsignedInteger => new ShapeShiftUnsignedInteger(this.ReadUInt64()),
+			CborReaderState.NegativeInteger => new ShapeShiftInteger(this.ReadInt64()),
+			CborReaderState.HalfPrecisionFloat => new ShapeShiftFloat((double)this.ReadHalf()),
+			CborReaderState.SinglePrecisionFloat => new ShapeShiftFloat(this.ReadSingle()),
+			CborReaderState.DoublePrecisionFloat => new ShapeShiftFloat(this.ReadDouble()),
+			_ => throw new DecoderException("CBOR tag 1 content must be an integer or floating-point number of seconds."),
 		};
 	}
 

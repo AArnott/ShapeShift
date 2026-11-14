@@ -81,10 +81,9 @@ internal static class TomlV1Syntax
 				{
 					mode = Mode.Code;
 				}
-				else if (mode == Mode.BasicMulti && IsTriple(text, i, '"'))
+				else if (mode == Mode.BasicMulti && TryConsumeMultilineClose(text, ref i, '"'))
 				{
 					mode = Mode.Code;
-					i += 2;
 				}
 
 				continue;
@@ -102,10 +101,9 @@ internal static class TomlV1Syntax
 
 			if (mode == Mode.LiteralMulti)
 			{
-				if (IsTriple(text, i, '\''))
+				if (TryConsumeMultilineClose(text, ref i, '\''))
 				{
 					mode = Mode.Code;
-					i += 2;
 				}
 
 				continue;
@@ -231,7 +229,37 @@ internal static class TomlV1Syntax
 	}
 
 	private static bool IsTriple(string text, int index, char quote)
-		=> index + 2 < text.Length && text[index + 1] == quote && text[index + 2] == quote;
+		=> index + 2 < text.Length && text[index] == quote && text[index + 1] == quote && text[index + 2] == quote;
+
+	/// <summary>
+	/// Closes a multiline string on a run of three, four, or five quotes. One or two quotes are body text. A longer run closes on the first three quotes.
+	/// </summary>
+	/// <param name="text">The TOML document.</param>
+	/// <param name="index">The index of the first quote. On success, the index of the last quote consumed.</param>
+	/// <param name="quote">The quote character that delimits the string.</param>
+	/// <returns><see langword="true"/> when the run closes the string.</returns>
+	private static bool TryConsumeMultilineClose(string text, ref int index, char quote)
+	{
+		if (text[index] != quote)
+		{
+			return false;
+		}
+
+		int run = 1;
+		while (index + run < text.Length && text[index + run] == quote)
+		{
+			run++;
+		}
+
+		if (run < 3)
+		{
+			return false;
+		}
+
+		int consumed = run > 5 ? 3 : run;
+		index += consumed - 1;
+		return true;
+	}
 
 	private static bool IsTrailingInlineComma(string text, int index)
 	{

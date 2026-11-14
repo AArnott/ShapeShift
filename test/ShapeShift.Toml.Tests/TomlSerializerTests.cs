@@ -203,6 +203,12 @@ public partial class TomlSerializerTests : TestBase
 	[Arguments("t = { a = [1,\n2] }")]
 	[Arguments("multi = \"\"\"a\r\nb\"\"\"")]
 	[Arguments("when = 9999-12-31T23:59:59")]
+	[Arguments("a = \"\"\"hello\"\"\"\nb = \"13:37\"")]
+	[Arguments("a = \"\"\"hello\"\"\"\"\nb = 1")]
+	[Arguments("a = \"\"\"hello\"\"\"\"\"\nb = 1")]
+	[Arguments("a = '''hello'''\nb = \"13:37\"")]
+	[Arguments("a = '''hello''''\nb = 1")]
+	[Arguments("a = '''hello'''''\nb = 1")]
 	public async Task Toml10ValidDocumentsAreAccepted(string toml)
 	{
 		StringReader reader = new(toml);

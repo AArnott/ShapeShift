@@ -100,6 +100,24 @@ public partial class YamlSerializerTests : TestBase
 	}
 
 	[Test]
+	public async Task BlockSequence_EmptyItem_IsNullBeforeTheNextSibling()
+	{
+		YamlSerializer serializer = new();
+		ShapeShiftValue? value = serializer.Deserialize<ShapeShiftValue>("items:\n  -\n  - 2\n");
+		ShapeShiftArray items = (ShapeShiftArray)((ShapeShiftMap)value!).Properties["items"];
+
+		await Assert.That(items.Items.Count).IsEqualTo(2);
+		await Assert.That(items.Items[0]).IsEqualTo(ShapeShiftValue.Null);
+		await Assert.That(items.Items[1]).IsEqualTo((ShapeShiftValue)2m);
+
+		ShapeShiftValue? nested = serializer.Deserialize<ShapeShiftValue>("items:\n  -\n    - 2\n");
+		ShapeShiftArray nestedItems = (ShapeShiftArray)((ShapeShiftMap)nested!).Properties["items"];
+		ShapeShiftArray child = (ShapeShiftArray)nestedItems.Items[0];
+		await Assert.That(child.Items.Count).IsEqualTo(1);
+		await Assert.That(child.Items[0]).IsEqualTo((ShapeShiftValue)2m);
+	}
+
+	[Test]
 	public async Task BlockSequence_RejectsKeyAtIndentedItemColumn()
 	{
 		YamlSerializer serializer = new();

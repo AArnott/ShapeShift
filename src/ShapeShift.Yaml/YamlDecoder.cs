@@ -613,7 +613,7 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 			}
 			else
 			{
-				this.EnqueueNestedValueStartOrScalar(currentIndent);
+				this.EnqueueNestedValueStartOrScalar(currentIndent, sequenceMayShareIndent: true);
 			}
 
 			return;
@@ -643,7 +643,7 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 				else
 				{
 					// Property value is on following indented lines.
-					this.EnqueueNestedValueStartOrScalar(inlineIndent);
+					this.EnqueueNestedValueStartOrScalar(inlineIndent, sequenceMayShareIndent: true);
 				}
 			}
 			else
@@ -654,11 +654,12 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 		}
 		else
 		{
-			this.EnqueueNestedValueStartOrScalar(currentIndent);
+			// An empty "- " item. A dash at this same column is the next sibling, not a nested sequence.
+			this.EnqueueNestedValueStartOrScalar(currentIndent, sequenceMayShareIndent: false);
 		}
 	}
 
-	private void EnqueueNestedValueStartOrScalar(int parentIndent)
+	private void EnqueueNestedValueStartOrScalar(int parentIndent, bool sequenceMayShareIndent)
 	{
 		int childLineStart = this.FindNextSignificantLineStart(this.scanOffset, out int childIndent);
 		if (childLineStart < 0)
@@ -670,8 +671,10 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 
 		int childLineEndNoNewline = this.GetLineEndNoNewline(childLineStart);
 
-		// YAML allows a block sequence to start at the parent key's column: "key:\n- item".
-		if (childIndent >= parentIndent && this.IsSequenceItemLine(childLineStart, childLineEndNoNewline, childIndent, out _, out _))
+		// A mapping value may be a block sequence at the key's own column: "key:\n- item".
+		// An empty sequence item still requires a nested collection to be indented further.
+		bool sequenceSharesColumn = sequenceMayShareIndent && childIndent == parentIndent;
+		if ((childIndent > parentIndent || sequenceSharesColumn) && this.IsSequenceItemLine(childLineStart, childLineEndNoNewline, childIndent, out _, out _))
 		{
 			this.EnqueueSyntheticStart(TokenType.StartVector, childIndent);
 			return;

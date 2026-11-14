@@ -100,6 +100,19 @@ public partial class CborSerializerTests : TestBase
 	}
 
 	[Test]
+	public async Task UnixTimeTag_RejectsNestedTags()
+	{
+		Func<ShapeShiftValue?> nested = () => this.serializer.Deserialize<ShapeShiftValue>(new byte[] { 0xc1, 0xc1, 0x00 });
+		await Assert.That(nested).Throws<DecoderException>();
+
+		byte[] repeated = new byte[4096];
+		Array.Fill(repeated, (byte)0xc1);
+		repeated[^1] = 0x00;
+		Func<ShapeShiftValue?> deep = () => this.serializer.Deserialize<ShapeShiftValue>(repeated);
+		await Assert.That(deep).Throws<DecoderException>();
+	}
+
+	[Test]
 	public async Task UnixTimeTag_RejectsValuesOutsideDateTime()
 	{
 		byte[] encoded = [0xc1, 0x1b, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
