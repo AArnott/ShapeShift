@@ -14,6 +14,13 @@ Run a focused screening benchmark after building:
 dotnet run --project .\benchmark\ShapeShift.Benchmarks\ShapeShift.Benchmarks.csproj --no-build -c Release -- --filter "*SerializerBenchmarks*" --job short
 ```
 
+Keyed-hash evaluation (SipHash-2-4 versus a scalar BLAKE3 prototype; not part of the shipping libraries):
+
+```powershell
+dotnet run --project .\benchmark\ShapeShift.HashEvaluation\ShapeShift.HashEvaluation.csproj -c Release -- --self-test
+dotnet run --project .\benchmark\ShapeShift.HashEvaluation\ShapeShift.HashEvaluation.csproj --no-build -c Release -- --filter "*KeyedHash*" --job short
+```
+
 Run the string interning benchmarks:
 
 ```powershell

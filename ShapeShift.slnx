@@ -5,6 +5,7 @@
   </Folder>
   <Folder Name="/benchmark/">
     <Project Path="benchmark/ShapeShift.Benchmarks/ShapeShift.Benchmarks.csproj" />
+    <Project Path="benchmark/ShapeShift.HashEvaluation/ShapeShift.HashEvaluation.csproj" />
   </Folder>
   <Folder Name="/Solution Items/">
     <File Path=".config/dotnet-tools.json" />

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <EnablePackageValidation>false</EnablePackageValidation>
+    <RootNamespace>ShapeShift.Benchmarks</RootNamespace>
+    <Description>Scratch benchmark comparing SipHash-2-4 with a scalar keyed BLAKE3 prototype. Not a shipping library.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The production implementation, compiled into this assembly because SipHash is internal and the repo does not use InternalsVisibleTo. -->
+    <Compile Include="..\..\src\ShapeShift\Equality\SipHash.cs" Link="SipHash.cs" />
+    <EmbeddedResource Include="test_vectors.json">
+      <LogicalName>ShapeShift.Benchmarks.Blake3TestVectors.json</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+</Project>
