@@ -338,27 +338,38 @@ public partial class StructuralEqualityTests
 	public async Task ShapeShiftValue_DataMapKeySearch_DoesNotReuseAFailedDeepComparison()
 	{
 		IEqualityComparer<ShapeShiftValue> comparer = StructuralEqualityComparer.Create<ShapeShiftValue>();
-		ShapeShiftArray shared = Nest(20, 1L);
-		ShapeShiftArray different = Nest(20, 2L);
+		ShapeShiftValue shallowA = BooleanArray(1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0);
+		ShapeShiftValue shallowB = BooleanArray(0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 1, 0);
+		await Assert.That(comparer.Equals(shallowA, shallowB)).IsFalse();
+		await Assert.That(comparer.GetHashCode(shallowA)).IsEqualTo(comparer.GetHashCode(shallowB));
+
+		// These nests share a hash, so the first candidate is actually compared. The comparison
+		// fails past the depth where assumptions are recorded; a later pair must not reuse it.
+		ShapeShiftArray deepA = Nest(20, shallowA);
+		ShapeShiftArray deepB = Nest(20, shallowB);
+		ShapeShiftValue wrappedA = new ShapeShiftArray([deepA]);
+		ShapeShiftValue wrappedB = new ShapeShiftArray([deepB]);
 		ShapeShiftValue left = new ShapeShiftDataMap(
 		[
-			new ShapeShiftDataMapEntry(shared, "v"),
-			new ShapeShiftDataMapEntry(shared, "v"),
+			new ShapeShiftDataMapEntry(wrappedA, "v"),
+			new ShapeShiftDataMapEntry(deepA, "w"),
+			new ShapeShiftDataMapEntry(wrappedB, "v"),
 		]);
 		ShapeShiftValue right = new ShapeShiftDataMap(
 		[
-			new ShapeShiftDataMapEntry(different, "v"),
-			new ShapeShiftDataMapEntry(shared, "v"),
+			new ShapeShiftDataMapEntry(wrappedB, "v"),
+			new ShapeShiftDataMapEntry(wrappedA, "v"),
+			new ShapeShiftDataMapEntry(deepB, "w"),
 		]);
 		ShapeShiftValue reordered = new ShapeShiftDataMap(
 		[
-			new ShapeShiftDataMapEntry(different, "w"),
-			new ShapeShiftDataMapEntry(shared, "v"),
+			new ShapeShiftDataMapEntry(deepB, "w"),
+			new ShapeShiftDataMapEntry(wrappedA, "v"),
 		]);
 		ShapeShiftValue reorderedOther = new ShapeShiftDataMap(
 		[
-			new ShapeShiftDataMapEntry(shared, "v"),
-			new ShapeShiftDataMapEntry(different, "w"),
+			new ShapeShiftDataMapEntry(wrappedA, "v"),
+			new ShapeShiftDataMapEntry(deepB, "w"),
 		]);
 
 		await Assert.That(comparer.Equals(left, right)).IsFalse();
