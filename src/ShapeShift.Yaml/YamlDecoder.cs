@@ -13,9 +13,9 @@ namespace ShapeShift.Yaml;
 /// <para>
 /// The reader accepts the YAML 1.2 syntax: block and flow collections, plain, quoted, and block scalars,
 /// anchors and aliases, tags, directives, and multi-document streams. Scalars use the YAML 1.2 core schema.
-/// Quoted and block scalars stay strings unless a tag says otherwise. <c>yes</c>, <c>no</c>, <c>on</c>, and
-/// <c>off</c> are strings. Timestamps stay strings, so <see cref="ReadDateTime"/> and <see cref="ReadTimeSpan"/>
-/// still parse text.
+/// Quoted and block scalars stay strings unless a tag says otherwise. A non-specific <c>!</c> tag forces a
+/// string, so <c>! true</c> and <c>! 12</c> are text. <c>yes</c>, <c>no</c>, <c>on</c>, and <c>off</c> are
+/// strings. Timestamps stay strings, so <see cref="ReadDateTime"/> and <see cref="ReadTimeSpan"/> still parse text.
 /// </para>
 /// <para>
 /// The constructor reads the whole stream and rejects a document that is not valid YAML. After each document,
@@ -328,9 +328,7 @@ public ref struct YamlDecoder : IDecoder
 		{
 			decimal value = this.numberKind == NumberKind.Integer
 				? (decimal)this.tokenInteger
-				: double.IsFinite(this.tokenFloat)
-					? (decimal)this.tokenFloat
-					: throw new DecoderException("A non-finite float cannot be read as a decimal.");
+				: this.DecimalFromFloatText();
 			this.Consume();
 			return value;
 		}
@@ -423,16 +421,13 @@ public ref struct YamlDecoder : IDecoder
 		{
 			value = new ShapeShiftFloat(this.tokenFloat);
 		}
+		else if (this.TryExactDecimal(out decimal exact))
+		{
+			value = new ShapeShiftDecimal(exact);
+		}
 		else
 		{
-			try
-			{
-				value = new ShapeShiftDecimal((decimal)this.tokenFloat);
-			}
-			catch (OverflowException)
-			{
-				value = new ShapeShiftFloat(this.tokenFloat);
-			}
+			value = new ShapeShiftFloat(this.tokenFloat);
 		}
 
 		this.Consume();
@@ -445,6 +440,60 @@ public ref struct YamlDecoder : IDecoder
 	/// <param name="span">The scalar text.</param>
 	/// <returns><see langword="true"/> when the text is a decimal integer or floating-point literal.</returns>
 	internal static bool LooksLikeNumberCore(ReadOnlySpan<char> span) => YamlSchema.LooksLikeDecimalNumber(span);
+
+	private decimal DecimalFromFloatText()
+	{
+		if (!double.IsFinite(this.tokenFloat))
+		{
+			throw new DecoderException("A non-finite float cannot be read as a decimal.");
+		}
+
+		decimal value;
+		try
+		{
+			value = decimal.Parse(this.tokenText, NumberStyles.Float, CultureInfo.InvariantCulture);
+		}
+		catch (FormatException ex)
+		{
+			throw new DecoderException("The number is not a valid decimal.", ex);
+		}
+
+		if (value == 0m && this.tokenFloat != 0d)
+		{
+			throw new DecoderException("The number is outside the range of decimal.");
+		}
+
+		return value;
+	}
+
+	private bool TryExactDecimal(out decimal value)
+	{
+		value = 0m;
+		if (!double.IsFinite(this.tokenFloat))
+		{
+			return false;
+		}
+
+		try
+		{
+			value = decimal.Parse(this.tokenText, NumberStyles.Float, CultureInfo.InvariantCulture);
+		}
+		catch (FormatException)
+		{
+			return false;
+		}
+		catch (OverflowException)
+		{
+			return false;
+		}
+
+		if (value == 0m && this.tokenFloat != 0d)
+		{
+			return false;
+		}
+
+		return true;
+	}
 
 	private BigInteger ReadInteger(BigInteger min, BigInteger max)
 	{

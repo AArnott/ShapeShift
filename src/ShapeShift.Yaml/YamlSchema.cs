@@ -135,7 +135,8 @@ internal static class YamlSchema
 
 		if (tag == FloatTag)
 		{
-			if (!TryFloat(text, out double number))
+			// An explicit !!float accepts a decimal integer spelling. Implicit resolution still prefers !!int.
+			if (!TryFloat(text, out double number, allowInteger: true))
 			{
 				throw new DecoderException($"The tag {FloatTag} cannot represent '{text}'.");
 			}
@@ -143,7 +144,13 @@ internal static class YamlSchema
 			return new YamlResolved { Kind = YamlScalarKind.Float, Float = number, Text = text };
 		}
 
-		bool plain = node.Style == YamlScalarStyle.Plain && tag is null or "!";
+		// The non-specific "!" tag disables schema resolution and forces a string.
+		if (tag == "!")
+		{
+			return new YamlResolved { Kind = YamlScalarKind.String, Text = text };
+		}
+
+		bool plain = node.Style == YamlScalarStyle.Plain && tag is null;
 		if (!plain)
 		{
 			return new YamlResolved { Kind = YamlScalarKind.String, Text = text };
@@ -164,7 +171,7 @@ internal static class YamlSchema
 			return new YamlResolved { Kind = YamlScalarKind.Integer, Integer = coreInt, Text = text };
 		}
 
-		if (TryFloat(text, out double coreFloat))
+		if (TryFloat(text, out double coreFloat, allowInteger: false))
 		{
 			return new YamlResolved { Kind = YamlScalarKind.Float, Float = coreFloat, Text = text };
 		}
@@ -235,6 +242,106 @@ internal static class YamlSchema
 		}
 
 		return i == span.Length;
+	}
+
+	/// <summary>
+	/// Reports whether an unquoted scalar is a core-schema value the decimal-number check does not cover.
+	/// </summary>
+	/// <param name="span">The scalar text.</param>
+	/// <returns>
+	/// <see langword="true"/> for hexadecimal and octal integers and for the core infinity and NaN spellings.
+	/// </returns>
+	internal static bool LooksLikeNonDecimalCore(ReadOnlySpan<char> span)
+	{
+		if (span.IsEmpty)
+		{
+			return false;
+		}
+
+		int i = 0;
+		if (span[0] is '+' or '-')
+		{
+			i = 1;
+		}
+
+		if (i >= span.Length)
+		{
+			return false;
+		}
+
+		ReadOnlySpan<char> body = span[i..];
+		if (body is ".inf" or ".Inf" or ".INF")
+		{
+			return true;
+		}
+
+		if (i == 0 && body is ".nan" or ".NaN" or ".NAN")
+		{
+			return true;
+		}
+
+		if (body.Length < 3 || body[0] != '0' || body[1] is not ('x' or 'X' or 'o' or 'O'))
+		{
+			return false;
+		}
+
+		int radix = body[1] is 'x' or 'X' ? 16 : 8;
+		for (int k = 2; k < body.Length; k++)
+		{
+			int digit = HexValue(body[k]);
+			if (digit < 0 || digit >= radix)
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/// <summary>
+	/// Builds a canonical identity for a scalar mapping key.
+	/// </summary>
+	/// <param name="node">The scalar. Aliases must already have been followed.</param>
+	/// <returns>A string that is equal for schema-equal scalars and different otherwise.</returns>
+	internal static string CanonicalScalar(YamlNode node)
+	{
+		YamlResolved resolved = Resolve(node);
+		switch (resolved.Kind)
+		{
+			case YamlScalarKind.Null:
+				return "n";
+			case YamlScalarKind.Boolean:
+				return resolved.Boolean ? "b1" : "b0";
+			case YamlScalarKind.Integer:
+				return "i" + resolved.Integer.ToString(CultureInfo.InvariantCulture);
+			case YamlScalarKind.Float:
+				if (double.IsNaN(resolved.Float))
+				{
+					return "fnan";
+				}
+
+				if (double.IsPositiveInfinity(resolved.Float))
+				{
+					return "finf";
+				}
+
+				if (double.IsNegativeInfinity(resolved.Float))
+				{
+					return "f-inf";
+				}
+
+				return "f" + resolved.Float.ToString("R", CultureInfo.InvariantCulture);
+			case YamlScalarKind.Binary:
+				return "y" + Convert.ToBase64String(resolved.Binary ?? []);
+			default:
+				string text = resolved.Text ?? node.Scalar;
+				if (node.Tag is { } tag && tag is not ("!" or StrTag))
+				{
+					return "t" + tag + "=" + text;
+				}
+
+				return "s" + text;
+		}
 	}
 
 	private static bool IsNullText(string text)
@@ -321,7 +428,7 @@ internal static class YamlSchema
 		return true;
 	}
 
-	private static bool TryFloat(string text, out double value)
+	private static bool TryFloat(string text, out double value, bool allowInteger)
 	{
 		value = default;
 		if (text.Length == 0)
@@ -417,7 +524,7 @@ internal static class YamlSchema
 			}
 		}
 
-		if (!dot && (text.IndexOf('e') < 0 && text.IndexOf('E') < 0))
+		if (!allowInteger && !dot && text.IndexOf('e') < 0 && text.IndexOf('E') < 0)
 		{
 			return false;
 		}

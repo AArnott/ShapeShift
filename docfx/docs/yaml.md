@@ -30,7 +30,7 @@ That sample writes:
 - Block and flow sequences and mappings, including a block sequence nested directly under a key at that key's column.
 - Plain, single-quoted, double-quoted, literal (`|`), and folded (`>`) scalars, including chomping (`+`, `-`, and the default clip).
 - Anchors and aliases, including an alias used as a mapping key. Recursive aliases are rejected.
-- Tags. `!!str`, `!!null`, `!!bool`, `!!int`, `!!float`, and `!!binary` select the core type. Other tags are preserved as text.
+- Tags. `!!str`, `!!null`, `!!bool`, `!!int`, `!!float`, and `!!binary` select the core type. `!!float 1` is a float. A bare `!` forces a string, so `! 12` and `! true` stay text. Other tags are preserved as text.
 - `%YAML` and `%TAG` directives, and `---` / `...` document markers.
 
 Untagged plain scalars use the YAML 1.2 core schema:
@@ -51,7 +51,7 @@ After each document, `NextTokenType` is `EndDocument`. `TryAdvanceDocument` move
 
 `YamlLoadOptions` is immutable and lives on `YamlSerializer.LoadOptions`. The `YamlDecoder` constructor takes the same record.
 
-- `AllowDuplicateKeys` defaults to false, so a repeated mapping key is an error. YAML 1.2 requires unique keys. Set it to true to keep every entry in source order. For example, this document is rejected unless duplicates are allowed:
+- `AllowDuplicateKeys` defaults to false, so a repeated mapping key is an error. Keys are compared by their resolved value: `1` and `0x1` are the same key, and `1` and `"1"` are not. Set it to true to keep every entry in source order. For example, this document is rejected unless duplicates are allowed:
 
   ```yaml
   name: Ada

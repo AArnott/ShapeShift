@@ -23,6 +23,13 @@ public partial class YamlSyntaxTests
 		await Assert.That(ReadString("|\n  line1\n  line2\n")).IsEqualTo("line1\nline2\n");
 		await Assert.That(ReadString(">\n  hello\n  world\n")).IsEqualTo("hello world\n");
 		await Assert.That(ReadString("|-\n  kept\n")).IsEqualTo("kept");
+		await Assert.That(ReadString("|2\n  text\n")).IsEqualTo("text\n");
+		await Assert.That(ReadString("|\n  text")).IsEqualTo("text");
+		await Assert.That(ReadString("|+\n  text")).IsEqualTo("text");
+		await Assert.That(ReadString("|+\n  text\n\n")).IsEqualTo("text\n\n");
+		await Assert.That(ReadString(">\n  hello\n\n  world\n")).IsEqualTo("hello\nworld\n");
+		await Assert.That(ReadString(">\n  foo \n  bar\n")).IsEqualTo("foo  bar\n");
+		await Assert.That(ReadString(">\n\n  folded\n  text\n")).IsEqualTo("\nfolded text\n");
 	}
 
 	[Test]
@@ -81,6 +88,60 @@ public partial class YamlSyntaxTests
 		await Assert.That(() => Open(": a\n: b\n")).Throws<DecoderException>();
 		await Assert.That(() => Open("name: Ada\nname: Grace\n")).Throws<DecoderException>();
 		await Assert.That(string.Join('|', ReadMapStrings(": a\n: b\n", new YamlLoadOptions { AllowDuplicateKeys = true }))).IsEqualTo("|a||b");
+		await Assert.That(() => Open("1: a\n0x1: b\n")).Throws<DecoderException>();
+		await Assert.That(string.Join('|', ReadMapStrings("1: a\n\"1\": b\n"))).IsEqualTo("1|a|1|b");
+		await Assert.That(() => Open(AliasBombKeys(), new YamlLoadOptions { MaxAliasExpansions = 8 })).Throws<DecoderException>();
+	}
+
+	[Test]
+	public async Task ExplicitFloatAndNonSpecificTags()
+	{
+		YamlDecoder floated = Open("!!float 1\n");
+		await Assert.That(floated.ReadDouble()).IsEqualTo(1d);
+		YamlDecoder quoted = Open("!!float \"12\"\n");
+		await Assert.That(quoted.ReadDouble()).IsEqualTo(12d);
+		YamlDecoder integer = Open("1\n");
+		await Assert.That(integer.ReadInt32()).IsEqualTo(1);
+		await Assert.That(ReadString("! true\n")).IsEqualTo("true");
+		await Assert.That(ReadString("! 12\n")).IsEqualTo("12");
+		await Assert.That(ReadString("! null\n")).IsEqualTo("null");
+	}
+
+	[Test]
+	public async Task DecimalsKeepScalarText()
+	{
+		const string precise = "0.1234567890123456789012345678";
+		YamlDecoder decoder = Open(precise + "\n");
+		await Assert.That(decoder.ReadDecimal()).IsEqualTo(decimal.Parse(precise, System.Globalization.CultureInfo.InvariantCulture));
+		YamlDecoder dynamic = Open(precise + "\n");
+		await Assert.That(dynamic.ReadDynamicNumber()).IsEqualTo(new ShapeShiftDecimal(decimal.Parse(precise, System.Globalization.CultureInfo.InvariantCulture)));
+		await Assert.That(() => Open("1e-100\n").ReadDecimal()).Throws<DecoderException>();
+		YamlDecoder tiny = Open("1e-100\n");
+		await Assert.That(tiny.ReadDynamicNumber()).IsEqualTo(new ShapeShiftFloat(double.Parse("1e-100", System.Globalization.CultureInfo.InvariantCulture)));
+	}
+
+	[Test]
+	public async Task WriterQuotesScalarsTheReaderWouldRetype()
+	{
+		YamlSerializer serializer = new();
+		foreach (string value in new[] { "0x10", "0o10", ".inf", ".nan", "[a]", "{a}" })
+		{
+			string yaml = serializer.Serialize<string, StringWitness>(value);
+			await Assert.That(serializer.Deserialize<string, StringWitness>(yaml)).IsEqualTo(value);
+		}
+	}
+
+	[Test]
+	public async Task FlowLookaheadHonorsMaxDepth()
+	{
+		string shallow = "[[[1]]]\n";
+		YamlDecoder decoder = Open(shallow, new YamlLoadOptions { MaxDepth = 4 });
+		decoder.ReadStartVector();
+		decoder.ReadStartVector();
+		decoder.ReadStartVector();
+		await Assert.That(decoder.ReadInt32()).IsEqualTo(1);
+		string deep = new string('[', 32) + "1" + new string(']', 32) + "\n";
+		await Assert.That(() => Open(deep, new YamlLoadOptions { MaxDepth = 4 })).Throws<DecoderException>();
 	}
 
 	[Test]
@@ -250,6 +311,18 @@ public partial class YamlSyntaxTests
 		return (decoder.DocumentCount, sawNull);
 	}
 
+	private static string AliasBombKeys()
+	{
+		return """
+			a: &a [1, 2]
+			b: &b [*a, *a, *a, *a]
+			c: &c [*b, *b, *b, *b]
+			d: &d [*c, *c, *c, *c]
+			*d: 1
+			*d: 2
+			""";
+	}
+
 	private static YamlDecoder Open(string yaml, YamlLoadOptions? options = null) => new(new StringReader(yaml), options);
 
 	[GenerateShape]
@@ -262,4 +335,7 @@ public partial class YamlSyntaxTests
 
 	[GenerateShapeFor<int>]
 	private partial class Witness;
+
+	[GenerateShapeFor<string>]
+	private partial class StringWitness;
 }

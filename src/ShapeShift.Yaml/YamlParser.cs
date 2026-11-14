@@ -33,7 +33,7 @@ internal static class YamlParser
 
 	private readonly record struct Mark(int Index, int Line, int LineStart);
 
-	private readonly record struct PlainLine(string Text, bool Empty);
+	private readonly record struct PlainLine(string Text, bool Empty, bool Broke);
 
 	/// <summary>
 	/// Cursor and compose state for one stream.
@@ -53,6 +53,7 @@ internal static class YamlParser
 		private int line = 1;
 		private int lineStart;
 		private int depth;
+		private int keyAliasExpansions;
 		private bool sawYamlDirective;
 		private bool directivesPending;
 		private bool inBlockImplicitKey;
@@ -1020,11 +1021,11 @@ internal static class YamlParser
 						break;
 					}
 
-					lines.Add(new PlainLine(sb.ToString().TrimEnd(' ', '\t'), false));
+					lines.Add(new PlainLine(sb.ToString().TrimEnd(' ', '\t'), false, true));
 					sb.Clear();
 					if (empty)
 					{
-						lines.Add(new PlainLine(string.Empty, true));
+						lines.Add(new PlainLine(string.Empty, true, true));
 					}
 
 					continue;
@@ -1042,7 +1043,7 @@ internal static class YamlParser
 			string last = sb.ToString().TrimEnd(' ', '\t');
 			if (last.Length > 0 || lines.Count == 0)
 			{
-				lines.Add(new PlainLine(last, false));
+				lines.Add(new PlainLine(last, false, false));
 			}
 
 			return YamlNode.Plain(this.FoldPlain(lines));
@@ -1482,14 +1483,17 @@ internal static class YamlParser
 				this.ConsumeBreak();
 			}
 
-			int indent = explicitIndent > 0 ? parentIndent + explicitIndent : -1;
+			// At the root the parent column is -1. An explicit indicator is then an absolute column,
+			// so "|2" means the content starts at column 2. Nested scalars stay relative to the parent.
+			int baseIndent = parentIndent < 0 ? 0 : parentIndent;
+			int indent = explicitIndent > 0 ? baseIndent + explicitIndent : -1;
 			if (explicitIndent > 0 && indent <= parentIndent)
 			{
 				throw this.Error("A block scalar indentation indicator is not greater than its parent.");
 			}
 
 			List<PlainLine> lines = [];
-			List<int> leadingBlanks = [];
+			List<(int Spaces, bool Broke)> leadingBlanks = [];
 			while (!this.Eof)
 			{
 				if (this.Column == 0 && this.IsDocumentBoundary())
@@ -1523,28 +1527,29 @@ internal static class YamlParser
 						throw this.Error("A tab cannot be used to indent a block scalar.");
 					}
 
-					string tabRest = this.ReadRestOfLine();
-					lines.Add(new PlainLine(new string(' ', Math.Max(0, spaces - indent)) + tabRest, false));
+					string tabRest = this.ReadRestOfLine(out bool tabBroke);
+					lines.Add(new PlainLine(new string(' ', Math.Max(0, spaces - indent)) + tabRest, false, tabBroke));
 					continue;
 				}
 
 				bool blank = this.IsBreak() || this.Eof;
 				if (blank)
 				{
+					bool broke = this.IsBreak();
 					if (indent < 0)
 					{
-						leadingBlanks.Add(spaces);
+						leadingBlanks.Add((spaces, broke));
 					}
 					else if (spaces > indent)
 					{
-						lines.Add(new PlainLine(new string(' ', spaces - indent), false));
+						lines.Add(new PlainLine(new string(' ', spaces - indent), false, broke));
 					}
 					else
 					{
-						lines.Add(new PlainLine(string.Empty, true));
+						lines.Add(new PlainLine(string.Empty, true, broke));
 					}
 
-					if (this.IsBreak())
+					if (broke)
 					{
 						this.ConsumeBreak();
 					}
@@ -1576,32 +1581,32 @@ internal static class YamlParser
 					throw this.Error("A block scalar line is indented less than the block content.");
 				}
 
-				string content = new string(' ', spaces - indent) + this.ReadRestOfLine();
-				lines.Add(new PlainLine(content, false));
+				string content = new string(' ', spaces - indent) + this.ReadRestOfLine(out bool contentBroke);
+				lines.Add(new PlainLine(content, false, contentBroke));
 			}
 
 			if (indent < 0)
 			{
-				foreach (int _ in leadingBlanks)
+				foreach ((int _, bool broke) in leadingBlanks)
 				{
-					lines.Add(new PlainLine(string.Empty, true));
+					lines.Add(new PlainLine(string.Empty, true, broke));
 				}
 			}
 
 			return YamlNode.Block(this.FoldBlock(lines, folded, chomp), folded);
 		}
 
-		private void AdoptLeading(List<PlainLine> lines, List<int> leadingBlanks)
+		private void AdoptLeading(List<PlainLine> lines, List<(int Spaces, bool Broke)> leadingBlanks)
 		{
-			foreach (int _ in leadingBlanks)
+			foreach ((int _, bool broke) in leadingBlanks)
 			{
-				lines.Add(new PlainLine(string.Empty, true));
+				lines.Add(new PlainLine(string.Empty, true, broke));
 			}
 
 			leadingBlanks.Clear();
 		}
 
-		private string ReadRestOfLine()
+		private string ReadRestOfLine(out bool broke)
 		{
 			StringBuilder sb = new();
 			while (!this.Eof && !this.IsBreak())
@@ -1610,7 +1615,8 @@ internal static class YamlParser
 				this.Advance();
 			}
 
-			if (this.IsBreak())
+			broke = this.IsBreak();
+			if (broke)
 			{
 				this.ConsumeBreak();
 			}
@@ -1620,57 +1626,85 @@ internal static class YamlParser
 
 		private string FoldBlock(List<PlainLine> lines, bool folded, Chomp chomp)
 		{
+			static bool StartsWithBlank(string text) => text.Length > 0 && text[0] is ' ' or '\t';
+
 			int end = lines.Count;
 			while (end > 0 && lines[end - 1].Empty)
 			{
 				end--;
 			}
 
-			int trailing = lines.Count - end;
 			StringBuilder sb = new();
-			bool first = true;
-			bool previousEmpty = false;
-			bool previousMore = false;
-			for (int i = 0; i < end; i++)
+			int index = 0;
+			while (index < end && lines[index].Empty)
 			{
-				PlainLine line = lines[i];
-				bool more = !line.Empty && line.Text.StartsWith(' ');
-				if (!first)
+				if (lines[index].Broke)
 				{
-					if (!folded || line.Empty || more || previousEmpty || previousMore || (!lines[i - 1].Empty && lines[i - 1].Text.EndsWith(' ')))
+					sb.Append('\n');
+				}
+
+				index++;
+			}
+
+			while (index < end)
+			{
+				PlainLine line = lines[index];
+				sb.Append(line.Text);
+				bool leadingBlank = StartsWithBlank(line.Text);
+				index++;
+				int breaks = line.Broke ? 1 : 0;
+				while (index < end && lines[index].Empty)
+				{
+					if (lines[index].Broke)
 					{
-						sb.Append('\n');
+						breaks++;
+					}
+
+					index++;
+				}
+
+				if (index < end)
+				{
+					bool nextBlank = StartsWithBlank(lines[index].Text);
+					if (folded && breaks > 0 && !leadingBlank && !nextBlank)
+					{
+						// A break followed by empty lines drops the first break. A single break between
+						// ordinary lines becomes a space, including when the line ends with spaces.
+						sb.Append(breaks == 1 ? " " : new string('\n', breaks - 1));
 					}
 					else
 					{
-						sb.Append(' ');
+						sb.Append('\n', breaks);
 					}
 				}
-
-				if (!line.Empty)
+				else if (chomp == Chomp.Keep)
 				{
-					sb.Append(line.Text);
+					sb.Append('\n', breaks);
+					this.AppendTrailingBreaks(sb, lines, end);
 				}
-
-				first = false;
-				previousEmpty = line.Empty;
-				previousMore = more;
-			}
-
-			if (chomp == Chomp.Keep)
-			{
-				int newlines = (end > 0 ? 1 : 0) + trailing;
-				if (newlines > 0)
+				else if (chomp == Chomp.Clip && breaks > 0)
 				{
-					sb.Append('\n', newlines);
+					sb.Append('\n');
 				}
 			}
-			else if (chomp == Chomp.Clip && end > 0)
+
+			if (end == 0 && chomp == Chomp.Keep)
 			{
-				sb.Append('\n');
+				this.AppendTrailingBreaks(sb, lines, 0);
 			}
 
 			return sb.ToString();
+		}
+
+		private void AppendTrailingBreaks(StringBuilder sb, List<PlainLine> lines, int start)
+		{
+			for (int i = start; i < lines.Count; i++)
+			{
+				if (lines[i].Broke)
+				{
+					sb.Append('\n');
+				}
+			}
 		}
 
 		private void AddPair(YamlNode map, YamlNode key, YamlNode value)
@@ -1681,67 +1715,97 @@ internal static class YamlParser
 				return;
 			}
 
-			string identity = this.KeyIdentity(key);
 			for (int i = 0; i < map.Pairs.Count - 1; i++)
 			{
-				if (this.KeyIdentity(map.Pairs[i].Key) == identity)
+				if (this.SameKey(map.Pairs[i].Key, key))
 				{
 					throw this.Error("A YAML mapping contains a duplicate key.");
 				}
 			}
 		}
 
-		private string KeyIdentity(YamlNode node)
+		private bool SameKey(YamlNode left, YamlNode right)
 		{
-			StringBuilder sb = new();
-			this.AppendKey(sb, node, 0);
-			return sb.ToString();
+			this.keyAliasExpansions = 0;
+			return this.SameNode(left, right, []);
 		}
 
-		private void AppendKey(StringBuilder sb, YamlNode node, int depth)
+		private bool SameNode(YamlNode left, YamlNode right, Dictionary<(YamlNode Left, YamlNode Right), bool> memo)
 		{
-			if (node.Alias is not null)
+			left = this.FollowKey(left);
+			right = this.FollowKey(right);
+			if (ReferenceEquals(left, right))
 			{
+				return true;
+			}
+
+			(YamlNode Left, YamlNode Right) pair = (left, right);
+			if (memo.TryGetValue(pair, out bool cached))
+			{
+				return cached;
+			}
+
+			// Assume equality until a difference is found so a cycle does not recurse forever.
+			memo[pair] = true;
+			bool equal = left.Kind == right.Kind && this.SameContent(left, right, memo);
+			memo[pair] = equal;
+			return equal;
+		}
+
+		private bool SameContent(YamlNode left, YamlNode right, Dictionary<(YamlNode Left, YamlNode Right), bool> memo)
+		{
+			switch (left.Kind)
+			{
+				case YamlNodeKind.Scalar:
+					return YamlSchema.CanonicalScalar(left) == YamlSchema.CanonicalScalar(right);
+				case YamlNodeKind.Sequence:
+					if (left.Items!.Count != right.Items!.Count)
+					{
+						return false;
+					}
+
+					for (int i = 0; i < left.Items.Count; i++)
+					{
+						if (!this.SameNode(left.Items[i], right.Items[i], memo))
+						{
+							return false;
+						}
+					}
+
+					return true;
+				default:
+					if (left.Pairs!.Count != right.Pairs!.Count)
+					{
+						return false;
+					}
+
+					for (int i = 0; i < left.Pairs.Count; i++)
+					{
+						if (!this.SameNode(left.Pairs[i].Key, right.Pairs[i].Key, memo) ||
+							!this.SameNode(left.Pairs[i].Value, right.Pairs[i].Value, memo))
+						{
+							return false;
+						}
+					}
+
+					return true;
+			}
+		}
+
+		private YamlNode FollowKey(YamlNode node)
+		{
+			while (node.Alias is not null)
+			{
+				this.keyAliasExpansions++;
+				if (this.keyAliasExpansions > this.options.MaxAliasExpansions)
+				{
+					throw this.Error($"YAML alias expansion exceeds the maximum of {this.options.MaxAliasExpansions}.");
+				}
+
 				node = node.Alias;
 			}
 
-			if (depth > 32)
-			{
-				sb.Append('…');
-				return;
-			}
-
-			switch (node.Kind)
-			{
-				case YamlNodeKind.Scalar:
-					sb.Append('S').Append(node.Tag).Append('=').Append(node.Scalar).Append(';');
-					break;
-				case YamlNodeKind.Sequence:
-					sb.Append('[');
-					if (node.Items is not null)
-					{
-						foreach (YamlNode item in node.Items)
-						{
-							this.AppendKey(sb, item, depth + 1);
-						}
-					}
-
-					sb.Append(']');
-					break;
-				default:
-					sb.Append('{');
-					if (node.Pairs is not null)
-					{
-						foreach (YamlPair pair in node.Pairs)
-						{
-							this.AppendKey(sb, pair.Key, depth + 1);
-							this.AppendKey(sb, pair.Value, depth + 1);
-						}
-					}
-
-					sb.Append('}');
-					break;
-			}
+			return node;
 		}
 
 		private YamlNode FinishScalar(YamlNode node)
@@ -2003,7 +2067,7 @@ internal static class YamlParser
 				}
 				else if (this.Peek is '[' or '{')
 				{
-					if (!this.SkipFlowForScan(this.Peek == '[' ? ']' : '}'))
+					if (!this.SkipFlowForScan(this.Peek == '[' ? ']' : '}', depth: 1))
 					{
 						return false;
 					}
@@ -2081,8 +2145,13 @@ internal static class YamlParser
 			}
 		}
 
-		private bool SkipFlowForScan(char end)
+		private bool SkipFlowForScan(char end, int depth)
 		{
+			if (depth > this.options.MaxDepth)
+			{
+				throw this.Error($"YAML nesting exceeds the maximum depth of {this.options.MaxDepth}.");
+			}
+
 			this.Advance();
 			while (!this.Eof && !this.IsBreak())
 			{
@@ -2095,7 +2164,7 @@ internal static class YamlParser
 
 				if (c == '[')
 				{
-					if (!this.SkipFlowForScan(']'))
+					if (!this.SkipFlowForScan(']', depth + 1))
 					{
 						return false;
 					}
@@ -2105,7 +2174,7 @@ internal static class YamlParser
 
 				if (c == '{')
 				{
-					if (!this.SkipFlowForScan('}'))
+					if (!this.SkipFlowForScan('}', depth + 1))
 					{
 						return false;
 					}
@@ -2303,9 +2372,9 @@ internal static class YamlParser
 			}
 		}
 
-		private void CheckLeading(List<int> leadingBlanks, int indent)
+		private void CheckLeading(List<(int Spaces, bool Broke)> leadingBlanks, int indent)
 		{
-			foreach (int count in leadingBlanks)
+			foreach ((int count, bool _) in leadingBlanks)
 			{
 				if (count > indent)
 				{
