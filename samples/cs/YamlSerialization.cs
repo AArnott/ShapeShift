@@ -38,7 +38,7 @@ internal static partial class YamlSerializationSample
         {
             LoadOptions = new YamlLoadOptions
             {
-                RejectDuplicateKeys = true,
+                AllowDuplicateKeys = true,
                 MaxDepth = 64,
                 MaxAliasExpansions = 1024,
             },

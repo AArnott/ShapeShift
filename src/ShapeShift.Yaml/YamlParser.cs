@@ -1676,7 +1676,7 @@ internal static class YamlParser
 		private void AddPair(YamlNode map, YamlNode key, YamlNode value)
 		{
 			map.Pairs!.Add(new YamlPair(key, value));
-			if (!this.options.RejectDuplicateKeys)
+			if (this.options.AllowDuplicateKeys)
 			{
 				return;
 			}

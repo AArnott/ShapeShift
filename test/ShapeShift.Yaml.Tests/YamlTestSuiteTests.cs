@@ -18,12 +18,10 @@ namespace ShapeShift.Yaml.Tests;
 public class YamlTestSuiteTests
 {
 	/// <summary>
-	/// Original catalog extras that ask for a stricter reading than the official suite.
-	/// <c>yaml122-duplicate-key</c> rejects repeated keys. YAML 1.2 calls that an error, and the
-	/// official suite still accepts the same situation (<c>yts-2JQS-1</c>, <c>yts-X38W-1</c>).
-	/// <see cref="YamlLoadOptions.RejectDuplicateKeys"/> opts into the stricter check.
+	/// Official suite cases that repeat a mapping key and still expect acceptance.
+	/// The reader rejects those documents unless <see cref="YamlLoadOptions.AllowDuplicateKeys"/> is set.
 	/// </summary>
-	private static readonly HashSet<string> KnownExclusions = ["yaml122-duplicate-key"];
+	private static readonly HashSet<string> KnownExclusions = ["yts-2JQS-1", "yts-X38W-1"];
 
 	[Test]
 	[Arguments("yaml-1.1-suite.json", 417)]
@@ -57,8 +55,9 @@ public class YamlTestSuiteTests
 			}
 		}
 
+		exclusions.Sort(StringComparer.Ordinal);
 		await Assert.That(total).IsEqualTo(expectedTotal);
-		await Assert.That(string.Join(',', exclusions)).IsEqualTo(resourceName == "yaml-1.2.2-suite.json" ? "yaml122-duplicate-key" : string.Empty);
+		await Assert.That(string.Join(',', exclusions)).IsEqualTo("yts-2JQS-1,yts-X38W-1");
 		await Assert.That(failures).IsEmpty();
 	}
 

@@ -9,15 +9,14 @@ namespace ShapeShift.Yaml;
 public sealed record YamlLoadOptions
 {
 	/// <summary>
-	/// Gets a value indicating whether a mapping key that appears more than once is an error.
+	/// Gets a value indicating whether a mapping may contain the same key more than once.
 	/// </summary>
 	/// <value>
-	/// <see langword="true" /> to reject duplicate keys. The default is <see langword="false" />.
-	/// YAML 1.2 says mapping keys must be unique, and the official test suite still accepts
-	/// documents that repeat a key. Set this to <see langword="true" /> to enforce uniqueness.
-	/// When it is <see langword="false" />, every entry is kept in source order.
+	/// <see langword="false" /> to reject a repeated key. That is the default.
+	/// YAML 1.2 requires mapping keys to be unique. Set this to <see langword="true" /> to keep
+	/// every entry in source order, which is what the official YAML test suite accepts.
 	/// </value>
-	public bool RejectDuplicateKeys { get; init; } = false;
+	public bool AllowDuplicateKeys { get; init; } = false;
 
 	/// <summary>
 	/// Gets the maximum nesting depth of collections, block scalars excluded.

@@ -11,7 +11,7 @@ public record YamlSerializer : ShapeShiftSerializer<YamlEncoder, YamlDecoder>
 	/// <summary>
 	/// Gets the options used when reading YAML.
 	/// </summary>
-	/// <value>The load options. The default limits nesting and alias expansion and keeps duplicate mapping keys.</value>
+	/// <value>The load options. The default limits nesting and alias expansion and rejects duplicate mapping keys.</value>
 	public YamlLoadOptions LoadOptions { get; init; } = new();
 
 	/// <summary>

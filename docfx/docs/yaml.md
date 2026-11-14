@@ -51,7 +51,12 @@ After each document, `NextTokenType` is `EndDocument`. `TryAdvanceDocument` move
 
 `YamlLoadOptions` is immutable and lives on `YamlSerializer.LoadOptions`. The `YamlDecoder` constructor takes the same record.
 
-- `RejectDuplicateKeys` defaults to false. The YAML 1.2 specification says mapping keys must be unique, and the official test suite still accepts a document that repeats a key. Leave the default to keep every entry, or set it to true to reject a repeated key.
+- `AllowDuplicateKeys` defaults to false, so a repeated mapping key is an error. YAML 1.2 requires unique keys. Set it to true to keep every entry in source order. For example, this document is rejected unless duplicates are allowed:
+
+  ```yaml
+  name: Ada
+  name: Grace
+  ```
 - `MaxDepth` defaults to 256. Block scalars do not count toward the limit.
 - `MaxAliasExpansions` defaults to 4096. This bounds how many times aliases may be substituted in one document.
 

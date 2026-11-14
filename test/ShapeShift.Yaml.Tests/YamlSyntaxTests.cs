@@ -76,10 +76,11 @@ public partial class YamlSyntaxTests
 	}
 
 	[Test]
-	public async Task DuplicateKeysAreKeptUnlessRequested()
+	public async Task DuplicateKeysAreRejectedUnlessAllowed()
 	{
-		await Assert.That(string.Join('|', ReadMapStrings(": a\n: b\n"))).IsEqualTo("|a||b");
-		await Assert.That(() => Open(": a\n: b\n", new YamlLoadOptions { RejectDuplicateKeys = true })).Throws<DecoderException>();
+		await Assert.That(() => Open(": a\n: b\n")).Throws<DecoderException>();
+		await Assert.That(() => Open("name: Ada\nname: Grace\n")).Throws<DecoderException>();
+		await Assert.That(string.Join('|', ReadMapStrings(": a\n: b\n", new YamlLoadOptions { AllowDuplicateKeys = true }))).IsEqualTo("|a||b");
 	}
 
 	[Test]
@@ -155,9 +156,9 @@ public partial class YamlSyntaxTests
 		return value;
 	}
 
-	private static List<string> ReadMapStrings(string yaml)
+	private static List<string> ReadMapStrings(string yaml, YamlLoadOptions? options = null)
 	{
-		YamlDecoder decoder = Open(yaml);
+		YamlDecoder decoder = Open(yaml, options);
 		decoder.ReadStartMap();
 		List<string> values = [];
 		while (decoder.NextTokenType != TokenType.EndMap)
