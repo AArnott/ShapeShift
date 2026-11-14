@@ -233,27 +233,84 @@ internal sealed class ShapeShiftValueConverter<TEncoder, TDecoder> : ShapeShiftC
 				// DepthStep stops this walk at the same remaining depth Write uses, so the
 				// hash below never recurses into a key the serializer would reject.
 				this.EnsureWithinRemainingDepth(key, context);
-				if (!seen.TryAdd(key, 0))
+				if (!seen.TryAdd(NormalizeKey(key), 0))
 				{
 					throw new ShapeShiftSerializationException("A dynamic map key appears more than once.");
 				}
 			}
 
-			if (encoder.ArbitraryMapKeys)
+			if (key is ShapeShiftString text)
 			{
-				this.Write(ref encoder, key, context);
+				ValidateLength(text.Value.Length, context.MaxStringLength, "String");
+				encoder.WritePropertyName(text.Value);
 			}
 			else
 			{
-				string name = ((ShapeShiftString)key).Value;
-				ValidateLength(name.Length, context.MaxStringLength, "String");
-				encoder.WritePropertyName(name);
+				this.Write(ref encoder, key, context);
 			}
 
 			this.Write(ref encoder, entry.Value, context);
 		}
 
 		encoder.WriteEndMap();
+	}
+
+	private static ShapeShiftValue NormalizeKey(ShapeShiftValue value)
+	{
+		switch (value)
+		{
+			case ShapeShiftArray array:
+				ShapeShiftValue[] items = new ShapeShiftValue[array.Items.Count];
+				for (int i = 0; i < items.Length; i++)
+				{
+					items[i] = NormalizeKey(array.Items[i] ?? ShapeShiftValue.Null);
+				}
+
+				return new ShapeShiftArray(items);
+			case ShapeShiftMap map:
+				Dictionary<string, ShapeShiftValue> properties = new(map.Properties.Count, StringComparer.Ordinal);
+				foreach ((string name, ShapeShiftValue item) in map.Properties)
+				{
+					properties.Add(name, NormalizeKey(item ?? ShapeShiftValue.Null));
+				}
+
+				return new ShapeShiftMap(properties);
+			case ShapeShiftDataMap dataMap:
+				return NormalizeDataMap(dataMap);
+			default:
+				return value;
+		}
+	}
+
+	private static ShapeShiftValue NormalizeDataMap(ShapeShiftDataMap dataMap)
+	{
+		IReadOnlyList<ShapeShiftDataMapEntry> entries = dataMap.Entries ?? throw new ShapeShiftSerializationException("A dynamic map is missing its entries.");
+		ShapeShiftDataMapEntry[] normalized = new ShapeShiftDataMapEntry[entries.Count];
+		bool textKeys = true;
+		for (int i = 0; i < entries.Count; i++)
+		{
+			ShapeShiftValue key = NormalizeKey(entries[i].Key ?? ShapeShiftValue.Null);
+			ShapeShiftValue item = NormalizeKey(entries[i].Value ?? ShapeShiftValue.Null);
+			textKeys &= key is ShapeShiftString;
+			normalized[i] = new(key, item);
+		}
+
+		if (!textKeys)
+		{
+			return new ShapeShiftDataMap(normalized);
+		}
+
+		Dictionary<string, ShapeShiftValue> properties = new(normalized.Length, StringComparer.Ordinal);
+		foreach (ShapeShiftDataMapEntry entry in normalized)
+		{
+			string name = ((ShapeShiftString)entry.Key).Value;
+			if (!properties.TryAdd(name, entry.Value))
+			{
+				throw new ShapeShiftSerializationException("A dynamic map key appears more than once.");
+			}
+		}
+
+		return new ShapeShiftMap(properties);
 	}
 
 	private void EnsureWithinRemainingDepth(ShapeShiftValue value, SerializationContext<TEncoder, TDecoder> context)

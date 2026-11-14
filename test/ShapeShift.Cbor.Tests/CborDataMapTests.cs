@@ -208,6 +208,25 @@ public partial class CborDataMapTests
 	}
 
 	[Test]
+	public async Task TextOnlyDataMapKey_MatchesTheSameStringMap()
+	{
+		ShapeShiftValue asMap = new ShapeShiftMap(new Dictionary<string, ShapeShiftValue> { ["a"] = 1UL, ["b"] = 2UL });
+		ShapeShiftValue asData = new ShapeShiftDataMap(
+		[
+			new ShapeShiftDataMapEntry("b", 2UL),
+			new ShapeShiftDataMapEntry("a", 1UL),
+		]);
+		ShapeShiftValue nested = new ShapeShiftDataMap(
+		[
+			new ShapeShiftDataMapEntry(new ShapeShiftArray([asMap]), "left"),
+			new ShapeShiftDataMapEntry(new ShapeShiftArray([asData]), "right"),
+		]);
+		Func<byte[]> write = () => this.serializer.Serialize(nested);
+
+		await Assert.That(write).Throws<ShapeShiftSerializationException>();
+	}
+
+	[Test]
 	public async Task DuplicateKeys_AreRejected()
 	{
 		Func<ShapeShiftValue?> read = () => this.serializer.Deserialize<ShapeShiftValue>(Convert.FromHexString("A2016161016162"));

@@ -403,6 +403,11 @@ public partial class StructuralEqualityTests
 		await Assert.That(comparer.Equals(new ShapeShiftFloat(0.0d), new ShapeShiftFloat(-0.0d))).IsTrue();
 		await Assert.That(comparer.GetHashCode(new ShapeShiftFloat(0.0d))).IsEqualTo(comparer.GetHashCode(new ShapeShiftFloat(-0.0d)));
 		await Assert.That(comparer.GetHashCode(new ShapeShiftFloat(double.NaN))).IsEqualTo(comparer.GetHashCode(new ShapeShiftFloat(double.CopySign(double.NaN, -1))));
+
+		ShapeShiftValue left = BooleanArray(1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0);
+		ShapeShiftValue right = BooleanArray(0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 1, 0);
+		await Assert.That(comparer.Equals(left, right)).IsFalse();
+		await Assert.That(comparer.GetHashCode(left)).IsNotEqualTo(comparer.GetHashCode(right));
 	}
 
 	[Test]
@@ -580,6 +585,17 @@ public partial class StructuralEqualityTests
 		await Assert.That(comparer.Equals(new(double.NaN), new(double.NaN))).IsTrue();
 		await Assert.That(comparer.GetHashCode(new(double.NaN))).IsEqualTo(comparer.GetHashCode(new(double.NaN)));
 		await Assert.That(comparer.GetHashCode(new(0.0))).IsEqualTo(comparer.GetHashCode(new(-0.0)));
+	}
+
+	private static ShapeShiftArray BooleanArray(params int[] bits)
+	{
+		ShapeShiftValue[] items = new ShapeShiftValue[bits.Length];
+		for (int i = 0; i < bits.Length; i++)
+		{
+			items[i] = new ShapeShiftBoolean(bits[i] != 0);
+		}
+
+		return new(items);
 	}
 
 	private static ShapeShiftArray Nest(int depth, ShapeShiftValue leaf)

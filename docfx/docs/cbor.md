@@ -32,7 +32,10 @@ is still a CBOR array of two-element key/value arrays. Untyped
   they had on the wire. Structural equality ignores that order and rejects two
   entries whose keys compare as the same dynamic value.
 - Writing a `ShapeShiftDataMap` that contains only text keys produces an
-  ordinary text-key map, so it reads back as a `ShapeShiftMap`.
+  ordinary text-key map, so it reads back as a `ShapeShiftMap`. Text keys are
+  written with the property-name operation. A text-only data map and a
+  `ShapeShiftMap` with the same entries are the same key, including when one
+  is nested inside another key.
 
 ```csharp
 ShapeShiftValue value = new ShapeShiftDataMap(

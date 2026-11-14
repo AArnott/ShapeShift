@@ -10,9 +10,11 @@ namespace ShapeShift.Equality;
 /// Determines how the hash codes of leaf (indivisible) values are computed.
 /// </summary>
 /// <remarks>
-/// Only leaves differ between policies. Aggregation of child hash codes is always performed by
-/// <see cref="HashCombiner"/>, which keeps the shape of the algorithm identical so that the two
-/// policies agree on <em>equality</em> in every case and differ only in hash quality.
+/// <para>
+/// The deterministic policy aggregates child hash codes with <see cref="HashCombiner"/>.
+/// The collision-resistant policy overrides that aggregation, so the hash of a dynamic array or map
+/// depends on the process key and not only on the public combiner. Equality is the same either way.
+/// </para>
 /// </remarks>
 internal abstract class HashingPolicy
 {
@@ -52,6 +54,36 @@ internal abstract class HashingPolicy
 	/// <param name="hash">The hash code reported by the leaf type.</param>
 	/// <returns>The hash code to use.</returns>
 	internal abstract int HashOpaque(int hash);
+
+	/// <summary>
+	/// Computes the hash code of a Boolean value.
+	/// </summary>
+	/// <param name="value">The Boolean value.</param>
+	/// <returns>The hash code.</returns>
+	internal virtual int HashBoolean(bool value) => value ? 1 : 0;
+
+	/// <summary>
+	/// Combines a child hash code into an accumulator in an order sensitive way.
+	/// </summary>
+	/// <param name="accumulator">The accumulated hash code.</param>
+	/// <param name="value">The child hash code.</param>
+	/// <returns>The updated accumulator.</returns>
+	internal virtual int Combine(int accumulator, int value) => HashCombiner.Combine(accumulator, value);
+
+	/// <summary>
+	/// Combines an entry hash code into an accumulator in an order insensitive way.
+	/// </summary>
+	/// <param name="accumulator">The accumulated hash code.</param>
+	/// <param name="value">The entry hash code.</param>
+	/// <returns>The updated accumulator.</returns>
+	internal virtual int CombineUnordered(int accumulator, int value) => HashCombiner.CombineUnordered(accumulator, value);
+
+	/// <summary>
+	/// Applies the policy's final mix to a combined hash code.
+	/// </summary>
+	/// <param name="accumulator">The accumulated hash code.</param>
+	/// <returns>The finalized hash code.</returns>
+	internal virtual int FinalizeHash(int accumulator) => HashCombiner.Finalize(accumulator);
 
 	/// <summary>
 	/// Hashes a signed integer over its full width when this policy hashes leaf content.

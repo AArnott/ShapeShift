@@ -84,21 +84,21 @@ internal sealed class ShapeShiftValueComparer(HashingPolicy policy) : Structural
 			case ShapeShiftNull:
 				return NullSeed;
 			case ShapeShiftBoolean booleanNode:
-				return HashCombiner.Finalize(HashCombiner.Combine(BooleanSeed, booleanNode.Value ? 1 : 0));
+				return this.Finish(this.Mix(BooleanSeed, policy.HashBoolean(booleanNode.Value)));
 			case ShapeShiftInteger integerNode:
-				return HashCombiner.Finalize(HashCombiner.Combine(IntegerSeed, policy.HashInt64(integerNode.Value)));
+				return this.Finish(this.Mix(IntegerSeed, policy.HashInt64(integerNode.Value)));
 			case ShapeShiftUnsignedInteger unsignedNode:
-				return HashCombiner.Finalize(HashCombiner.Combine(UnsignedSeed, policy.HashUInt64(unsignedNode.Value)));
+				return this.Finish(this.Mix(UnsignedSeed, policy.HashUInt64(unsignedNode.Value)));
 			case ShapeShiftBigInteger bigNode:
-				return HashCombiner.Finalize(HashCombiner.Combine(BigIntegerSeed, policy.HashBigInteger(bigNode.Value)));
+				return this.Finish(this.Mix(BigIntegerSeed, policy.HashBigInteger(bigNode.Value)));
 			case ShapeShiftFloat floatNode:
-				return HashCombiner.Finalize(HashCombiner.Combine(FloatSeed, policy.HashDouble(floatNode.Value)));
+				return this.Finish(this.Mix(FloatSeed, policy.HashDouble(floatNode.Value)));
 			case ShapeShiftDecimal decimalNode:
-				return HashCombiner.Finalize(HashCombiner.Combine(DecimalSeed, policy.HashDecimal(decimalNode.Value)));
+				return this.Finish(this.Mix(DecimalSeed, policy.HashDecimal(decimalNode.Value)));
 			case ShapeShiftString stringNode:
-				return HashCombiner.Finalize(HashCombiner.Combine(StringSeed, policy.HashString(stringNode.Value)));
+				return this.Finish(this.Mix(StringSeed, policy.HashString(stringNode.Value)));
 			case ShapeShiftBinary binaryNode:
-				return HashCombiner.Finalize(HashCombiner.Combine(BinarySeed, policy.HashBytes(binaryNode.Value.Span)));
+				return this.Finish(this.Mix(BinarySeed, policy.HashBytes(binaryNode.Value.Span)));
 			case ShapeShiftArray arrayNode:
 				return this.HashArray(arrayNode, ref state);
 			case ShapeShiftMap mapNode:
@@ -177,10 +177,10 @@ internal sealed class ShapeShiftValueComparer(HashingPolicy policy) : Structural
 		int hash = ArraySeed;
 		foreach (ShapeShiftValue item in node.Items)
 		{
-			hash = HashCombiner.Combine(hash, this.GetHashCodeWithNullHandling(item, ref state));
+			hash = this.Mix(hash, this.GetHashCodeWithNullHandling(item, ref state));
 		}
 
-		hash = HashCombiner.Finalize(hash);
+		hash = this.Finish(hash);
 		state.Exit(node, hash);
 		return hash;
 	}
@@ -196,12 +196,12 @@ internal sealed class ShapeShiftValueComparer(HashingPolicy policy) : Structural
 		int count = 0;
 		foreach (KeyValuePair<string, ShapeShiftValue> entry in node.Properties)
 		{
-			int entryHash = HashCombiner.Combine(policy.HashString(entry.Key), this.GetHashCodeWithNullHandling(entry.Value, ref state));
-			hash = HashCombiner.CombineUnordered(hash, HashCombiner.Finalize(entryHash));
+			int entryHash = this.Mix(policy.HashString(entry.Key), this.GetHashCodeWithNullHandling(entry.Value, ref state));
+			hash = policy.CombineUnordered(hash, this.Finish(entryHash));
 			count++;
 		}
 
-		hash = HashCombiner.Finalize(HashCombiner.Combine(hash, count));
+		hash = this.Finish(this.Mix(hash, count));
 		state.Exit(node, hash);
 		return hash;
 	}
@@ -289,7 +289,7 @@ internal sealed class ShapeShiftValueComparer(HashingPolicy policy) : Structural
 			return HashCombiner.CyclicHash;
 		}
 
-		return HashCombiner.Finalize(HashCombiner.Combine(keyHash, valueHash));
+		return this.Finish(this.Mix(keyHash, valueHash));
 	}
 
 	private int HashDataMap(ShapeShiftDataMap node, ref HashState state)
@@ -303,13 +303,17 @@ internal sealed class ShapeShiftValueComparer(HashingPolicy policy) : Structural
 		int count = 0;
 		foreach (ShapeShiftDataMapEntry entry in node.Entries)
 		{
-			int entryHash = HashCombiner.Combine(this.GetHashCodeWithNullHandling(entry.Key, ref state), this.GetHashCodeWithNullHandling(entry.Value, ref state));
-			hash = HashCombiner.CombineUnordered(hash, HashCombiner.Finalize(entryHash));
+			int entryHash = this.Mix(this.GetHashCodeWithNullHandling(entry.Key, ref state), this.GetHashCodeWithNullHandling(entry.Value, ref state));
+			hash = policy.CombineUnordered(hash, this.Finish(entryHash));
 			count++;
 		}
 
-		hash = HashCombiner.Finalize(HashCombiner.Combine(hash, count));
+		hash = this.Finish(this.Mix(hash, count));
 		state.Exit(node, hash);
 		return hash;
 	}
+
+	private int Mix(int accumulator, int value) => policy.Combine(accumulator, value);
+
+	private int Finish(int accumulator) => policy.FinalizeHash(accumulator);
 }

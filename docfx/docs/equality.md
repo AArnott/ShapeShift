@@ -139,9 +139,10 @@ from an untrusted source, opt in to collision-resistant hashing:
 
 [!code-csharp[CollisionResistant](../../samples/cs/StructuralEquality.cs#CollisionResistant)]
 
-Collision-resistant comparers hash strings, byte sequences and leaf hash codes
-with SipHash-2-4 under a 128-bit key drawn from a cryptographic RNG once per
-process.
+Collision-resistant comparers hash strings, byte sequences, Booleans, and leaf
+hash codes with SipHash-2-4 under a 128-bit key drawn from a cryptographic RNG
+once per process. The same key mixes the children of a dynamic array or map, so
+those hashes are not the public `HashCombiner` polynomial.
 
 > [!CAUTION]
 > Caveats of collision-resistant hashing:

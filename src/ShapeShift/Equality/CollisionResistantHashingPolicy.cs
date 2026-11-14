@@ -15,10 +15,12 @@ namespace ShapeShift.Equality;
 /// differ between runs and must never be persisted or transmitted.
 /// </para>
 /// <para>
-/// Well-known leaf types (strings, byte arrays, integers, enums, floating point numbers, dates,
-/// times and GUIDs) are hashed over their full canonical content. Any other leaf type is hashed by
-/// feeding its own 32-bit hash code through the keyed function, which randomizes the result but
-/// cannot recover entropy that the leaf type already discarded.
+/// Well-known leaf types (strings, byte arrays, Booleans, integers, enums, floating point numbers,
+/// dates, times and GUIDs) are hashed over their full canonical content. Dynamic arrays and maps
+/// mix those child hashes with the same key, so an attacker cannot predict collisions from the
+/// public combiner. Any other leaf type is hashed by feeding its own 32-bit hash code through the
+/// keyed function, which randomizes the result but cannot recover entropy that the leaf type already
+/// discarded.
 /// </para>
 /// </remarks>
 internal sealed class CollisionResistantHashingPolicy : HashingPolicy
@@ -50,6 +52,42 @@ internal sealed class CollisionResistantHashingPolicy : HashingPolicy
 	{
 		Span<byte> buffer = stackalloc byte[4];
 		BitConverter.TryWriteBytes(buffer, hash);
+		return this.HashBytes(buffer);
+	}
+
+	/// <inheritdoc/>
+	internal override int HashBoolean(bool value)
+	{
+		Span<byte> buffer = stackalloc byte[1];
+		buffer[0] = value ? (byte)1 : (byte)0;
+		return this.HashBytes(buffer);
+	}
+
+	/// <inheritdoc/>
+	internal override int Combine(int accumulator, int value)
+	{
+		Span<byte> buffer = stackalloc byte[9];
+		buffer[0] = 1;
+		BitConverter.TryWriteBytes(buffer[1..], accumulator);
+		BitConverter.TryWriteBytes(buffer[5..], value);
+		return this.HashBytes(buffer);
+	}
+
+	/// <inheritdoc/>
+	internal override int CombineUnordered(int accumulator, int value)
+	{
+		Span<byte> buffer = stackalloc byte[5];
+		buffer[0] = 2;
+		BitConverter.TryWriteBytes(buffer[1..], value);
+		return unchecked(accumulator + this.HashBytes(buffer));
+	}
+
+	/// <inheritdoc/>
+	internal override int FinalizeHash(int accumulator)
+	{
+		Span<byte> buffer = stackalloc byte[5];
+		buffer[0] = 3;
+		BitConverter.TryWriteBytes(buffer[1..], accumulator);
 		return this.HashBytes(buffer);
 	}
 }
