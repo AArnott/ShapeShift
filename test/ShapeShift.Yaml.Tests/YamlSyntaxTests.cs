@@ -90,6 +90,7 @@ public partial class YamlSyntaxTests
 		await Assert.That(string.Join('|', ReadMapStrings(": a\n: b\n", new YamlLoadOptions { AllowDuplicateKeys = true }))).IsEqualTo("|a||b");
 		await Assert.That(() => Open("1: a\n0x1: b\n")).Throws<DecoderException>();
 		await Assert.That(string.Join('|', ReadMapStrings("1: a\n\"1\": b\n"))).IsEqualTo("1|a|1|b");
+		await Assert.That(ReadDistinctSequenceKeys()).IsEqualTo("a|b|first|a;S=b|second");
 		await Assert.That(() => Open(AliasBombKeys(), new YamlLoadOptions { MaxAliasExpansions = 8 })).Throws<DecoderException>();
 	}
 
@@ -165,7 +166,7 @@ public partial class YamlSyntaxTests
 	public async Task WriterStillEmitsIndentedBlockStyle()
 	{
 		string yaml = new YamlSerializer().Serialize<Person, Person>(new Person { FirstName = "Ada", LastName = "Lovelace" });
-		await Assert.That(yaml).IsEqualTo("  FirstName: Ada\n  LastName: Lovelace\n");
+		await Assert.That(yaml.Replace("\r\n", "\n", StringComparison.Ordinal)).IsEqualTo("  FirstName: Ada\n  LastName: Lovelace\n");
 	}
 
 	private static List<string> ReadFlow()
@@ -309,6 +310,24 @@ public partial class YamlSyntaxTests
 		}
 
 		return (decoder.DocumentCount, sawNull);
+	}
+
+	private static string ReadDistinctSequenceKeys()
+	{
+		YamlDecoder decoder = Open("{[a, b]: first, ['a;S=b']: second}\n");
+		decoder.ReadStartMap();
+		List<string> values = [];
+		decoder.ReadStartVector();
+		values.Add(decoder.ReadString());
+		values.Add(decoder.ReadString());
+		decoder.ReadEndVector();
+		values.Add(decoder.ReadString());
+		decoder.ReadStartVector();
+		values.Add(decoder.ReadString());
+		decoder.ReadEndVector();
+		values.Add(decoder.ReadString());
+		decoder.ReadEndMap();
+		return string.Join('|', values);
 	}
 
 	private static string AliasBombKeys()

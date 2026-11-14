@@ -45,6 +45,7 @@ internal static class YamlParser
 		private readonly string text;
 		private readonly YamlLoadOptions options;
 		private readonly Dictionary<string, YamlNode> anchors = new(StringComparer.Ordinal);
+		private readonly Dictionary<YamlNode, HashSet<string>> seenKeys = new();
 		private readonly HashSet<YamlNode> constructing = [];
 		private readonly Dictionary<string, string> tagHandles = new(StringComparer.Ordinal);
 		private readonly HashSet<string> declaredHandles = new(StringComparer.Ordinal);
@@ -694,6 +695,7 @@ internal static class YamlParser
 			}
 			finally
 			{
+				this.seenKeys.Remove(node);
 				this.constructing.Remove(node);
 				this.LeaveDepth();
 			}
@@ -959,6 +961,7 @@ internal static class YamlParser
 			}
 			finally
 			{
+				this.seenKeys.Remove(node);
 				this.constructing.Remove(node);
 				this.LeaveDepth();
 			}
@@ -1005,6 +1008,7 @@ internal static class YamlParser
 		{
 			YamlNode map = new() { Kind = YamlNodeKind.Mapping, Pairs = [] };
 			this.AddPair(map, key, value);
+			this.seenKeys.Remove(map);
 			return map;
 		}
 
@@ -1715,81 +1719,82 @@ internal static class YamlParser
 				return;
 			}
 
-			for (int i = 0; i < map.Pairs.Count - 1; i++)
+			if (!this.seenKeys.TryGetValue(map, out HashSet<string>? seen))
 			{
-				if (this.SameKey(map.Pairs[i].Key, key))
-				{
-					throw this.Error("A YAML mapping contains a duplicate key.");
-				}
+				seen = new HashSet<string>(StringComparer.Ordinal);
+				this.seenKeys[map] = seen;
+			}
+
+			if (!seen.Add(this.KeyFingerprint(key)))
+			{
+				throw this.Error("A YAML mapping contains a duplicate key.");
 			}
 		}
 
-		private bool SameKey(YamlNode left, YamlNode right)
+		private string KeyFingerprint(YamlNode key)
 		{
 			this.keyAliasExpansions = 0;
-			return this.SameNode(left, right, []);
+			return this.Fingerprint(key, [], []);
 		}
 
-		private bool SameNode(YamlNode left, YamlNode right, Dictionary<(YamlNode Left, YamlNode Right), bool> memo)
+		private string Fingerprint(YamlNode node, Dictionary<YamlNode, string> done, HashSet<YamlNode> stack)
 		{
-			left = this.FollowKey(left);
-			right = this.FollowKey(right);
-			if (ReferenceEquals(left, right))
-			{
-				return true;
-			}
-
-			(YamlNode Left, YamlNode Right) pair = (left, right);
-			if (memo.TryGetValue(pair, out bool cached))
+			node = this.FollowKey(node);
+			if (done.TryGetValue(node, out string? cached))
 			{
 				return cached;
 			}
 
-			// Assume equality until a difference is found so a cycle does not recurse forever.
-			memo[pair] = true;
-			bool equal = left.Kind == right.Kind && this.SameContent(left, right, memo);
-			memo[pair] = equal;
-			return equal;
+			if (!stack.Add(node))
+			{
+				return "#";
+			}
+
+			string value;
+			if (node.Kind == YamlNodeKind.Scalar)
+			{
+				string canonical = YamlSchema.CanonicalScalar(node);
+				value = "S" + canonical.Length.ToString(System.Globalization.CultureInfo.InvariantCulture) + ":" + canonical;
+			}
+			else if (node.Kind == YamlNodeKind.Sequence)
+			{
+				value = this.FingerprintSequence(node, done, stack);
+			}
+			else
+			{
+				value = this.FingerprintMapping(node, done, stack);
+			}
+
+			stack.Remove(node);
+			done[node] = value;
+			return value;
 		}
 
-		private bool SameContent(YamlNode left, YamlNode right, Dictionary<(YamlNode Left, YamlNode Right), bool> memo)
+		private string FingerprintSequence(YamlNode node, Dictionary<YamlNode, string> done, HashSet<YamlNode> stack)
 		{
-			switch (left.Kind)
+			StringBuilder sb = new();
+			sb.Append('L').Append(node.Items!.Count).Append('{');
+			foreach (YamlNode item in node.Items)
 			{
-				case YamlNodeKind.Scalar:
-					return YamlSchema.CanonicalScalar(left) == YamlSchema.CanonicalScalar(right);
-				case YamlNodeKind.Sequence:
-					if (left.Items!.Count != right.Items!.Count)
-					{
-						return false;
-					}
-
-					for (int i = 0; i < left.Items.Count; i++)
-					{
-						if (!this.SameNode(left.Items[i], right.Items[i], memo))
-						{
-							return false;
-						}
-					}
-
-					return true;
-				default:
-					if (left.Pairs!.Count != right.Pairs!.Count)
-					{
-						return false;
-					}
-
-					for (int i = 0; i < left.Pairs.Count; i++)
-					{
-						if (!this.SameNode(left.Pairs[i].Key, right.Pairs[i].Key, memo) ||
-							!this.SameNode(left.Pairs[i].Value, right.Pairs[i].Value, memo))
-						{
-							return false;
-						}
-					}
-
-					return true;
+				sb.Append(this.Fingerprint(item, done, stack));
 			}
+
+			sb.Append('}');
+			return sb.ToString();
+		}
+
+		private string FingerprintMapping(YamlNode node, Dictionary<YamlNode, string> done, HashSet<YamlNode> stack)
+		{
+			StringBuilder sb = new();
+			sb.Append('M').Append(node.Pairs!.Count).Append('{');
+			foreach (YamlPair pair in node.Pairs)
+			{
+				sb.Append(this.Fingerprint(pair.Key, done, stack));
+				sb.Append(this.Fingerprint(pair.Value, done, stack));
+			}
+
+			sb.Append('}');
+			return sb.ToString();
 		}
 
 		private YamlNode FollowKey(YamlNode node)
