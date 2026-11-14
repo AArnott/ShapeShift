@@ -27,6 +27,12 @@ public ref struct TamlEncoder(TextWriter writer) : IEncoder
 		Vector,
 	}
 
+	/// <inheritdoc/>
+	public bool ArbitraryMapKeys => false;
+
+	/// <inheritdoc/>
+	public bool NonNegativeIntegersAreUnsigned => false;
+
 	public void WriteStartVector(int? itemCount)
 	{
 		this.WriteStartContainer(ContainerKind.Vector);

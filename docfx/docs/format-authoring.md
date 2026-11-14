@@ -280,9 +280,22 @@ encoding rather than a lossy narrowing. Text is a perfectly respectable choice:
 [!code-csharp[Integers](../../samples/ubjson/UbjsonEncoder.cs#EncoderIntegers)]
 
 Note also that map keys are frequently encoded differently from string values,
-which is why `WritePropertyName` is a distinct operation:
+which is why `WritePropertyName` is a distinct operation. Text keys always use
+that method, including a text key inside a `ShapeShiftDataMap`. A format whose
+maps may use any data item as a key, as CBOR major type 5 does, returns `true`
+from `IEncoder.ArbitraryMapKeys`. The shared dynamic converter then writes each
+non-text key with the ordinary value methods. The interface default is `false`.
+A `ref struct` encoder has to redeclare the property. `false` rejects a data map
+that contains a non-text key and leaves string maps unchanged:
 
 [!code-csharp[PropertyName](../../samples/ubjson/UbjsonEncoder.cs#EncoderPropertyName)]
+
+CBOR also returns `true` from `IEncoder.NonNegativeIntegersAreUnsigned`, because
+a non-negative integer uses major type 0 and reads back unsigned. The dynamic
+converter consults that flag only when rejecting map keys that would round-trip
+as duplicates. Structural equality still treats the signed and unsigned nodes
+as different values. The default is `false`, and a `ref struct` encoder
+redeclares this property too.
 
 ## Primitives the shared interfaces do not expose
 

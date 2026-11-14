@@ -47,7 +47,7 @@ Every shape kind the serializer understands is supported:
 | Optionals (`T?`, `Option<T>`, ...) | "Has value" flags must match; values compared structurally. |
 | Unions | The selected case must match, then the case value is compared structurally. |
 | Surrogates | Both sides are projected through the surrogate marshaler and the surrogate is compared. Only state the surrogate carries participates in equality. |
-| `ShapeShiftValue` | Structural: maps are order-independent, arrays element-wise, binary by byte content. |
+| `ShapeShiftValue` | Structural: string maps and data maps are order-independent, arrays element-wise, binary by byte content. Integer and unsigned nodes stay distinct. |
 | `byte[]` and `ReadOnlyMemory<byte>` | By content, not by reference. |
 
 `null` equals `null`, and `null` never equals a non-`null` value.
@@ -139,9 +139,10 @@ from an untrusted source, opt in to collision-resistant hashing:
 
 [!code-csharp[CollisionResistant](../../samples/cs/StructuralEquality.cs#CollisionResistant)]
 
-Collision-resistant comparers hash strings, byte sequences and leaf hash codes
-with SipHash-2-4 under a 128-bit key drawn from a cryptographic RNG once per
-process.
+Collision-resistant comparers hash strings, byte sequences, Booleans, and leaf
+hash codes with SipHash-2-4 under a 128-bit key drawn from a cryptographic RNG
+once per process. The same key mixes the children of a dynamic array or map, so
+those hashes are not the public `HashCombiner` polynomial.
 
 > [!CAUTION]
 > Caveats of collision-resistant hashing:

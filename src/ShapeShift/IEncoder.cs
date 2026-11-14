@@ -29,6 +29,40 @@ namespace ShapeShift;
 public interface IEncoder
 {
 	/// <summary>
+	/// Gets a value indicating whether a map key may be any data item this encoder can write.
+	/// </summary>
+	/// <value>
+	/// <see langword="true"/> when a key is written with the same value methods as any other data item;
+	/// <see langword="false"/> when every map key must be a text property name.
+	/// </value>
+	/// <remarks>
+	/// The default is <see langword="false"/>, which is what text formats and typed string maps require.
+	/// A <see langword="ref"/> <see langword="struct"/> encoder redeclares the property, because it cannot
+	/// pick up a default interface implementation. CBOR returns <see langword="true"/> because RFC 8949
+	/// major type 5 allows any data item as a key.
+	/// A <see cref="ShapeShiftDataMap"/> that contains a non-text key is rejected by an encoder that leaves this
+	/// <see langword="false"/>. Text keys are still written with <see cref="WritePropertyName(ReadOnlySpan{char})"/>.
+	/// </remarks>
+	bool ArbitraryMapKeys => false;
+
+	/// <summary>
+	/// Gets a value indicating whether a non-negative signed integer reads back as an unsigned integer.
+	/// </summary>
+	/// <value>
+	/// <see langword="true"/> when <c>0</c> through <see cref="long.MaxValue"/> use the same encoding as the
+	/// corresponding unsigned integer; <see langword="false"/> when the signed and unsigned forms stay distinct.
+	/// </value>
+	/// <remarks>
+	/// The default is <see langword="false"/>. A <see langword="ref"/> <see langword="struct"/> encoder redeclares
+	/// the property, because it cannot pick up a default interface implementation. CBOR returns <see langword="true"/>
+	/// because major type 0 is the encoding of every non-negative integer that fits in 64 bits.
+	/// The dynamic converter uses this only to decide whether two map keys would become the same value.
+	/// Structural equality still treats <see cref="ShapeShiftInteger"/> and <see cref="ShapeShiftUnsignedInteger"/>
+	/// as different node kinds.
+	/// </remarks>
+	bool NonNegativeIntegersAreUnsigned => false;
+
+	/// <summary>
 	/// Prepares a declared property name for repeated writes by this encoder type.
 	/// </summary>
 	/// <param name="name">The property name.</param>

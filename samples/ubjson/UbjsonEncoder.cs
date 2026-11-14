@@ -26,6 +26,12 @@ public ref struct UbjsonEncoder(IBufferWriter<byte> writer) : IEncoder
     private int depth;
 
     /// <inheritdoc/>
+    public bool ArbitraryMapKeys => false;
+
+    /// <inheritdoc/>
+    public bool NonNegativeIntegersAreUnsigned => false;
+
+    /// <inheritdoc/>
     public void WriteStartMap(int? propertyCount)
     {
         this.WriteMarker(UbjsonMarkers.ObjectStart);

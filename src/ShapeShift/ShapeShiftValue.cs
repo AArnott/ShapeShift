@@ -8,6 +8,13 @@ using System.Numerics;
 namespace ShapeShift;
 
 /// <summary>
+/// One entry in a <see cref="ShapeShiftDataMap"/>.
+/// </summary>
+/// <param name="Key">The entry key. Use <see cref="ShapeShiftValue.Null"/> for a null key.</param>
+/// <param name="Value">The entry value.</param>
+public readonly record struct ShapeShiftDataMapEntry(ShapeShiftValue Key, ShapeShiftValue Value);
+
+/// <summary>
 /// Represents a value in the format-neutral ShapeShift data model.
 /// </summary>
 [GenerateShape]
@@ -150,4 +157,27 @@ public sealed record ShapeShiftArray(IReadOnlyList<ShapeShiftValue> Items) : Sha
 /// Represents a map whose keys are strings.
 /// </summary>
 /// <param name="Properties">The map properties.</param>
+/// <remarks>
+/// CBOR maps whose keys are not all text are represented by <see cref="ShapeShiftDataMap"/>.
+/// A map that contains only text keys, including one constructed as a <see cref="ShapeShiftDataMap"/>,
+/// is read back as a <see cref="ShapeShiftMap"/>.
+/// </remarks>
 public sealed record ShapeShiftMap(IReadOnlyDictionary<string, ShapeShiftValue> Properties) : ShapeShiftValue;
+
+/// <summary>
+/// Represents a map whose keys are arbitrary dynamic values.
+/// </summary>
+/// <param name="Entries">The map entries, in the order they were written or read.</param>
+/// <remarks>
+/// <para>
+/// CBOR major type 5 allows any data item as a key. This type carries those maps.
+/// <see cref="ShapeShiftMap"/> remains the representation when every key is text.
+/// Entry order is preserved on the wire and ignored by structural equality.
+/// Duplicate keys, compared structurally, are rejected.
+/// </para>
+/// <para>
+/// Formats that cannot encode a non-text key reject this value. Typed dictionaries are unchanged:
+/// string keys are still text maps, and every other key type is still a sequence of key/value pairs.
+/// </para>
+/// </remarks>
+public sealed record ShapeShiftDataMap(IReadOnlyList<ShapeShiftDataMapEntry> Entries) : ShapeShiftValue;

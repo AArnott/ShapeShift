@@ -205,6 +205,15 @@ public sealed record FormatConformanceOptions
 	public bool SupportsDynamicValues { get; init; } = true;
 
 	/// <summary>
+	/// Gets a value indicating whether a <see cref="ShapeShiftDataMap"/> with a non-text key round-trips as a map.
+	/// </summary>
+	/// <remarks>
+	/// This is <see cref="IEncoder.ArbitraryMapKeys"/>. Formats that leave it <see langword="false"/>
+	/// reject a data map whose keys are not all text. Text-key <see cref="ShapeShiftMap"/> values are unaffected.
+	/// </remarks>
+	public bool SupportsArbitraryMapKeys { get; init; }
+
+	/// <summary>
 	/// Gets a value indicating whether strings containing astral-plane characters (surrogate pairs) round-trip.
 	/// </summary>
 	public bool SupportsSurrogatePairs { get; init; } = true;

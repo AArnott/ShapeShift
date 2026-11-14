@@ -307,6 +307,121 @@ public partial class StructuralEqualityTests
 	}
 
 	[Test]
+	public async Task ShapeShiftValue_DataMapsIgnoreOrder()
+	{
+		IEqualityComparer<ShapeShiftValue> comparer = StructuralEqualityComparer.Create<ShapeShiftValue>();
+		ShapeShiftValue a = new ShapeShiftDataMap(
+		[
+			new ShapeShiftDataMapEntry(1UL, "one"),
+			new ShapeShiftDataMapEntry(new byte[] { 1 }, "two"),
+		]);
+		ShapeShiftValue b = new ShapeShiftDataMap(
+		[
+			new ShapeShiftDataMapEntry(new byte[] { 1 }, "two"),
+			new ShapeShiftDataMapEntry(1UL, "one"),
+		]);
+		ShapeShiftValue c = new ShapeShiftDataMap(
+		[
+			new ShapeShiftDataMapEntry(1UL, "one"),
+			new ShapeShiftDataMapEntry(new byte[] { 2 }, "two"),
+		]);
+		ShapeShiftValue signed = new ShapeShiftDataMap([new ShapeShiftDataMapEntry(1L, "one")]);
+		ShapeShiftValue unsigned = new ShapeShiftDataMap([new ShapeShiftDataMapEntry(1UL, "one")]);
+
+		await Assert.That(comparer.Equals(a, b)).IsTrue();
+		await Assert.That(comparer.GetHashCode(a)).IsEqualTo(comparer.GetHashCode(b));
+		await Assert.That(comparer.Equals(a, c)).IsFalse();
+		await Assert.That(comparer.Equals(signed, unsigned)).IsFalse();
+	}
+
+	[Test]
+	public async Task ShapeShiftValue_DataMapKeySearch_DoesNotReuseAFailedDeepComparison()
+	{
+		IEqualityComparer<ShapeShiftValue> comparer = StructuralEqualityComparer.Create<ShapeShiftValue>();
+		ShapeShiftValue shallowA = BooleanArray(1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0);
+		ShapeShiftValue shallowB = BooleanArray(0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 1, 0);
+		await Assert.That(comparer.Equals(shallowA, shallowB)).IsFalse();
+		await Assert.That(comparer.GetHashCode(shallowA)).IsEqualTo(comparer.GetHashCode(shallowB));
+
+		// These nests share a hash, so the first candidate is actually compared. The comparison
+		// fails past the depth where assumptions are recorded; a later pair must not reuse it.
+		ShapeShiftArray deepA = Nest(20, shallowA);
+		ShapeShiftArray deepB = Nest(20, shallowB);
+		ShapeShiftValue wrappedA = new ShapeShiftArray([deepA]);
+		ShapeShiftValue wrappedB = new ShapeShiftArray([deepB]);
+		ShapeShiftValue left = new ShapeShiftDataMap(
+		[
+			new ShapeShiftDataMapEntry(wrappedA, "v"),
+			new ShapeShiftDataMapEntry(deepA, "w"),
+			new ShapeShiftDataMapEntry(wrappedB, "v"),
+		]);
+		ShapeShiftValue right = new ShapeShiftDataMap(
+		[
+			new ShapeShiftDataMapEntry(wrappedB, "v"),
+			new ShapeShiftDataMapEntry(wrappedA, "v"),
+			new ShapeShiftDataMapEntry(deepB, "w"),
+		]);
+		ShapeShiftValue reordered = new ShapeShiftDataMap(
+		[
+			new ShapeShiftDataMapEntry(deepB, "w"),
+			new ShapeShiftDataMapEntry(wrappedA, "v"),
+		]);
+		ShapeShiftValue reorderedOther = new ShapeShiftDataMap(
+		[
+			new ShapeShiftDataMapEntry(wrappedA, "v"),
+			new ShapeShiftDataMapEntry(deepB, "w"),
+		]);
+
+		await Assert.That(comparer.Equals(left, right)).IsFalse();
+		await Assert.That(comparer.Equals(reordered, reorderedOther)).IsTrue();
+		await Assert.That(comparer.GetHashCode(reordered)).IsEqualTo(comparer.GetHashCode(reorderedOther));
+		await Assert.That(comparer.Equals(CyclicKey(), CyclicKey())).IsTrue();
+
+		ShapeShiftValue repeatedKey = new ShapeShiftMap(new Dictionary<string, ShapeShiftValue> { ["k"] = 1UL });
+		ShapeShiftValue paired = new ShapeShiftDataMap(
+		[
+			new ShapeShiftDataMapEntry(repeatedKey, "a"),
+			new ShapeShiftDataMapEntry(repeatedKey, "b"),
+		]);
+		ShapeShiftValue pairedReversed = new ShapeShiftDataMap(
+		[
+			new ShapeShiftDataMapEntry(repeatedKey, "b"),
+			new ShapeShiftDataMapEntry(repeatedKey, "a"),
+		]);
+		ShapeShiftValue pairedDuplicate = new ShapeShiftDataMap(
+		[
+			new ShapeShiftDataMapEntry(repeatedKey, "a"),
+			new ShapeShiftDataMapEntry(repeatedKey, "a"),
+		]);
+		await Assert.That(comparer.Equals(paired, pairedReversed)).IsTrue();
+		await Assert.That(comparer.GetHashCode(paired)).IsEqualTo(comparer.GetHashCode(pairedReversed));
+		await Assert.That(comparer.Equals(paired, pairedDuplicate)).IsFalse();
+	}
+
+	[Test]
+	public async Task ShapeShiftValue_CollisionResistantHashes_CoverWholeNumbers()
+	{
+		IEqualityComparer<ShapeShiftValue> comparer = StructuralEqualityComparer.CreateCollisionResistant<ShapeShiftValue>();
+		ShapeShiftValue zero = 0UL;
+		ShapeShiftValue folded = (1UL << 32) | 1UL;
+
+		await Assert.That(comparer.Equals(zero, folded)).IsFalse();
+		await Assert.That(comparer.GetHashCode(zero)).IsNotEqualTo(comparer.GetHashCode(folded));
+		await Assert.That(comparer.Equals(new ShapeShiftDecimal(1.0m), new ShapeShiftDecimal(1.00m))).IsTrue();
+		await Assert.That(comparer.GetHashCode(new ShapeShiftDecimal(1.0m))).IsEqualTo(comparer.GetHashCode(new ShapeShiftDecimal(1.00m)));
+		await Assert.That(comparer.Equals(new ShapeShiftDecimal(0.0m), new ShapeShiftDecimal(-0.0m))).IsTrue();
+		await Assert.That(comparer.GetHashCode(new ShapeShiftDecimal(0.0m))).IsEqualTo(comparer.GetHashCode(new ShapeShiftDecimal(-0.0m)));
+		await Assert.That(comparer.Equals(new ShapeShiftFloat(0.0d), new ShapeShiftFloat(-0.0d))).IsTrue();
+		await Assert.That(comparer.GetHashCode(new ShapeShiftFloat(0.0d))).IsEqualTo(comparer.GetHashCode(new ShapeShiftFloat(-0.0d)));
+		await Assert.That(comparer.GetHashCode(new ShapeShiftFloat(double.NaN))).IsEqualTo(comparer.GetHashCode(new ShapeShiftFloat(double.CopySign(double.NaN, -1))));
+
+		ShapeShiftValue left = BooleanArray(1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0);
+		ShapeShiftValue right = BooleanArray(0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 1, 0);
+		await Assert.That(comparer.Equals(left, right)).IsFalse();
+		await Assert.That(comparer.GetHashCode(left)).IsNotEqualTo(comparer.GetHashCode(right));
+	}
+
+	[Test]
 	public async Task ShapeShiftValue_ArraysAndBinaryCompareByContent()
 	{
 		IEqualityComparer<ShapeShiftValue> comparer = StructuralEqualityComparer.Create<ShapeShiftValue>();
@@ -481,6 +596,41 @@ public partial class StructuralEqualityTests
 		await Assert.That(comparer.Equals(new(double.NaN), new(double.NaN))).IsTrue();
 		await Assert.That(comparer.GetHashCode(new(double.NaN))).IsEqualTo(comparer.GetHashCode(new(double.NaN)));
 		await Assert.That(comparer.GetHashCode(new(0.0))).IsEqualTo(comparer.GetHashCode(new(-0.0)));
+	}
+
+	private static ShapeShiftArray BooleanArray(params int[] bits)
+	{
+		ShapeShiftValue[] items = new ShapeShiftValue[bits.Length];
+		for (int i = 0; i < bits.Length; i++)
+		{
+			items[i] = new ShapeShiftBoolean(bits[i] != 0);
+		}
+
+		return new(items);
+	}
+
+	private static ShapeShiftArray Nest(int depth, ShapeShiftValue leaf)
+	{
+		ShapeShiftValue current = leaf;
+		for (int i = 0; i < depth; i++)
+		{
+			current = new ShapeShiftArray([current]);
+		}
+
+		return (ShapeShiftArray)current;
+	}
+
+	private static ShapeShiftValue CyclicKey()
+	{
+		List<ShapeShiftValue> leaf = [ShapeShiftValue.Null];
+		ShapeShiftValue node = new ShapeShiftArray(leaf);
+		for (int i = 0; i < 20; i++)
+		{
+			node = new ShapeShiftArray([node]);
+		}
+
+		leaf[0] = node;
+		return new ShapeShiftDataMap([new ShapeShiftDataMapEntry(node, "v")]);
 	}
 
 	private static ITypeShape<T> ShapeOf<T>()

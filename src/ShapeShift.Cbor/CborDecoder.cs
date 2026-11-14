@@ -55,18 +55,16 @@ public ref struct CborDecoder : IDecoder
 				throw this.TokenMismatch(ex);
 			}
 
-			if (this.depth > 0 && this.frames[this.depth - 1].IsMap && this.frames[this.depth - 1].ExpectingProperty)
+			// RFC 8949 major type 5: a key may be any data item. Text keys stay property names so
+			// string maps and objects keep their existing token stream. Every other key is reported
+			// as the data item it is, and the caller reads it with the ordinary value methods.
+			if (this.depth > 0 && this.frames[this.depth - 1].IsMap && this.frames[this.depth - 1].ExpectingProperty && state == CborReaderState.EndMap)
 			{
-				if (state == CborReaderState.EndMap)
-				{
-					return TokenType.EndMap;
-				}
+				return TokenType.EndMap;
+			}
 
-				if (state != CborReaderState.TextString)
-				{
-					throw new DecoderException("ShapeShift CBOR map keys must be text strings.");
-				}
-
+			if (this.depth > 0 && this.frames[this.depth - 1].IsMap && this.frames[this.depth - 1].ExpectingProperty && state is CborReaderState.TextString or CborReaderState.StartIndefiniteLengthTextString)
+			{
 				return TokenType.PropertyName;
 			}
 
@@ -80,7 +78,7 @@ public ref struct CborDecoder : IDecoder
 				CborReaderState.Boolean => TokenType.Boolean,
 				CborReaderState.TextString or CborReaderState.StartIndefiniteLengthTextString => TokenType.String,
 				CborReaderState.ByteString or CborReaderState.StartIndefiniteLengthByteString => TokenType.Binary,
-				CborReaderState.UnsignedInteger or CborReaderState.NegativeInteger or CborReaderState.HalfPrecisionFloat or CborReaderState.SinglePrecisionFloat or CborReaderState.DoublePrecisionFloat or CborReaderState.Tag => TokenType.Number,
+				CborReaderState.UnsignedInteger or CborReaderState.NegativeInteger or CborReaderState.HalfPrecisionFloat or CborReaderState.SinglePrecisionFloat or CborReaderState.DoublePrecisionFloat or CborReaderState.Tag or CborReaderState.SimpleValue => TokenType.Number,
 				CborReaderState.Finished => TokenType.EndDocument,
 				_ => throw new DecoderException($"Unsupported CBOR reader state {state}."),
 			};
@@ -102,7 +100,6 @@ public ref struct CborDecoder : IDecoder
 	/// <inheritdoc/>
 	public int? ReadStartMap()
 	{
-		this.CompleteValue();
 		int? count;
 		try
 		{
@@ -144,7 +141,6 @@ public ref struct CborDecoder : IDecoder
 	/// <inheritdoc/>
 	public int? ReadStartVector()
 	{
-		this.CompleteValue();
 		int? count;
 		try
 		{
@@ -189,6 +185,12 @@ public ref struct CborDecoder : IDecoder
 		if (this.depth == 0 || !this.frames[this.depth - 1].IsMap || !this.frames[this.depth - 1].ExpectingProperty)
 		{
 			throw new DecoderException("A CBOR property name must appear directly inside a map.");
+		}
+
+		CborReaderState state = this.GetNextCborReaderState();
+		if (state is not (CborReaderState.TextString or CborReaderState.StartIndefiniteLengthTextString))
+		{
+			throw new DecoderException("A CBOR property name must be a text string.");
 		}
 
 		try
@@ -567,17 +569,24 @@ public ref struct CborDecoder : IDecoder
 
 	/// <inheritdoc/>
 	/// <remarks>
-	/// Tag 1 (epoch-based date/time) is returned as its numeric seconds offset. The tag must wrap an integer or a floating-point number directly. An integer below <see cref="long.MinValue"/> is a <see cref="ShapeShiftBigInteger"/>. Tag 2 and tag 3 are big integers, and tag 4 is a decimal fraction.
+	/// Half-precision values, including signed zero, are returned as <see cref="double"/>.
+	/// CBOR simple values, including undefined (simple value 23), are returned as their integer code
+	/// because the dynamic model has no simple-value type.
+	/// Tag 1 (epoch-based date/time) is returned as its numeric seconds offset, whether it appears as a
+	/// value or a map key. The tag must wrap an integer or a floating-point number directly. An integer
+	/// below <see cref="long.MinValue"/> is a <see cref="ShapeShiftBigInteger"/>. A nested tag is rejected.
+	/// Tag 2 and tag 3 are big integers, and tag 4 is a decimal fraction.
 	/// </remarks>
 	public ShapeShiftNumber ReadDynamicNumber()
 	{
 		return this.GetNextCborReaderState() switch
 		{
 			CborReaderState.UnsignedInteger => new ShapeShiftUnsignedInteger(this.ReadUInt64()),
-			CborReaderState.NegativeInteger => new ShapeShiftInteger(this.ReadInt64()),
-			CborReaderState.HalfPrecisionFloat => new ShapeShiftFloat((double)this.ReadHalf()),
+			CborReaderState.NegativeInteger => this.ReadNegativeInteger(),
+			CborReaderState.HalfPrecisionFloat => new ShapeShiftFloat(ToDouble(this.ReadHalf())),
 			CborReaderState.SinglePrecisionFloat => new ShapeShiftFloat(this.ReadSingle()),
 			CborReaderState.DoublePrecisionFloat => new ShapeShiftFloat(this.ReadDouble()),
+			CborReaderState.SimpleValue => new ShapeShiftUnsignedInteger((ulong)(byte)this.ReadSimpleValue()),
 			CborReaderState.Tag => this.ReadTaggedDynamicNumber(),
 			_ => new ShapeShiftDecimal(this.ReadDecimal()),
 		};
@@ -593,6 +602,17 @@ public ref struct CborDecoder : IDecoder
 		{
 			throw new DecoderException("The CBOR input contains trailing data.");
 		}
+	}
+
+	private static double ToDouble(Half value)
+	{
+		double result = (double)value;
+		if (Half.IsNegative(value) && result == 0)
+		{
+			return -0.0;
+		}
+
+		return result;
 	}
 
 	private CborReaderState GetNextCborReaderState()
@@ -643,6 +663,7 @@ public ref struct CborDecoder : IDecoder
 			}
 
 			// RFC 8949 section 3.4.2: the content is an integer or a float, never another tag.
+			// ReadEpochOffset does not call back into this method, so a nested tag 1 cannot recurse.
 			return this.ReadEpochOffset();
 		}
 
@@ -654,20 +675,38 @@ public ref struct CborDecoder : IDecoder
 		};
 	}
 
+	private CborSimpleValue ReadSimpleValue()
+	{
+		try
+		{
+			CborSimpleValue value = this.reader.ReadSimpleValue();
+			this.CompleteValue();
+			return value;
+		}
+		catch (CborContentException ex)
+		{
+			throw this.MalformedInput(ex);
+		}
+		catch (InvalidOperationException ex)
+		{
+			throw this.TokenMismatch(ex);
+		}
+	}
+
 	private ShapeShiftNumber ReadEpochOffset()
 	{
 		return this.GetNextCborReaderState() switch
 		{
 			CborReaderState.UnsignedInteger => new ShapeShiftUnsignedInteger(this.ReadUInt64()),
-			CborReaderState.NegativeInteger => this.ReadNegativeEpochOffset(),
-			CborReaderState.HalfPrecisionFloat => new ShapeShiftFloat((double)this.ReadHalf()),
+			CborReaderState.NegativeInteger => this.ReadNegativeInteger(),
+			CborReaderState.HalfPrecisionFloat => new ShapeShiftFloat(ToDouble(this.ReadHalf())),
 			CborReaderState.SinglePrecisionFloat => new ShapeShiftFloat(this.ReadSingle()),
 			CborReaderState.DoublePrecisionFloat => new ShapeShiftFloat(this.ReadDouble()),
 			_ => throw new DecoderException("CBOR tag 1 content must be an integer or floating-point number of seconds."),
 		};
 	}
 
-	private ShapeShiftNumber ReadNegativeEpochOffset()
+	private ShapeShiftNumber ReadNegativeInteger()
 	{
 		ulong representation;
 		try
@@ -698,11 +737,19 @@ public ref struct CborDecoder : IDecoder
 
 	private DecoderException NumberTooLarge(OverflowException exception) => new("The CBOR number does not fit the requested value.", exception);
 
+	/// <summary>
+	/// Records that one data item of the current map has been fully consumed.
+	/// </summary>
+	/// <remarks>
+	/// Keys and values alternate. A container counts as consumed when it ends, not when it starts,
+	/// so a map or array used as a key does not also consume the value slot.
+	/// <see cref="ReadPropertyName"/> records a text key itself and does not call this method.
+	/// </remarks>
 	private void CompleteValue()
 	{
-		if (this.depth > 0 && this.frames[this.depth - 1].IsMap && !this.frames[this.depth - 1].ExpectingProperty)
+		if (this.depth > 0 && this.frames[this.depth - 1].IsMap)
 		{
-			this.frames[this.depth - 1].ExpectingProperty = true;
+			this.frames[this.depth - 1].ExpectingProperty = !this.frames[this.depth - 1].ExpectingProperty;
 		}
 	}
 

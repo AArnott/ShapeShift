@@ -28,6 +28,12 @@ public ref struct YamlEncoder(TextWriter writer) : IEncoder
 	}
 
 	/// <inheritdoc/>
+	public bool ArbitraryMapKeys => false;
+
+	/// <inheritdoc/>
+	public bool NonNegativeIntegersAreUnsigned => false;
+
+	/// <inheritdoc/>
 	public void WriteStartVector(int? itemCount)
 	{
 		this.WriteStartContainer(ContainerKind.Vector);

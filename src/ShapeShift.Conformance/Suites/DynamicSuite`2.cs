@@ -102,6 +102,29 @@ internal sealed class DynamicSuite<TEncoder, TDecoder> : IConformanceSuite<TEnco
 			ConformanceAssert.True(map.Properties["items"] is ShapeShiftArray, "A nested dynamic array should read back as an array.");
 		});
 
+		collector.Add(
+			"ShapeShiftDataMapRoundTripsOrIsRejected",
+			skipReason,
+			adapter =>
+			{
+				ShapeShiftSerializer<TEncoder, TDecoder> serializer = adapter.CreateSerializer();
+				ITypeShape<ShapeShiftValue> shape = Shapes.Of<ShapeShiftValue, ConformanceWitness>();
+				ShapeShiftValue original = new ShapeShiftDataMap([new ShapeShiftDataMapEntry(-3L, "value")]);
+				if (collector.Options.SupportsArbitraryMapKeys)
+				{
+					ShapeShiftValue? roundtripped = adapter.Roundtrip(serializer, original, shape);
+					ConformanceAssert.True(roundtripped is ShapeShiftDataMap, "A map with a non-text key should read back as a data map.");
+					ShapeShiftDataMap map = (ShapeShiftDataMap)roundtripped!;
+					ConformanceAssert.Equal(1, map.Entries.Count, "the entry count of a round-tripped data map");
+					ConformanceAssert.Equal((ShapeShiftValue)(-3L), map.Entries[0].Key, "a negative integer map key");
+					ConformanceAssert.Equal((ShapeShiftValue)"value", map.Entries[0].Value, "the value stored under a non-text map key");
+				}
+				else
+				{
+					ConformanceAssert.FailsCleanly(() => adapter.Roundtrip(serializer, original, shape), "writing a map whose keys are not text");
+				}
+			});
+
 		string? binarySkipReason = collector.Options.SupportsDynamicValues && collector.Options.SupportsBinary
 			? collector.Adapter.GetExpectedTokenType(ConformanceValueKind.Binary) == TokenType.Binary
 				? null

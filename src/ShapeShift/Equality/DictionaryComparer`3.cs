@@ -148,10 +148,16 @@ internal sealed class DictionaryComparer<TDictionary, TKey, TValue>(
 
 		for (int i = 0; i < candidates.Count; i++)
 		{
-			if (consumed[i] ||
-				!keyComparer.EqualsWithNullHandling(entry.Key, candidates[i].Key, ref state) ||
+			if (consumed[i])
+			{
+				continue;
+			}
+
+			ComparisonState.AssumptionCheckpoint checkpoint = state.Checkpoint();
+			if (!keyComparer.EqualsWithNullHandling(entry.Key, candidates[i].Key, ref state) ||
 				!valueComparer.EqualsWithNullHandling(entry.Value, candidates[i].Value, ref state))
 			{
+				state.Rollback(checkpoint);
 				continue;
 			}
 

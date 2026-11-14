@@ -18,6 +18,12 @@ public ref struct CborEncoder(CborWriter writer) : IEncoder
 	public CborWriter Writer => writer;
 
 	/// <inheritdoc/>
+	public bool ArbitraryMapKeys => true;
+
+	/// <inheritdoc/>
+	public bool NonNegativeIntegersAreUnsigned => true;
+
+	/// <inheritdoc/>
 	public void WriteStartMap(int? propertyCount) => writer.WriteStartMap(propertyCount);
 
 	/// <inheritdoc/>

@@ -5,7 +5,7 @@ namespace ShapeShift.Equality;
 
 /// <summary>
 /// Compares <see cref="ShapeShiftValue"/> graphs structurally, including the contents of
-/// <see cref="ShapeShiftArray"/>, <see cref="ShapeShiftMap"/> and <see cref="ShapeShiftBinary"/> nodes,
+/// <see cref="ShapeShiftArray"/>, <see cref="ShapeShiftMap"/>, <see cref="ShapeShiftDataMap"/> and <see cref="ShapeShiftBinary"/> nodes,
 /// which the compiler generated record equality compares by reference.
 /// </summary>
 /// <param name="policy">The hashing policy.</param>
@@ -19,6 +19,7 @@ namespace ShapeShift.Equality;
 /// <para>
 /// Map keys are matched with ordinal string equality regardless of the comparer that the underlying
 /// dictionary instance happens to use, and map entry order is irrelevant.
+/// <see cref="ShapeShiftDataMap"/> keys are matched structurally, and that entry order is irrelevant too.
 /// </para>
 /// </remarks>
 internal sealed class ShapeShiftValueComparer(HashingPolicy policy) : StructuralComparer<ShapeShiftValue>
@@ -34,6 +35,7 @@ internal sealed class ShapeShiftValueComparer(HashingPolicy policy) : Structural
 	private const int BinarySeed = 0x53565900;
 	private const int ArraySeed = 0x53564100;
 	private const int MapSeed = 0x53564D00;
+	private const int DataMapSeed = 0x53564B00;
 
 	/// <inheritdoc/>
 	internal override bool EqualsCore(ShapeShiftValue x, ShapeShiftValue y, ref ComparisonState state)
@@ -67,6 +69,8 @@ internal sealed class ShapeShiftValueComparer(HashingPolicy policy) : Structural
 				return y is ShapeShiftArray yArray && this.ArraysEqual(xArray, yArray, ref state);
 			case ShapeShiftMap xMap:
 				return y is ShapeShiftMap yMap && this.MapsEqual(xMap, yMap, ref state);
+			case ShapeShiftDataMap xDataMap:
+				return y is ShapeShiftDataMap yDataMap && this.DataMapsEqual(xDataMap, yDataMap, ref state);
 			default:
 				return x.Equals(y);
 		}
@@ -80,25 +84,27 @@ internal sealed class ShapeShiftValueComparer(HashingPolicy policy) : Structural
 			case ShapeShiftNull:
 				return NullSeed;
 			case ShapeShiftBoolean booleanNode:
-				return HashCombiner.Finalize(HashCombiner.Combine(BooleanSeed, booleanNode.Value ? 1 : 0));
+				return this.Finish(this.Mix(BooleanSeed, policy.HashBoolean(booleanNode.Value)));
 			case ShapeShiftInteger integerNode:
-				return HashCombiner.Finalize(HashCombiner.Combine(IntegerSeed, policy.HashOpaque(integerNode.Value.GetHashCode())));
+				return this.Finish(this.Mix(IntegerSeed, policy.HashInt64(integerNode.Value)));
 			case ShapeShiftUnsignedInteger unsignedNode:
-				return HashCombiner.Finalize(HashCombiner.Combine(UnsignedSeed, policy.HashOpaque(unsignedNode.Value.GetHashCode())));
+				return this.Finish(this.Mix(UnsignedSeed, policy.HashUInt64(unsignedNode.Value)));
 			case ShapeShiftBigInteger bigNode:
-				return HashCombiner.Finalize(HashCombiner.Combine(BigIntegerSeed, policy.HashOpaque(bigNode.Value.GetHashCode())));
+				return this.Finish(this.Mix(BigIntegerSeed, policy.HashBigInteger(bigNode.Value)));
 			case ShapeShiftFloat floatNode:
-				return HashCombiner.Finalize(HashCombiner.Combine(FloatSeed, policy.HashOpaque(floatNode.Value.GetHashCode())));
+				return this.Finish(this.Mix(FloatSeed, policy.HashDouble(floatNode.Value)));
 			case ShapeShiftDecimal decimalNode:
-				return HashCombiner.Finalize(HashCombiner.Combine(DecimalSeed, policy.HashOpaque(decimalNode.Value.GetHashCode())));
+				return this.Finish(this.Mix(DecimalSeed, policy.HashDecimal(decimalNode.Value)));
 			case ShapeShiftString stringNode:
-				return HashCombiner.Finalize(HashCombiner.Combine(StringSeed, policy.HashString(stringNode.Value)));
+				return this.Finish(this.Mix(StringSeed, policy.HashString(stringNode.Value)));
 			case ShapeShiftBinary binaryNode:
-				return HashCombiner.Finalize(HashCombiner.Combine(BinarySeed, policy.HashBytes(binaryNode.Value.Span)));
+				return this.Finish(this.Mix(BinarySeed, policy.HashBytes(binaryNode.Value.Span)));
 			case ShapeShiftArray arrayNode:
 				return this.HashArray(arrayNode, ref state);
 			case ShapeShiftMap mapNode:
 				return this.HashMap(mapNode, ref state);
+			case ShapeShiftDataMap dataMapNode:
+				return this.HashDataMap(dataMapNode, ref state);
 			default:
 				return policy.HashOpaque(value.GetHashCode());
 		}
@@ -171,10 +177,10 @@ internal sealed class ShapeShiftValueComparer(HashingPolicy policy) : Structural
 		int hash = ArraySeed;
 		foreach (ShapeShiftValue item in node.Items)
 		{
-			hash = HashCombiner.Combine(hash, this.GetHashCodeWithNullHandling(item, ref state));
+			hash = this.Mix(hash, this.GetHashCodeWithNullHandling(item, ref state));
 		}
 
-		hash = HashCombiner.Finalize(hash);
+		hash = this.Finish(hash);
 		state.Exit(node, hash);
 		return hash;
 	}
@@ -190,13 +196,124 @@ internal sealed class ShapeShiftValueComparer(HashingPolicy policy) : Structural
 		int count = 0;
 		foreach (KeyValuePair<string, ShapeShiftValue> entry in node.Properties)
 		{
-			int entryHash = HashCombiner.Combine(policy.HashString(entry.Key), this.GetHashCodeWithNullHandling(entry.Value, ref state));
-			hash = HashCombiner.CombineUnordered(hash, HashCombiner.Finalize(entryHash));
+			int entryHash = this.Mix(policy.HashString(entry.Key), this.GetHashCodeWithNullHandling(entry.Value, ref state));
+			hash = policy.CombineUnordered(hash, this.Finish(entryHash));
 			count++;
 		}
 
-		hash = HashCombiner.Finalize(HashCombiner.Combine(hash, count));
+		hash = this.Finish(this.Mix(hash, count));
 		state.Exit(node, hash);
 		return hash;
 	}
+
+	private bool DataMapsEqual(ShapeShiftDataMap x, ShapeShiftDataMap y, ref ComparisonState state)
+	{
+		if (state.EnterOrAssumeEqual(x, y))
+		{
+			state.Exit();
+			return true;
+		}
+
+		bool result = x.Entries.Count == y.Entries.Count && this.DataMapEntriesEqual(x.Entries, y.Entries, ref state);
+		state.Exit();
+		return result;
+	}
+
+	private bool DataMapEntriesEqual(IReadOnlyList<ShapeShiftDataMapEntry> left, IReadOnlyList<ShapeShiftDataMapEntry> right, ref ComparisonState state)
+	{
+		if (left.Count == 0)
+		{
+			return true;
+		}
+
+		Dictionary<int, List<int>> buckets = new(right.Count);
+		for (int i = 0; i < right.Count; i++)
+		{
+			int hash = this.HashEntry(right[i]);
+			if (!buckets.TryGetValue(hash, out List<int>? bucket))
+			{
+				bucket = new(1);
+				buckets.Add(hash, bucket);
+			}
+
+			bucket.Add(i);
+		}
+
+		bool[] consumed = new bool[right.Count];
+		foreach (ShapeShiftDataMapEntry entry in left)
+		{
+			if (!buckets.TryGetValue(this.HashEntry(entry), out List<int>? bucket))
+			{
+				return false;
+			}
+
+			int match = -1;
+			foreach (int index in bucket)
+			{
+				if (consumed[index])
+				{
+					continue;
+				}
+
+				ComparisonState.AssumptionCheckpoint checkpoint = state.Checkpoint();
+				ShapeShiftDataMapEntry candidate = right[index];
+				if (!this.EqualsWithNullHandling(entry.Key, candidate.Key, ref state)
+					|| !this.EqualsWithNullHandling(entry.Value, candidate.Value, ref state))
+				{
+					state.Rollback(checkpoint);
+					continue;
+				}
+
+				match = index;
+				break;
+			}
+
+			if (match < 0)
+			{
+				return false;
+			}
+
+			consumed[match] = true;
+		}
+
+		return true;
+	}
+
+	private int HashEntry(ShapeShiftDataMapEntry entry)
+	{
+		HashState hashState = default;
+		int keyHash = this.GetHashCodeWithNullHandling(entry.Key, ref hashState);
+		int valueHash = this.GetHashCodeWithNullHandling(entry.Value, ref hashState);
+		if (hashState.CycleDetected)
+		{
+			return HashCombiner.CyclicHash;
+		}
+
+		return this.Finish(this.Mix(keyHash, valueHash));
+	}
+
+	private int HashDataMap(ShapeShiftDataMap node, ref HashState state)
+	{
+		if (!state.TryEnter(node, out int memoized))
+		{
+			return memoized;
+		}
+
+		int hash = DataMapSeed;
+		int count = 0;
+		foreach (ShapeShiftDataMapEntry entry in node.Entries)
+		{
+			int entryHash = this.Mix(this.GetHashCodeWithNullHandling(entry.Key, ref state), this.GetHashCodeWithNullHandling(entry.Value, ref state));
+			hash = policy.CombineUnordered(hash, this.Finish(entryHash));
+			count++;
+		}
+
+		hash = this.Finish(this.Mix(hash, count));
+		state.Exit(node, hash);
+		return hash;
+	}
+
+	private int Mix(int accumulator, int value) => policy.Combine(accumulator, value);
+
+	private int Finish(int accumulator) => policy.FinalizeHash(accumulator);
 }

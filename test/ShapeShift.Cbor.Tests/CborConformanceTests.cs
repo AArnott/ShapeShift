@@ -59,6 +59,7 @@ public class CborConformanceTests
 		{
 			ReportsContainerCounts = true,
 			SupportsReferencePreservation = false,
+			SupportsArbitraryMapKeys = true,
 		};
 
 		/// <inheritdoc/>

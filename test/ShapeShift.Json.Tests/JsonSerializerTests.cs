@@ -219,6 +219,19 @@ public partial class JsonSerializerTests : TestBase
 	}
 
 	[Test]
+	public async Task DataMap_TextKeysRoundTrip_NonTextKeysAreRejected()
+	{
+		ShapeShiftValue text = new ShapeShiftDataMap([new ShapeShiftDataMapEntry("a", 1L)]);
+		string json = this.serializer.Serialize(text);
+		ShapeShiftValue mixed = new ShapeShiftDataMap([new ShapeShiftDataMapEntry(1L, "one")]);
+		Func<string> serialize = () => this.serializer.Serialize(mixed);
+
+		await Assert.That(json).IsEqualTo("""{"a":1}""");
+		await Assert.That(this.serializer.Deserialize<ShapeShiftValue>(json)).IsTypeOf<ShapeShiftMap>();
+		await Assert.That(serialize).Throws<ShapeShiftSerializationException>();
+	}
+
+	[Test]
 	public async Task StringLengthLimit_IsEnforced()
 	{
 		JsonSerializer serializer = this.serializer with { StartingContext = new() { MaxStringLength = 3 } };
