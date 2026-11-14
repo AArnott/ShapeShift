@@ -13,4 +13,10 @@
     <PackageReference Include="TUnit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Data\yaml-1.1-suite.json" LogicalName="yaml-1.1-suite.json" />
+    <EmbeddedResource Include="Data\yaml-1.2-suite.json" LogicalName="yaml-1.2-suite.json" />
+    <EmbeddedResource Include="Data\yaml-1.2.2-suite.json" LogicalName="yaml-1.2.2-suite.json" />
+  </ItemGroup>
+
 </Project>
