@@ -365,6 +365,26 @@ public partial class StructuralEqualityTests
 		await Assert.That(comparer.Equals(reordered, reorderedOther)).IsTrue();
 		await Assert.That(comparer.GetHashCode(reordered)).IsEqualTo(comparer.GetHashCode(reorderedOther));
 		await Assert.That(comparer.Equals(CyclicKey(), CyclicKey())).IsTrue();
+
+		ShapeShiftValue repeatedKey = new ShapeShiftMap(new Dictionary<string, ShapeShiftValue> { ["k"] = 1UL });
+		ShapeShiftValue paired = new ShapeShiftDataMap(
+		[
+			new ShapeShiftDataMapEntry(repeatedKey, "a"),
+			new ShapeShiftDataMapEntry(repeatedKey, "b"),
+		]);
+		ShapeShiftValue pairedReversed = new ShapeShiftDataMap(
+		[
+			new ShapeShiftDataMapEntry(repeatedKey, "b"),
+			new ShapeShiftDataMapEntry(repeatedKey, "a"),
+		]);
+		ShapeShiftValue pairedDuplicate = new ShapeShiftDataMap(
+		[
+			new ShapeShiftDataMapEntry(repeatedKey, "a"),
+			new ShapeShiftDataMapEntry(repeatedKey, "a"),
+		]);
+		await Assert.That(comparer.Equals(paired, pairedReversed)).IsTrue();
+		await Assert.That(comparer.GetHashCode(paired)).IsEqualTo(comparer.GetHashCode(pairedReversed));
+		await Assert.That(comparer.Equals(paired, pairedDuplicate)).IsFalse();
 	}
 
 	[Test]

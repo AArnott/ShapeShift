@@ -223,11 +223,22 @@ internal sealed class ShapeShiftValueConverter<TEncoder, TDecoder> : ShapeShiftC
 			}
 		}
 
-		RejectDuplicateKeys(entries);
 		encoder.WriteStartMap(entries.Count);
+		Dictionary<ShapeShiftValue, int>? seen = entries.Count > 1 ? new(entries.Count, KeyComparer) : null;
 		foreach (ShapeShiftDataMapEntry entry in entries)
 		{
 			ShapeShiftValue key = entry.Key ?? ShapeShiftValue.Null;
+			if (seen is not null)
+			{
+				// DepthStep stops this walk at the same remaining depth Write uses, so the
+				// hash below never recurses into a key the serializer would reject.
+				this.EnsureWithinRemainingDepth(key, context);
+				if (!seen.TryAdd(key, 0))
+				{
+					throw new ShapeShiftSerializationException("A dynamic map key appears more than once.");
+				}
+			}
+
 			if (encoder.ArbitraryMapKeys)
 			{
 				this.Write(ref encoder, key, context);
@@ -245,21 +256,36 @@ internal sealed class ShapeShiftValueConverter<TEncoder, TDecoder> : ShapeShiftC
 		encoder.WriteEndMap();
 	}
 
-	private static void RejectDuplicateKeys(IReadOnlyList<ShapeShiftDataMapEntry> entries)
+	private void EnsureWithinRemainingDepth(ShapeShiftValue value, SerializationContext<TEncoder, TDecoder> context)
 	{
-		if (entries.Count < 2)
+		switch (value)
 		{
-			return;
-		}
+			case ShapeShiftArray array:
+				context.DepthStep();
+				foreach (ShapeShiftValue item in array.Items)
+				{
+					this.EnsureWithinRemainingDepth(item, context);
+				}
 
-		Dictionary<ShapeShiftValue, int> seen = new(entries.Count, KeyComparer);
-		foreach (ShapeShiftDataMapEntry entry in entries)
-		{
-			ShapeShiftValue key = entry.Key ?? ShapeShiftValue.Null;
-			if (!seen.TryAdd(key, 0))
-			{
-				throw new ShapeShiftSerializationException("A dynamic map key appears more than once.");
-			}
+				break;
+			case ShapeShiftMap map:
+				context.DepthStep();
+				foreach (ShapeShiftValue item in map.Properties.Values)
+				{
+					this.EnsureWithinRemainingDepth(item, context);
+				}
+
+				break;
+			case ShapeShiftDataMap map:
+				context.DepthStep();
+				IReadOnlyList<ShapeShiftDataMapEntry> nested = map.Entries ?? throw new ShapeShiftSerializationException("A dynamic map is missing its entries.");
+				foreach (ShapeShiftDataMapEntry entry in nested)
+				{
+					this.EnsureWithinRemainingDepth(entry.Key ?? ShapeShiftValue.Null, context);
+					this.EnsureWithinRemainingDepth(entry.Value ?? ShapeShiftValue.Null, context);
+				}
+
+				break;
 		}
 	}
 

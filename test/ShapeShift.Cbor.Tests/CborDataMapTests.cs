@@ -246,6 +246,25 @@ public partial class CborDataMapTests
 	}
 
 	[Test]
+	public async Task Serializer_RejectsAKeyDeeperThanTheDefaultLimitBeforeHashingIt()
+	{
+		ShapeShiftValue key = 1UL;
+		for (int i = 0; i < 80; i++)
+		{
+			key = new ShapeShiftArray([key]);
+		}
+
+		ShapeShiftValue value = new ShapeShiftDataMap(
+		[
+			new ShapeShiftDataMapEntry(key, "a"),
+			new ShapeShiftDataMapEntry(2UL, "b"),
+		]);
+		Func<byte[]> write = () => this.serializer.Serialize(value);
+
+		await Assert.That(write).Throws<ShapeShiftSerializationException>();
+	}
+
+	[Test]
 	public async Task Serializer_StillRejectsAMapDeeperThanTheDefaultLimit()
 	{
 		byte[] encoded = new byte[(65 * 1) + 66];

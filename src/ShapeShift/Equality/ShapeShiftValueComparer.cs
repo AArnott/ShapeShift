@@ -214,40 +214,82 @@ internal sealed class ShapeShiftValueComparer(HashingPolicy policy) : Structural
 			return true;
 		}
 
-		bool result = x.Entries.Count == y.Entries.Count;
-		if (result)
-		{
-			List<ShapeShiftDataMapEntry> unmatched = new(y.Entries.Count);
-			unmatched.AddRange(y.Entries);
-			foreach (ShapeShiftDataMapEntry entry in x.Entries)
-			{
-				int match = -1;
-				for (int i = 0; i < unmatched.Count; i++)
-				{
-					ComparisonState.AssumptionCheckpoint checkpoint = state.Checkpoint();
-					if (!this.EqualsWithNullHandling(entry.Key, unmatched[i].Key, ref state)
-						|| !this.EqualsWithNullHandling(entry.Value, unmatched[i].Value, ref state))
-					{
-						state.Rollback(checkpoint);
-						continue;
-					}
-
-					match = i;
-					break;
-				}
-
-				if (match < 0)
-				{
-					result = false;
-					break;
-				}
-
-				unmatched.RemoveAt(match);
-			}
-		}
-
+		bool result = x.Entries.Count == y.Entries.Count && this.DataMapEntriesEqual(x.Entries, y.Entries, ref state);
 		state.Exit();
 		return result;
+	}
+
+	private bool DataMapEntriesEqual(IReadOnlyList<ShapeShiftDataMapEntry> left, IReadOnlyList<ShapeShiftDataMapEntry> right, ref ComparisonState state)
+	{
+		if (left.Count == 0)
+		{
+			return true;
+		}
+
+		Dictionary<int, List<int>> buckets = new(right.Count);
+		for (int i = 0; i < right.Count; i++)
+		{
+			int hash = this.HashEntry(right[i]);
+			if (!buckets.TryGetValue(hash, out List<int>? bucket))
+			{
+				bucket = new(1);
+				buckets.Add(hash, bucket);
+			}
+
+			bucket.Add(i);
+		}
+
+		bool[] consumed = new bool[right.Count];
+		foreach (ShapeShiftDataMapEntry entry in left)
+		{
+			if (!buckets.TryGetValue(this.HashEntry(entry), out List<int>? bucket))
+			{
+				return false;
+			}
+
+			int match = -1;
+			foreach (int index in bucket)
+			{
+				if (consumed[index])
+				{
+					continue;
+				}
+
+				ComparisonState.AssumptionCheckpoint checkpoint = state.Checkpoint();
+				ShapeShiftDataMapEntry candidate = right[index];
+				if (!this.EqualsWithNullHandling(entry.Key, candidate.Key, ref state)
+					|| !this.EqualsWithNullHandling(entry.Value, candidate.Value, ref state))
+				{
+					state.Rollback(checkpoint);
+					continue;
+				}
+
+				match = index;
+				break;
+			}
+
+			if (match < 0)
+			{
+				return false;
+			}
+
+			consumed[match] = true;
+		}
+
+		return true;
+	}
+
+	private int HashEntry(ShapeShiftDataMapEntry entry)
+	{
+		HashState hashState = default;
+		int keyHash = this.GetHashCodeWithNullHandling(entry.Key, ref hashState);
+		int valueHash = this.GetHashCodeWithNullHandling(entry.Value, ref hashState);
+		if (hashState.CycleDetected)
+		{
+			return HashCombiner.CyclicHash;
+		}
+
+		return HashCombiner.Finalize(HashCombiner.Combine(keyHash, valueHash));
 	}
 
 	private int HashDataMap(ShapeShiftDataMap node, ref HashState state)
