@@ -145,8 +145,11 @@ format-specific notes.
 
 `ShapeShiftValue` is a NativeAOT-safe, format-neutral value tree. Its concrete
 types represent null, Boolean, signed and unsigned integers, arbitrary-precision
-integers, floating-point and decimal numbers, strings, binary data, arrays, and
-string-keyed maps.
+integers, floating-point and decimal numbers, strings, binary data, arrays,
+string-keyed maps, and `ShapeShiftDataMap` for maps whose keys are themselves
+dynamic values. CBOR is the format that preserves those non-text keys; other
+formats reject a data map that is not entirely text-keyed. See
+[CBOR map keys](cbor.md#map-keys).
 
 Dynamic values do not load CLR types from payload metadata. This makes them
 suitable for inspecting untyped input without introducing typeless

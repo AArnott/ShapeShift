@@ -307,6 +307,34 @@ public partial class StructuralEqualityTests
 	}
 
 	[Test]
+	public async Task ShapeShiftValue_DataMapsIgnoreOrder()
+	{
+		IEqualityComparer<ShapeShiftValue> comparer = StructuralEqualityComparer.Create<ShapeShiftValue>();
+		ShapeShiftValue a = new ShapeShiftDataMap(
+		[
+			new ShapeShiftDataMapEntry(1UL, "one"),
+			new ShapeShiftDataMapEntry(new byte[] { 1 }, "two"),
+		]);
+		ShapeShiftValue b = new ShapeShiftDataMap(
+		[
+			new ShapeShiftDataMapEntry(new byte[] { 1 }, "two"),
+			new ShapeShiftDataMapEntry(1UL, "one"),
+		]);
+		ShapeShiftValue c = new ShapeShiftDataMap(
+		[
+			new ShapeShiftDataMapEntry(1UL, "one"),
+			new ShapeShiftDataMapEntry(new byte[] { 2 }, "two"),
+		]);
+		ShapeShiftValue signed = new ShapeShiftDataMap([new ShapeShiftDataMapEntry(1L, "one")]);
+		ShapeShiftValue unsigned = new ShapeShiftDataMap([new ShapeShiftDataMapEntry(1UL, "one")]);
+
+		await Assert.That(comparer.Equals(a, b)).IsTrue();
+		await Assert.That(comparer.GetHashCode(a)).IsEqualTo(comparer.GetHashCode(b));
+		await Assert.That(comparer.Equals(a, c)).IsFalse();
+		await Assert.That(comparer.Equals(signed, unsigned)).IsFalse();
+	}
+
+	[Test]
 	public async Task ShapeShiftValue_ArraysAndBinaryCompareByContent()
 	{
 		IEqualityComparer<ShapeShiftValue> comparer = StructuralEqualityComparer.Create<ShapeShiftValue>();

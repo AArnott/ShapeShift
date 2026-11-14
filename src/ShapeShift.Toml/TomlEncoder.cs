@@ -30,6 +30,9 @@ public ref struct TomlEncoder : IEncoder
 	}
 
 	/// <inheritdoc/>
+	public bool ArbitraryMapKeys => false;
+
+	/// <inheritdoc/>
 	public void WriteStartMap(int? propertyCount)
 	{
 		MapNode map = new(propertyCount ?? 0);

@@ -1,6 +1,8 @@
 // Copyright (c) Andrew Arnott. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+using ShapeShift.Equality;
+
 namespace ShapeShift.Converters;
 
 #pragma warning disable SA1204 // Helpers are ordered by their use in the converter.
@@ -14,6 +16,8 @@ internal sealed class ShapeShiftValueConverter<TEncoder, TDecoder> : ShapeShiftC
 	where TEncoder : IEncoder, allows ref struct
 	where TDecoder : IDecoder, allows ref struct
 {
+	private static readonly ShapeShiftValueComparer KeyComparer = new(HashingPolicy.Deterministic);
+
 	/// <inheritdoc/>
 	public override ShapeShiftValue Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context)
 	{
@@ -70,6 +74,9 @@ internal sealed class ShapeShiftValueConverter<TEncoder, TDecoder> : ShapeShiftC
 			case ShapeShiftMap item:
 				this.WriteMap(ref encoder, item, context);
 				break;
+			case ShapeShiftDataMap item:
+				this.WriteDataMap(ref encoder, item, context);
+				break;
 			default:
 				throw new ShapeShiftSerializationException($"Unrecognized dynamic value type {value.GetType().FullName}.");
 		}
@@ -111,26 +118,57 @@ internal sealed class ShapeShiftValueConverter<TEncoder, TDecoder> : ShapeShiftC
 		return new(items);
 	}
 
-	private ShapeShiftMap ReadMap(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context)
+	private ShapeShiftValue ReadMap(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context)
 	{
 		context.DepthStep();
 		int? count = decoder.ReadStartMap();
 		ValidateLength(count, context.MaxCollectionLength, "Collection");
-		Dictionary<string, ShapeShiftValue> properties = count is int length ? new(length, StringComparer.Ordinal) : new(StringComparer.Ordinal);
+		Dictionary<string, ShapeShiftValue>? properties = count is int length ? new(length, StringComparer.Ordinal) : new(StringComparer.Ordinal);
+		List<ShapeShiftDataMapEntry>? entries = null;
+		Dictionary<ShapeShiftValue, int>? seen = null;
 		while (decoder.NextTokenType != TokenType.EndMap)
 		{
-			string name = decoder.ReadPropertyName().ToString();
-			ValidateLength(name.Length, context.MaxStringLength, "String");
-			if (!properties.TryAdd(name, this.Read(ref decoder, context)))
+			if (entries is null && decoder.NextTokenType == TokenType.PropertyName)
 			{
-				throw new ShapeShiftSerializationException($"Dynamic map property '{name}' appears more than once.");
+				string name = decoder.ReadPropertyName().ToString();
+				ValidateLength(name.Length, context.MaxStringLength, "String");
+				ShapeShiftValue item = this.Read(ref decoder, context);
+				if (!properties!.TryAdd(name, item))
+				{
+					throw new ShapeShiftSerializationException($"Dynamic map property '{name}' appears more than once.");
+				}
+
+				ValidateLength(properties.Count, context.MaxCollectionLength, "Collection");
+				continue;
 			}
 
-			ValidateLength(properties.Count, context.MaxCollectionLength, "Collection");
+			if (entries is null)
+			{
+				entries = new(properties!.Count + 1);
+				seen = new(properties.Count + 1, KeyComparer);
+				foreach ((string name, ShapeShiftValue existing) in properties)
+				{
+					ShapeShiftString key = new(name);
+					seen.Add(key, entries.Count);
+					entries.Add(new(key, existing));
+				}
+
+				properties = null;
+			}
+
+			ShapeShiftValue keyValue = this.Read(ref decoder, context);
+			ShapeShiftValue itemValue = this.Read(ref decoder, context);
+			if (!seen!.TryAdd(keyValue, entries.Count))
+			{
+				throw new ShapeShiftSerializationException("A dynamic map key appears more than once.");
+			}
+
+			entries.Add(new(keyValue, itemValue));
+			ValidateLength(entries.Count, context.MaxCollectionLength, "Collection");
 		}
 
 		decoder.ReadEndMap();
-		return new(properties);
+		return entries is null ? new ShapeShiftMap(properties!) : new ShapeShiftDataMap(entries);
 	}
 
 	private void WriteArray(ref TEncoder encoder, ShapeShiftArray value, SerializationContext<TEncoder, TDecoder> context)
@@ -159,6 +197,62 @@ internal sealed class ShapeShiftValueConverter<TEncoder, TDecoder> : ShapeShiftC
 		}
 
 		encoder.WriteEndMap();
+	}
+
+	private void WriteDataMap(ref TEncoder encoder, ShapeShiftDataMap value, SerializationContext<TEncoder, TDecoder> context)
+	{
+		context.DepthStep();
+		IReadOnlyList<ShapeShiftDataMapEntry> entries = value.Entries ?? throw new ShapeShiftSerializationException("A dynamic map is missing its entries.");
+		ValidateLength(entries.Count, context.MaxCollectionLength, "Collection");
+		if (!encoder.ArbitraryMapKeys)
+		{
+			foreach (ShapeShiftDataMapEntry entry in entries)
+			{
+				if (entry.Key is not ShapeShiftString)
+				{
+					throw new ShapeShiftSerializationException("This format cannot encode a map key that is not a text string.");
+				}
+			}
+		}
+
+		RejectDuplicateKeys(entries);
+		encoder.WriteStartMap(entries.Count);
+		foreach (ShapeShiftDataMapEntry entry in entries)
+		{
+			ShapeShiftValue key = entry.Key ?? ShapeShiftValue.Null;
+			if (encoder.ArbitraryMapKeys)
+			{
+				this.Write(ref encoder, key, context);
+			}
+			else
+			{
+				string name = ((ShapeShiftString)key).Value;
+				ValidateLength(name.Length, context.MaxStringLength, "String");
+				encoder.WritePropertyName(name);
+			}
+
+			this.Write(ref encoder, entry.Value, context);
+		}
+
+		encoder.WriteEndMap();
+	}
+
+	private static void RejectDuplicateKeys(IReadOnlyList<ShapeShiftDataMapEntry> entries)
+	{
+		if (entries.Count < 2)
+		{
+			return;
+		}
+
+		Dictionary<ShapeShiftValue, int> seen = new(entries.Count, KeyComparer);
+		foreach (ShapeShiftDataMapEntry entry in entries)
+		{
+			ShapeShiftValue key = entry.Key ?? ShapeShiftValue.Null;
+			if (!seen.TryAdd(key, 0))
+			{
+				throw new ShapeShiftSerializationException("A dynamic map key appears more than once.");
+			}
+		}
 	}
 
 	private static void ValidateLength(int? length, int maximum, string kind)

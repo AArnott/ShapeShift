@@ -55,18 +55,16 @@ public ref struct CborDecoder : IDecoder
 				throw this.TokenMismatch(ex);
 			}
 
-			if (this.depth > 0 && this.frames[this.depth - 1].IsMap && this.frames[this.depth - 1].ExpectingProperty)
+			// RFC 8949 major type 5: a key may be any data item. Text keys stay property names so
+			// string maps and objects keep their existing token stream. Every other key is reported
+			// as the data item it is, and the caller reads it with the ordinary value methods.
+			if (this.depth > 0 && this.frames[this.depth - 1].IsMap && this.frames[this.depth - 1].ExpectingProperty && state == CborReaderState.EndMap)
 			{
-				if (state == CborReaderState.EndMap)
-				{
-					return TokenType.EndMap;
-				}
+				return TokenType.EndMap;
+			}
 
-				if (state != CborReaderState.TextString)
-				{
-					throw new DecoderException("ShapeShift CBOR map keys must be text strings.");
-				}
-
+			if (this.depth > 0 && this.frames[this.depth - 1].IsMap && this.frames[this.depth - 1].ExpectingProperty && state is CborReaderState.TextString or CborReaderState.StartIndefiniteLengthTextString)
+			{
 				return TokenType.PropertyName;
 			}
 
@@ -80,7 +78,7 @@ public ref struct CborDecoder : IDecoder
 				CborReaderState.Boolean => TokenType.Boolean,
 				CborReaderState.TextString or CborReaderState.StartIndefiniteLengthTextString => TokenType.String,
 				CborReaderState.ByteString or CborReaderState.StartIndefiniteLengthByteString => TokenType.Binary,
-				CborReaderState.UnsignedInteger or CborReaderState.NegativeInteger or CborReaderState.HalfPrecisionFloat or CborReaderState.SinglePrecisionFloat or CborReaderState.DoublePrecisionFloat or CborReaderState.Tag => TokenType.Number,
+				CborReaderState.UnsignedInteger or CborReaderState.NegativeInteger or CborReaderState.HalfPrecisionFloat or CborReaderState.SinglePrecisionFloat or CborReaderState.DoublePrecisionFloat or CborReaderState.Tag or CborReaderState.SimpleValue => TokenType.Number,
 				CborReaderState.Finished => TokenType.EndDocument,
 				_ => throw new DecoderException($"Unsupported CBOR reader state {state}."),
 			};
@@ -102,7 +100,6 @@ public ref struct CborDecoder : IDecoder
 	/// <inheritdoc/>
 	public int? ReadStartMap()
 	{
-		this.CompleteValue();
 		int? count;
 		try
 		{
@@ -144,7 +141,6 @@ public ref struct CborDecoder : IDecoder
 	/// <inheritdoc/>
 	public int? ReadStartVector()
 	{
-		this.CompleteValue();
 		int? count;
 		try
 		{
@@ -189,6 +185,12 @@ public ref struct CborDecoder : IDecoder
 		if (this.depth == 0 || !this.frames[this.depth - 1].IsMap || !this.frames[this.depth - 1].ExpectingProperty)
 		{
 			throw new DecoderException("A CBOR property name must appear directly inside a map.");
+		}
+
+		CborReaderState state = this.GetNextCborReaderState();
+		if (state is not (CborReaderState.TextString or CborReaderState.StartIndefiniteLengthTextString))
+		{
+			throw new DecoderException("A CBOR property name must be a text string.");
 		}
 
 		try
@@ -548,18 +550,36 @@ public ref struct CborDecoder : IDecoder
 	}
 
 	/// <inheritdoc/>
+	/// <remarks>
+	/// Half-precision values, including signed zero, are returned as <see cref="double"/>.
+	/// CBOR simple values, including undefined (simple value 23), are returned as their integer code
+	/// because the dynamic model has no simple-value type. A tag 1 key is returned as its numeric
+	/// seconds offset; tag 1 in value position is rejected here.
+	/// </remarks>
 	public ShapeShiftNumber ReadDynamicNumber()
 	{
 		return this.GetNextCborReaderState() switch
 		{
 			CborReaderState.UnsignedInteger => new ShapeShiftUnsignedInteger(this.ReadUInt64()),
 			CborReaderState.NegativeInteger => new ShapeShiftInteger(this.ReadInt64()),
-			CborReaderState.HalfPrecisionFloat => new ShapeShiftFloat((double)this.ReadHalf()),
+			CborReaderState.HalfPrecisionFloat => new ShapeShiftFloat(ToDouble(this.ReadHalf())),
 			CborReaderState.SinglePrecisionFloat => new ShapeShiftFloat(this.ReadSingle()),
 			CborReaderState.DoublePrecisionFloat => new ShapeShiftFloat(this.ReadDouble()),
+			CborReaderState.SimpleValue => new ShapeShiftUnsignedInteger((ulong)(byte)this.ReadSimpleValue()),
 			CborReaderState.Tag => this.ReadTaggedDynamicNumber(),
 			_ => new ShapeShiftDecimal(this.ReadDecimal()),
 		};
+
+		static double ToDouble(Half value)
+		{
+			double result = (double)value;
+			if (Half.IsNegative(value) && result == 0)
+			{
+				return -0.0;
+			}
+
+			return result;
+		}
 	}
 
 	/// <summary>
@@ -606,6 +626,26 @@ public ref struct CborDecoder : IDecoder
 			throw this.TokenMismatch(ex);
 		}
 
+		// A map key may be tag 1. The dynamic model has no date type, so the key is the numeric
+		// content. Value position is left unchanged: a tagged date/time there is not a dynamic number.
+		if (tag == CborTag.UnixTimeSeconds && this.IsReadingMapKey())
+		{
+			try
+			{
+				this.reader.ReadTag();
+			}
+			catch (CborContentException ex)
+			{
+				throw this.MalformedInput(ex);
+			}
+			catch (InvalidOperationException ex)
+			{
+				throw this.TokenMismatch(ex);
+			}
+
+			return this.ReadDynamicNumber();
+		}
+
 		return tag switch
 		{
 			CborTag.UnsignedBigNum or CborTag.NegativeBigNum => new ShapeShiftBigInteger(this.ReadBigInteger()),
@@ -614,17 +654,49 @@ public ref struct CborDecoder : IDecoder
 		};
 	}
 
+	private CborSimpleValue ReadSimpleValue()
+	{
+		try
+		{
+			CborSimpleValue value = this.reader.ReadSimpleValue();
+			this.CompleteValue();
+			return value;
+		}
+		catch (CborContentException ex)
+		{
+			throw this.MalformedInput(ex);
+		}
+		catch (InvalidOperationException ex)
+		{
+			throw this.TokenMismatch(ex);
+		}
+	}
+
 	private DecoderException MalformedInput(CborContentException exception) => new("The CBOR input is malformed.", exception);
 
 	private DecoderException TokenMismatch(InvalidOperationException exception) => new("The CBOR token does not match the requested value.", exception);
 
 	private DecoderException NumberTooLarge(OverflowException exception) => new("The CBOR number does not fit the requested value.", exception);
 
+	/// <summary>
+	/// Gets a value indicating whether the next data item is a map key.
+	/// </summary>
+	/// <returns><see langword="true"/> when the next item is a key of the current map.</returns>
+	private bool IsReadingMapKey() => this.depth > 0 && this.frames[this.depth - 1].IsMap && this.frames[this.depth - 1].ExpectingProperty;
+
+	/// <summary>
+	/// Records that one data item of the current map has been fully consumed.
+	/// </summary>
+	/// <remarks>
+	/// Keys and values alternate. A container counts as consumed when it ends, not when it starts,
+	/// so a map or array used as a key does not also consume the value slot.
+	/// <see cref="ReadPropertyName"/> records a text key itself and does not call this method.
+	/// </remarks>
 	private void CompleteValue()
 	{
-		if (this.depth > 0 && this.frames[this.depth - 1].IsMap && !this.frames[this.depth - 1].ExpectingProperty)
+		if (this.depth > 0 && this.frames[this.depth - 1].IsMap)
 		{
-			this.frames[this.depth - 1].ExpectingProperty = true;
+			this.frames[this.depth - 1].ExpectingProperty = !this.frames[this.depth - 1].ExpectingProperty;
 		}
 	}
 

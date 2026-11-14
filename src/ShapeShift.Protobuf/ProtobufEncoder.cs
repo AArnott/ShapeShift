@@ -24,6 +24,9 @@ public ref struct ProtobufEncoder(Stream stream) : IEncoder
 	}
 
 	/// <inheritdoc/>
+	public bool ArbitraryMapKeys => false;
+
+	/// <inheritdoc/>
 	public static object? PreparePropertyName(string name) => name;
 
 	/// <inheritdoc/>

@@ -47,7 +47,7 @@ Every shape kind the serializer understands is supported:
 | Optionals (`T?`, `Option<T>`, ...) | "Has value" flags must match; values compared structurally. |
 | Unions | The selected case must match, then the case value is compared structurally. |
 | Surrogates | Both sides are projected through the surrogate marshaler and the surrogate is compared. Only state the surrogate carries participates in equality. |
-| `ShapeShiftValue` | Structural: maps are order-independent, arrays element-wise, binary by byte content. |
+| `ShapeShiftValue` | Structural: string maps and data maps are order-independent, arrays element-wise, binary by byte content. Integer and unsigned nodes stay distinct. |
 | `byte[]` and `ReadOnlyMemory<byte>` | By content, not by reference. |
 
 `null` equals `null`, and `null` never equals a non-`null` value.

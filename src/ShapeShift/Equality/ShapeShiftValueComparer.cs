@@ -5,7 +5,7 @@ namespace ShapeShift.Equality;
 
 /// <summary>
 /// Compares <see cref="ShapeShiftValue"/> graphs structurally, including the contents of
-/// <see cref="ShapeShiftArray"/>, <see cref="ShapeShiftMap"/> and <see cref="ShapeShiftBinary"/> nodes,
+/// <see cref="ShapeShiftArray"/>, <see cref="ShapeShiftMap"/>, <see cref="ShapeShiftDataMap"/> and <see cref="ShapeShiftBinary"/> nodes,
 /// which the compiler generated record equality compares by reference.
 /// </summary>
 /// <param name="policy">The hashing policy.</param>
@@ -19,6 +19,7 @@ namespace ShapeShift.Equality;
 /// <para>
 /// Map keys are matched with ordinal string equality regardless of the comparer that the underlying
 /// dictionary instance happens to use, and map entry order is irrelevant.
+/// <see cref="ShapeShiftDataMap"/> keys are matched structurally, and that entry order is irrelevant too.
 /// </para>
 /// </remarks>
 internal sealed class ShapeShiftValueComparer(HashingPolicy policy) : StructuralComparer<ShapeShiftValue>
@@ -34,6 +35,7 @@ internal sealed class ShapeShiftValueComparer(HashingPolicy policy) : Structural
 	private const int BinarySeed = 0x53565900;
 	private const int ArraySeed = 0x53564100;
 	private const int MapSeed = 0x53564D00;
+	private const int DataMapSeed = 0x53564B00;
 
 	/// <inheritdoc/>
 	internal override bool EqualsCore(ShapeShiftValue x, ShapeShiftValue y, ref ComparisonState state)
@@ -67,6 +69,8 @@ internal sealed class ShapeShiftValueComparer(HashingPolicy policy) : Structural
 				return y is ShapeShiftArray yArray && this.ArraysEqual(xArray, yArray, ref state);
 			case ShapeShiftMap xMap:
 				return y is ShapeShiftMap yMap && this.MapsEqual(xMap, yMap, ref state);
+			case ShapeShiftDataMap xDataMap:
+				return y is ShapeShiftDataMap yDataMap && this.DataMapsEqual(xDataMap, yDataMap, ref state);
 			default:
 				return x.Equals(y);
 		}
@@ -99,6 +103,8 @@ internal sealed class ShapeShiftValueComparer(HashingPolicy policy) : Structural
 				return this.HashArray(arrayNode, ref state);
 			case ShapeShiftMap mapNode:
 				return this.HashMap(mapNode, ref state);
+			case ShapeShiftDataMap dataMapNode:
+				return this.HashDataMap(dataMapNode, ref state);
 			default:
 				return policy.HashOpaque(value.GetHashCode());
 		}
@@ -191,6 +197,66 @@ internal sealed class ShapeShiftValueComparer(HashingPolicy policy) : Structural
 		foreach (KeyValuePair<string, ShapeShiftValue> entry in node.Properties)
 		{
 			int entryHash = HashCombiner.Combine(policy.HashString(entry.Key), this.GetHashCodeWithNullHandling(entry.Value, ref state));
+			hash = HashCombiner.CombineUnordered(hash, HashCombiner.Finalize(entryHash));
+			count++;
+		}
+
+		hash = HashCombiner.Finalize(HashCombiner.Combine(hash, count));
+		state.Exit(node, hash);
+		return hash;
+	}
+
+	private bool DataMapsEqual(ShapeShiftDataMap x, ShapeShiftDataMap y, ref ComparisonState state)
+	{
+		if (state.EnterOrAssumeEqual(x, y))
+		{
+			state.Exit();
+			return true;
+		}
+
+		bool result = x.Entries.Count == y.Entries.Count;
+		if (result)
+		{
+			List<ShapeShiftDataMapEntry> unmatched = new(y.Entries.Count);
+			unmatched.AddRange(y.Entries);
+			foreach (ShapeShiftDataMapEntry entry in x.Entries)
+			{
+				int match = -1;
+				for (int i = 0; i < unmatched.Count; i++)
+				{
+					if (this.EqualsWithNullHandling(entry.Key, unmatched[i].Key, ref state))
+					{
+						match = i;
+						break;
+					}
+				}
+
+				if (match < 0 || !this.EqualsWithNullHandling(entry.Value, unmatched[match].Value, ref state))
+				{
+					result = false;
+					break;
+				}
+
+				unmatched.RemoveAt(match);
+			}
+		}
+
+		state.Exit();
+		return result;
+	}
+
+	private int HashDataMap(ShapeShiftDataMap node, ref HashState state)
+	{
+		if (!state.TryEnter(node, out int memoized))
+		{
+			return memoized;
+		}
+
+		int hash = DataMapSeed;
+		int count = 0;
+		foreach (ShapeShiftDataMapEntry entry in node.Entries)
+		{
+			int entryHash = HashCombiner.Combine(this.GetHashCodeWithNullHandling(entry.Key, ref state), this.GetHashCodeWithNullHandling(entry.Value, ref state));
 			hash = HashCombiner.CombineUnordered(hash, HashCombiner.Finalize(entryHash));
 			count++;
 		}

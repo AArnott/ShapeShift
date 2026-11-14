@@ -29,6 +29,23 @@ namespace ShapeShift;
 public interface IEncoder
 {
 	/// <summary>
+	/// Gets a value indicating whether a map key may be any data item this encoder can write.
+	/// </summary>
+	/// <value>
+	/// <see langword="true"/> when a key is written with the same value methods as any other data item;
+	/// <see langword="false"/> when every map key must be a text property name.
+	/// </value>
+	/// <remarks>
+	/// The default is <see langword="false"/>, which is what text formats and typed string maps require.
+	/// A <see langword="ref"/> <see langword="struct"/> encoder redeclares the property, because it cannot
+	/// pick up a default interface implementation. CBOR returns <see langword="true"/> because RFC 8949
+	/// major type 5 allows any data item as a key.
+	/// A <see cref="ShapeShiftDataMap"/> that contains a non-text key is rejected by an encoder that leaves this
+	/// <see langword="false"/>. Text keys are still written with <see cref="WritePropertyName(ReadOnlySpan{char})"/>.
+	/// </remarks>
+	bool ArbitraryMapKeys => false;
+
+	/// <summary>
 	/// Prepares a declared property name for repeated writes by this encoder type.
 	/// </summary>
 	/// <param name="name">The property name.</param>
