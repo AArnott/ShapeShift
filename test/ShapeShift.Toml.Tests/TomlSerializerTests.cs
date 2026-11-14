@@ -244,6 +244,20 @@ public partial class TomlSerializerTests : TestBase
 	}
 
 	[Test]
+	public async Task MultilineQuoteRun_IsRejectedLinearly()
+	{
+		string toml = "a = \"\"\"" + new string('"', 100_000);
+
+		void Parse()
+		{
+			StringReader reader = new(toml);
+			_ = new TomlDecoder(reader);
+		}
+
+		await Assert.That(Parse).Throws<DecoderException>();
+	}
+
+	[Test]
 	public async Task DateTime_DynamicValueIsCanonicalText()
 	{
 		TomlSerializer serializer = new();

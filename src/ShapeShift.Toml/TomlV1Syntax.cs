@@ -232,7 +232,7 @@ internal static class TomlV1Syntax
 		=> index + 2 < text.Length && text[index] == quote && text[index + 1] == quote && text[index + 2] == quote;
 
 	/// <summary>
-	/// Closes a multiline string on a run of three, four, or five quotes. One or two quotes are body text. A longer run closes on the first three quotes.
+	/// Closes a multiline string on a run of three, four, or five quotes. One or two quotes are body text. A longer run closes on the first three quotes. Counting stops at six quotes so a long malformed run stays a linear scan.
 	/// </summary>
 	/// <param name="text">The TOML document.</param>
 	/// <param name="index">The index of the first quote. On success, the index of the last quote consumed.</param>
@@ -246,7 +246,7 @@ internal static class TomlV1Syntax
 		}
 
 		int run = 1;
-		while (index + run < text.Length && text[index + run] == quote)
+		while (run < 6 && index + run < text.Length && text[index + run] == quote)
 		{
 			run++;
 		}

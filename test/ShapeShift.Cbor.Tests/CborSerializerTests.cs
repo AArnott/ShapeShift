@@ -115,10 +115,16 @@ public partial class CborSerializerTests : TestBase
 	[Test]
 	public async Task UnixTimeTag_RejectsValuesOutsideDateTime()
 	{
-		byte[] encoded = [0xc1, 0x1b, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
-		Func<DateTime?> deserialize = () => this.serializer.Deserialize<DateTime, Witness>(encoded);
+		byte[] signed = [0xc1, 0x1b, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
+		byte[] unsigned = [0xc1, 0x1b, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
+		byte[] floating = [0xc1, 0xfb, 0x44, 0x15, 0xaf, 0x1d, 0x78, 0xb5, 0x8c, 0x40];
+		Func<DateTime?> deserializeSigned = () => this.serializer.Deserialize<DateTime, Witness>(signed);
+		Func<DateTime?> deserializeUnsigned = () => this.serializer.Deserialize<DateTime, Witness>(unsigned);
+		Func<DateTime?> deserializeFloating = () => this.serializer.Deserialize<DateTime, Witness>(floating);
 
-		await Assert.That(deserialize).Throws<DecoderException>();
+		await Assert.That(deserializeSigned).Throws<DecoderException>();
+		await Assert.That(deserializeUnsigned).Throws<DecoderException>();
+		await Assert.That(deserializeFloating).Throws<DecoderException>();
 	}
 
 	[Test]

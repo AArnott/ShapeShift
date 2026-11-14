@@ -485,6 +485,10 @@ public ref struct CborDecoder : IDecoder
 		{
 			throw new DecoderException("The CBOR epoch-based date/time is outside the range of DateTime.", ex);
 		}
+		catch (OverflowException ex)
+		{
+			throw new DecoderException("The CBOR epoch-based date/time is outside the range of DateTime.", ex);
+		}
 	}
 
 	/// <inheritdoc/>
