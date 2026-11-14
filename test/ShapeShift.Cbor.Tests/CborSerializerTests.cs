@@ -77,6 +77,38 @@ public partial class CborSerializerTests : TestBase
 	}
 
 	[Test]
+	public async Task UnixTimeTag_ReadsEpochSeconds()
+	{
+		await AssertEpoch(new byte[] { 0xc1, 0x00 }, 0);
+		await AssertEpoch(new byte[] { 0xc1, 0x01 }, 1);
+		await AssertEpoch(new byte[] { 0xc1, 0x20 }, -1);
+		await AssertEpoch(new byte[] { 0xc1, 0xf9, 0x3c, 0x00 }, 1);
+		await AssertEpoch(new byte[] { 0xc1, 0xfb, 0x3f, 0xf8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, 1.5);
+
+		async Task AssertEpoch(byte[] encoded, double seconds)
+		{
+			DateTime? actual = this.serializer.Deserialize<DateTime, Witness>(encoded);
+			await Assert.That(actual).IsEqualTo(DateTime.UnixEpoch.AddSeconds(seconds));
+		}
+	}
+
+	[Test]
+	public async Task UnixTimeTag_DynamicValueIsTheNumericOffset()
+	{
+		await Assert.That(this.serializer.Deserialize<ShapeShiftValue>(new byte[] { 0xc1, 0x00 })).IsEqualTo(new ShapeShiftUnsignedInteger(0));
+		await Assert.That(this.serializer.Deserialize<ShapeShiftValue>(new byte[] { 0xc1, 0x20 })).IsEqualTo(new ShapeShiftInteger(-1));
+	}
+
+	[Test]
+	public async Task UnixTimeTag_RejectsValuesOutsideDateTime()
+	{
+		byte[] encoded = [0xc1, 0x1b, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
+		Func<DateTime?> deserialize = () => this.serializer.Deserialize<DateTime, Witness>(encoded);
+
+		await Assert.That(deserialize).Throws<DecoderException>();
+	}
+
+	[Test]
 	public async Task DynamicBigInteger_RoundTrips()
 	{
 		ShapeShiftValue value = new ShapeShiftBigInteger(BigInteger.Parse("123456789012345678901234567890"));

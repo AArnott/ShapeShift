@@ -443,18 +443,35 @@ public ref struct CborDecoder : IDecoder
 	}
 
 	/// <inheritdoc/>
+	/// <remarks>
+	/// Tag 0 is an RFC 3339 date/time string. Tag 1 is the number of seconds from 1970-01-01T00:00:00Z, encoded as an integer or a floating-point number (RFC 8949 section 3.4.2). The returned value is UTC.
+	/// </remarks>
 	public DateTime ReadDateTime()
 	{
-		string text;
 		try
 		{
-			if (this.reader.ReadTag() != CborTag.DateTimeString)
+			CborTag tag = this.reader.PeekTag();
+			if (tag == CborTag.DateTimeString)
 			{
-				throw new DecoderException("The CBOR tag is not a date/time string.");
+				this.reader.ReadTag();
+				string text = this.reader.ReadTextString();
+				this.CompleteValue();
+				if (!DateTime.TryParse(text, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind, out DateTime value))
+				{
+					throw new DecoderException($"\"{text}\" is not a valid RFC 3339 date/time string.");
+				}
+
+				return value;
 			}
 
-			text = this.reader.ReadTextString();
-			this.CompleteValue();
+			if (tag == CborTag.UnixTimeSeconds)
+			{
+				DateTimeOffset value = this.reader.ReadUnixTimeSeconds();
+				this.CompleteValue();
+				return value.UtcDateTime;
+			}
+
+			throw new DecoderException("The CBOR tag is not a date/time.");
 		}
 		catch (CborContentException ex)
 		{
@@ -464,13 +481,10 @@ public ref struct CborDecoder : IDecoder
 		{
 			throw this.TokenMismatch(ex);
 		}
-
-		if (!DateTime.TryParse(text, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind, out DateTime value))
+		catch (ArgumentOutOfRangeException ex)
 		{
-			throw new DecoderException($"\"{text}\" is not a valid RFC 3339 date/time string.");
+			throw new DecoderException("The CBOR epoch-based date/time is outside the range of DateTime.", ex);
 		}
-
-		return value;
 	}
 
 	/// <inheritdoc/>
@@ -548,6 +562,9 @@ public ref struct CborDecoder : IDecoder
 	}
 
 	/// <inheritdoc/>
+	/// <remarks>
+	/// Tag 1 (epoch-based date/time) is returned as its numeric seconds offset so an untyped value can represent the item. Tag 2 and tag 3 are big integers, and tag 4 is a decimal fraction.
+	/// </remarks>
 	public ShapeShiftNumber ReadDynamicNumber()
 	{
 		return this.GetNextCborReaderState() switch
@@ -604,6 +621,24 @@ public ref struct CborDecoder : IDecoder
 		catch (InvalidOperationException ex)
 		{
 			throw this.TokenMismatch(ex);
+		}
+
+		if (tag == CborTag.UnixTimeSeconds)
+		{
+			try
+			{
+				this.reader.ReadTag();
+			}
+			catch (CborContentException ex)
+			{
+				throw this.MalformedInput(ex);
+			}
+			catch (InvalidOperationException ex)
+			{
+				throw this.TokenMismatch(ex);
+			}
+
+			return this.ReadDynamicNumber();
 		}
 
 		return tag switch
