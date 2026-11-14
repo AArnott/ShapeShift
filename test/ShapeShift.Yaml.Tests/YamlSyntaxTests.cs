@@ -92,6 +92,10 @@ public partial class YamlSyntaxTests
 		await Assert.That(string.Join('|', ReadMapStrings("1: a\n\"1\": b\n"))).IsEqualTo("1|a|1|b");
 		await Assert.That(ReadDistinctSequenceKeys()).IsEqualTo("a|b|first|a;S=b|second");
 		await Assert.That(() => Open(AliasBombKeys(), new YamlLoadOptions { MaxAliasExpansions = 8 })).Throws<DecoderException>();
+		YamlDecoder chain = Open(AliasChainKey(20));
+		await Assert.That(chain.NextTokenType).IsEqualTo(TokenType.StartMap);
+		await Assert.That(DuplicateKeyMessage(AliasChainKey(20) + DuplicateAliasChainKey(20))).Contains("duplicate key");
+		await Assert.That(DuplicateKeyMessage("a: &a 1\n? [*a, *a]\n: first\n? [1, 1]\n: second\n")).Contains("duplicate key");
 	}
 
 	[Test]
@@ -328,6 +332,35 @@ public partial class YamlSyntaxTests
 		values.Add(decoder.ReadString());
 		decoder.ReadEndMap();
 		return string.Join('|', values);
+	}
+
+	private static string AliasChainKey(int levels)
+	{
+		System.Text.StringBuilder yaml = new("n0: &n0 [1]\n");
+		for (int i = 1; i < levels; i++)
+		{
+			yaml.Append("n").Append(i).Append(": &n").Append(i).Append(" [*n").Append(i - 1).Append(", *n").Append(i - 1).Append("]\n");
+		}
+
+		yaml.Append("? *n").Append(levels - 1).Append("\n: 1\n");
+		return yaml.ToString();
+	}
+
+	private static string DuplicateAliasChainKey(int levels)
+		=> "? *n" + (levels - 1).ToString(System.Globalization.CultureInfo.InvariantCulture) + "\n: 2\n";
+
+	private static string DuplicateKeyMessage(string yaml)
+	{
+		try
+		{
+			Open(yaml);
+		}
+		catch (DecoderException exception)
+		{
+			return exception.Message;
+		}
+
+		return string.Empty;
 	}
 
 	private static string AliasBombKeys()

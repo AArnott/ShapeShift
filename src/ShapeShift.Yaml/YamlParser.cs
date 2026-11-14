@@ -45,7 +45,8 @@ internal static class YamlParser
 		private readonly string text;
 		private readonly YamlLoadOptions options;
 		private readonly Dictionary<string, YamlNode> anchors = new(StringComparer.Ordinal);
-		private readonly Dictionary<YamlNode, HashSet<string>> seenKeys = new();
+		private readonly Dictionary<YamlNode, HashSet<YamlNode>> seenKeys = new();
+		private readonly KeyComparer keyComparer;
 		private readonly HashSet<YamlNode> constructing = [];
 		private readonly Dictionary<string, string> tagHandles = new(StringComparer.Ordinal);
 		private readonly HashSet<string> declaredHandles = new(StringComparer.Ordinal);
@@ -74,6 +75,7 @@ internal static class YamlParser
 					MaxDepth = options.MaxDepth > 0 ? options.MaxDepth : 256,
 					MaxAliasExpansions = options.MaxAliasExpansions > 0 ? options.MaxAliasExpansions : 4096,
 				};
+			this.keyComparer = new KeyComparer(this);
 			this.ResetHandles();
 		}
 
@@ -1719,82 +1721,139 @@ internal static class YamlParser
 				return;
 			}
 
-			if (!this.seenKeys.TryGetValue(map, out HashSet<string>? seen))
+			if (!this.seenKeys.TryGetValue(map, out HashSet<YamlNode>? seen))
 			{
-				seen = new HashSet<string>(StringComparer.Ordinal);
+				seen = new HashSet<YamlNode>(this.keyComparer);
 				this.seenKeys[map] = seen;
 			}
 
-			if (!seen.Add(this.KeyFingerprint(key)))
+			if (!seen.Add(key))
 			{
 				throw this.Error("A YAML mapping contains a duplicate key.");
 			}
 		}
 
-		private string KeyFingerprint(YamlNode key)
+		private int KeyHash(YamlNode key)
 		{
 			this.keyAliasExpansions = 0;
-			return this.Fingerprint(key, [], []);
+			return this.HashNode(key, [], []);
 		}
 
-		private string Fingerprint(YamlNode node, Dictionary<YamlNode, string> done, HashSet<YamlNode> stack)
+		private int HashNode(YamlNode node, Dictionary<YamlNode, int> done, HashSet<YamlNode> stack)
 		{
 			node = this.FollowKey(node);
-			if (done.TryGetValue(node, out string? cached))
+			if (done.TryGetValue(node, out int cached))
 			{
 				return cached;
 			}
 
 			if (!stack.Add(node))
 			{
-				return "#";
+				return 0;
 			}
 
-			string value;
+			int hash;
 			if (node.Kind == YamlNodeKind.Scalar)
 			{
-				string canonical = YamlSchema.CanonicalScalar(node);
-				value = "S" + canonical.Length.ToString(System.Globalization.CultureInfo.InvariantCulture) + ":" + canonical;
+				hash = HashCode.Combine(1, YamlSchema.CanonicalScalar(node));
 			}
 			else if (node.Kind == YamlNodeKind.Sequence)
 			{
-				value = this.FingerprintSequence(node, done, stack);
+				HashCode code = default;
+				code.Add(2);
+				code.Add(node.Items!.Count);
+				foreach (YamlNode item in node.Items)
+				{
+					code.Add(this.HashNode(item, done, stack));
+				}
+
+				hash = code.ToHashCode();
 			}
 			else
 			{
-				value = this.FingerprintMapping(node, done, stack);
+				HashCode code = default;
+				code.Add(3);
+				code.Add(node.Pairs!.Count);
+				foreach (YamlPair pair in node.Pairs)
+				{
+					code.Add(this.HashNode(pair.Key, done, stack));
+					code.Add(this.HashNode(pair.Value, done, stack));
+				}
+
+				hash = code.ToHashCode();
 			}
 
 			stack.Remove(node);
-			done[node] = value;
-			return value;
+			done[node] = hash;
+			return hash;
 		}
 
-		private string FingerprintSequence(YamlNode node, Dictionary<YamlNode, string> done, HashSet<YamlNode> stack)
+		private bool SameKey(YamlNode left, YamlNode right)
 		{
-			StringBuilder sb = new();
-			sb.Append('L').Append(node.Items!.Count).Append('{');
-			foreach (YamlNode item in node.Items)
-			{
-				sb.Append(this.Fingerprint(item, done, stack));
-			}
-
-			sb.Append('}');
-			return sb.ToString();
+			this.keyAliasExpansions = 0;
+			return this.SameNode(left, right, []);
 		}
 
-		private string FingerprintMapping(YamlNode node, Dictionary<YamlNode, string> done, HashSet<YamlNode> stack)
+		private bool SameNode(YamlNode left, YamlNode right, Dictionary<(YamlNode Left, YamlNode Right), bool> memo)
 		{
-			StringBuilder sb = new();
-			sb.Append('M').Append(node.Pairs!.Count).Append('{');
-			foreach (YamlPair pair in node.Pairs)
+			left = this.FollowKey(left);
+			right = this.FollowKey(right);
+			if (ReferenceEquals(left, right))
 			{
-				sb.Append(this.Fingerprint(pair.Key, done, stack));
-				sb.Append(this.Fingerprint(pair.Value, done, stack));
+				return true;
 			}
 
-			sb.Append('}');
-			return sb.ToString();
+			(YamlNode Left, YamlNode Right) pair = (left, right);
+			if (memo.TryGetValue(pair, out bool cached))
+			{
+				return cached;
+			}
+
+			// Assume equality until a difference is found so a cycle does not recurse forever.
+			memo[pair] = true;
+			bool equal = left.Kind == right.Kind && this.SameContent(left, right, memo);
+			memo[pair] = equal;
+			return equal;
+		}
+
+		private bool SameContent(YamlNode left, YamlNode right, Dictionary<(YamlNode Left, YamlNode Right), bool> memo)
+		{
+			switch (left.Kind)
+			{
+				case YamlNodeKind.Scalar:
+					return YamlSchema.CanonicalScalar(left) == YamlSchema.CanonicalScalar(right);
+				case YamlNodeKind.Sequence:
+					if (left.Items!.Count != right.Items!.Count)
+					{
+						return false;
+					}
+
+					for (int i = 0; i < left.Items.Count; i++)
+					{
+						if (!this.SameNode(left.Items[i], right.Items[i], memo))
+						{
+							return false;
+						}
+					}
+
+					return true;
+				default:
+					if (left.Pairs!.Count != right.Pairs!.Count)
+					{
+						return false;
+					}
+
+					for (int i = 0; i < left.Pairs.Count; i++)
+					{
+						if (!this.SameNode(left.Pairs[i].Key, right.Pairs[i].Key, memo) ||
+							!this.SameNode(left.Pairs[i].Value, right.Pairs[i].Value, memo))
+						{
+							return false;
+						}
+					}
+
+					return true;
+			}
 		}
 
 		private YamlNode FollowKey(YamlNode node)
@@ -3008,5 +3067,19 @@ internal static class YamlParser
 		}
 
 		private DecoderException Error(string message) => new($"Line {this.line}, column {this.Column + 1}: {message}");
+
+		/// <summary>
+		/// Compares mapping keys by resolved structure. The hash reuses a node's cached code, so an alias
+		/// chain is not expanded into a string.
+		/// </summary>
+		/// <param name="session">The parse session that follows aliases.</param>
+		private sealed class KeyComparer(Session session) : IEqualityComparer<YamlNode>
+		{
+			/// <inheritdoc/>
+			public bool Equals(YamlNode? x, YamlNode? y) => x is not null && y is not null && session.SameKey(x, y);
+
+			/// <inheritdoc/>
+			public int GetHashCode(YamlNode obj) => session.KeyHash(obj);
+		}
 	}
 }
