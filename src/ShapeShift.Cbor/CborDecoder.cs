@@ -567,7 +567,7 @@ public ref struct CborDecoder : IDecoder
 
 	/// <inheritdoc/>
 	/// <remarks>
-	/// Tag 1 (epoch-based date/time) is returned as its numeric seconds offset. The tag must wrap an integer or a floating-point number directly. Tag 2 and tag 3 are big integers, and tag 4 is a decimal fraction.
+	/// Tag 1 (epoch-based date/time) is returned as its numeric seconds offset. The tag must wrap an integer or a floating-point number directly. An integer below <see cref="long.MinValue"/> is a <see cref="ShapeShiftBigInteger"/>. Tag 2 and tag 3 are big integers, and tag 4 is a decimal fraction.
 	/// </remarks>
 	public ShapeShiftNumber ReadDynamicNumber()
 	{
@@ -659,12 +659,37 @@ public ref struct CborDecoder : IDecoder
 		return this.GetNextCborReaderState() switch
 		{
 			CborReaderState.UnsignedInteger => new ShapeShiftUnsignedInteger(this.ReadUInt64()),
-			CborReaderState.NegativeInteger => new ShapeShiftInteger(this.ReadInt64()),
+			CborReaderState.NegativeInteger => this.ReadNegativeEpochOffset(),
 			CborReaderState.HalfPrecisionFloat => new ShapeShiftFloat((double)this.ReadHalf()),
 			CborReaderState.SinglePrecisionFloat => new ShapeShiftFloat(this.ReadSingle()),
 			CborReaderState.DoublePrecisionFloat => new ShapeShiftFloat(this.ReadDouble()),
 			_ => throw new DecoderException("CBOR tag 1 content must be an integer or floating-point number of seconds."),
 		};
+	}
+
+	private ShapeShiftNumber ReadNegativeEpochOffset()
+	{
+		ulong representation;
+		try
+		{
+			representation = this.reader.ReadCborNegativeIntegerRepresentation();
+			this.CompleteValue();
+		}
+		catch (CborContentException ex)
+		{
+			throw this.MalformedInput(ex);
+		}
+		catch (InvalidOperationException ex)
+		{
+			throw this.TokenMismatch(ex);
+		}
+
+		if (representation <= long.MaxValue)
+		{
+			return new ShapeShiftInteger(-1 - (long)representation);
+		}
+
+		return new ShapeShiftBigInteger(BigInteger.MinusOne - new BigInteger(representation));
 	}
 
 	private DecoderException MalformedInput(CborContentException exception) => new("The CBOR input is malformed.", exception);

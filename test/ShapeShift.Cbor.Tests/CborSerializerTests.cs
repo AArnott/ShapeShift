@@ -97,6 +97,9 @@ public partial class CborSerializerTests : TestBase
 	{
 		await Assert.That(this.serializer.Deserialize<ShapeShiftValue>(new byte[] { 0xc1, 0x00 })).IsEqualTo(new ShapeShiftUnsignedInteger(0));
 		await Assert.That(this.serializer.Deserialize<ShapeShiftValue>(new byte[] { 0xc1, 0x20 })).IsEqualTo(new ShapeShiftInteger(-1));
+		await Assert.That(this.serializer.Deserialize<ShapeShiftValue>(new byte[] { 0xc1, 0x3b, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff })).IsEqualTo(new ShapeShiftInteger(long.MinValue));
+		await Assert.That(this.serializer.Deserialize<ShapeShiftValue>(new byte[] { 0xc1, 0x3b, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }))
+			.IsEqualTo(new ShapeShiftBigInteger(BigInteger.MinusOne - new BigInteger(ulong.MaxValue)));
 	}
 
 	[Test]
@@ -118,13 +121,16 @@ public partial class CborSerializerTests : TestBase
 		byte[] signed = [0xc1, 0x1b, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
 		byte[] unsigned = [0xc1, 0x1b, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
 		byte[] floating = [0xc1, 0xfb, 0x44, 0x15, 0xaf, 0x1d, 0x78, 0xb5, 0x8c, 0x40];
+		byte[] belowInt64 = [0xc1, 0x3b, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
 		Func<DateTime?> deserializeSigned = () => this.serializer.Deserialize<DateTime, Witness>(signed);
 		Func<DateTime?> deserializeUnsigned = () => this.serializer.Deserialize<DateTime, Witness>(unsigned);
 		Func<DateTime?> deserializeFloating = () => this.serializer.Deserialize<DateTime, Witness>(floating);
+		Func<DateTime?> deserializeBelowInt64 = () => this.serializer.Deserialize<DateTime, Witness>(belowInt64);
 
 		await Assert.That(deserializeSigned).Throws<DecoderException>();
 		await Assert.That(deserializeUnsigned).Throws<DecoderException>();
 		await Assert.That(deserializeFloating).Throws<DecoderException>();
+		await Assert.That(deserializeBelowInt64).Throws<DecoderException>();
 	}
 
 	[Test]
