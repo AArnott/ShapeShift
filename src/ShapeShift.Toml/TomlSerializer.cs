@@ -53,7 +53,7 @@ public record TomlSerializer : ShapeShiftSerializer<TomlEncoder, TomlDecoder>
 		where TProvider : IShapeable<T>
 	{
 		StringReader stringReader = new(toml);
-		TomlDecoder decoder = new(stringReader);
+		TomlDecoder decoder = new(stringReader, this.StartingContext.MaxDepth);
 		return this.Deserialize(ref decoder, TProvider.GetTypeShape());
 	}
 }

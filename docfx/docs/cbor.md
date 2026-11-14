@@ -17,8 +17,9 @@ Object contracts are CBOR maps with text-string keys and collection contracts
 are CBOR arrays. Byte arrays use CBOR byte strings. Signed and unsigned
 64-bit integers use their native CBOR integer families; values that require a
 larger integer or an exact decimal use CBOR's standard bignum and decimal
-fraction tags. `DateTime` uses CBOR tag 0 (an RFC 3339 date/time string), and
-`TimeSpan` is represented as a signed 64-bit tick count.
+fraction tags. `DateTime` is written as CBOR tag 0 (an RFC 3339 date/time
+string). Readers also accept tag 1, the number of seconds from the Unix epoch
+(RFC 8949 section 3.4.2). `TimeSpan` is represented as a signed 64-bit tick count.
 
 ## Map keys
 
@@ -64,11 +65,12 @@ half-precision infinity, NaN, or zero is written back as half-precision, while
 a value such as `0.1` is written as double-precision. CBOR simple values,
 including undefined (simple value 23), read as `ShapeShiftUnsignedInteger` of
 their code; writing that value writes an
-integer, not a simple value. A tag 1 key is the numeric content of the tag
-when that content is an untagged integer or float, because the dynamic model
-has no date type. A nested tag is rejected. A map that contains both an integer
-and the same integer under tag 1 therefore has two equal keys and is rejected
-when read as `ShapeShiftValue`. The token decoder still accepts that document:
+integer, not a simple value. A tag 1 key uses the same numeric reading as a
+tag 1 value: an untagged integer or float, or a `ShapeShiftBigInteger` when
+the offset is below `Int64.MinValue`. A nested tag is rejected. A map that
+contains both an integer and the same integer under tag 1 therefore has two
+equal keys and is rejected when read as `ShapeShiftValue`. The token decoder
+still accepts that document:
 text keys are `TokenType.PropertyName`, and every other key is the token of
 the data item itself.
 

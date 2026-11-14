@@ -445,18 +445,35 @@ public ref struct CborDecoder : IDecoder
 	}
 
 	/// <inheritdoc/>
+	/// <remarks>
+	/// Tag 0 is an RFC 3339 date/time string parsed with <see cref="System.Globalization.DateTimeStyles.RoundtripKind"/>. Tag 1 is seconds from 1970-01-01T00:00:00Z, as an integer or a floating-point number (RFC 8949 section 3.4.2), and is returned as UTC.
+	/// </remarks>
 	public DateTime ReadDateTime()
 	{
-		string text;
 		try
 		{
-			if (this.reader.ReadTag() != CborTag.DateTimeString)
+			CborTag tag = this.reader.PeekTag();
+			if (tag == CborTag.DateTimeString)
 			{
-				throw new DecoderException("The CBOR tag is not a date/time string.");
+				this.reader.ReadTag();
+				string text = this.reader.ReadTextString();
+				this.CompleteValue();
+				if (!DateTime.TryParse(text, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind, out DateTime value))
+				{
+					throw new DecoderException($"\"{text}\" is not a valid RFC 3339 date/time string.");
+				}
+
+				return value;
 			}
 
-			text = this.reader.ReadTextString();
-			this.CompleteValue();
+			if (tag == CborTag.UnixTimeSeconds)
+			{
+				DateTimeOffset value = this.reader.ReadUnixTimeSeconds();
+				this.CompleteValue();
+				return value.UtcDateTime;
+			}
+
+			throw new DecoderException("The CBOR tag is not a date/time.");
 		}
 		catch (CborContentException ex)
 		{
@@ -466,13 +483,14 @@ public ref struct CborDecoder : IDecoder
 		{
 			throw this.TokenMismatch(ex);
 		}
-
-		if (!DateTime.TryParse(text, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind, out DateTime value))
+		catch (ArgumentOutOfRangeException ex)
 		{
-			throw new DecoderException($"\"{text}\" is not a valid RFC 3339 date/time string.");
+			throw new DecoderException("The CBOR epoch-based date/time is outside the range of DateTime.", ex);
 		}
-
-		return value;
+		catch (OverflowException ex)
+		{
+			throw new DecoderException("The CBOR epoch-based date/time is outside the range of DateTime.", ex);
+		}
 	}
 
 	/// <inheritdoc/>
@@ -553,9 +571,11 @@ public ref struct CborDecoder : IDecoder
 	/// <remarks>
 	/// Half-precision values, including signed zero, are returned as <see cref="double"/>.
 	/// CBOR simple values, including undefined (simple value 23), are returned as their integer code
-	/// because the dynamic model has no simple-value type. A tag 1 key whose content is an untagged
-	/// integer or float is returned as that number. A nested tag, including another tag 1, is rejected.
-	/// Tag 1 in value position is rejected here.
+	/// because the dynamic model has no simple-value type.
+	/// Tag 1 (epoch-based date/time) is returned as its numeric seconds offset, whether it appears as a
+	/// value or a map key. The tag must wrap an integer or a floating-point number directly. An integer
+	/// below <see cref="long.MinValue"/> is a <see cref="ShapeShiftBigInteger"/>. A nested tag is rejected.
+	/// Tag 2 and tag 3 are big integers, and tag 4 is a decimal fraction.
 	/// </remarks>
 	public ShapeShiftNumber ReadDynamicNumber()
 	{
@@ -570,17 +590,6 @@ public ref struct CborDecoder : IDecoder
 			CborReaderState.Tag => this.ReadTaggedDynamicNumber(),
 			_ => new ShapeShiftDecimal(this.ReadDecimal()),
 		};
-
-		static double ToDouble(Half value)
-		{
-			double result = (double)value;
-			if (Half.IsNegative(value) && result == 0)
-			{
-				return -0.0;
-			}
-
-			return result;
-		}
 	}
 
 	/// <summary>
@@ -593,6 +602,17 @@ public ref struct CborDecoder : IDecoder
 		{
 			throw new DecoderException("The CBOR input contains trailing data.");
 		}
+	}
+
+	private static double ToDouble(Half value)
+	{
+		double result = (double)value;
+		if (Half.IsNegative(value) && result == 0)
+		{
+			return -0.0;
+		}
+
+		return result;
 	}
 
 	private CborReaderState GetNextCborReaderState()
@@ -627,11 +647,7 @@ public ref struct CborDecoder : IDecoder
 			throw this.TokenMismatch(ex);
 		}
 
-		// A map key may be tag 1. The dynamic model has no date type, so the key is the numeric
-		// content. The content has to be an untagged integer or float: reading it through
-		// ReadDynamicNumber while this method is still the active key would follow another tag 1
-		// and recurse without the serializer's depth limit. Value position is left unchanged.
-		if (tag == CborTag.UnixTimeSeconds && this.IsReadingMapKey())
+		if (tag == CborTag.UnixTimeSeconds)
 		{
 			try
 			{
@@ -646,13 +662,9 @@ public ref struct CborDecoder : IDecoder
 				throw this.TokenMismatch(ex);
 			}
 
-			CborReaderState content = this.GetNextCborReaderState();
-			if (content is not (CborReaderState.UnsignedInteger or CborReaderState.NegativeInteger or CborReaderState.HalfPrecisionFloat or CborReaderState.SinglePrecisionFloat or CborReaderState.DoublePrecisionFloat))
-			{
-				throw new DecoderException("A CBOR tag 1 map key must contain an untagged integer or floating-point number.");
-			}
-
-			return this.ReadDynamicNumber();
+			// RFC 8949 section 3.4.2: the content is an integer or a float, never another tag.
+			// ReadEpochOffset does not call back into this method, so a nested tag 1 cannot recurse.
+			return this.ReadEpochOffset();
 		}
 
 		return tag switch
@@ -681,17 +693,49 @@ public ref struct CborDecoder : IDecoder
 		}
 	}
 
+	private ShapeShiftNumber ReadEpochOffset()
+	{
+		return this.GetNextCborReaderState() switch
+		{
+			CborReaderState.UnsignedInteger => new ShapeShiftUnsignedInteger(this.ReadUInt64()),
+			CborReaderState.NegativeInteger => this.ReadNegativeEpochOffset(),
+			CborReaderState.HalfPrecisionFloat => new ShapeShiftFloat(ToDouble(this.ReadHalf())),
+			CborReaderState.SinglePrecisionFloat => new ShapeShiftFloat(this.ReadSingle()),
+			CborReaderState.DoublePrecisionFloat => new ShapeShiftFloat(this.ReadDouble()),
+			_ => throw new DecoderException("CBOR tag 1 content must be an integer or floating-point number of seconds."),
+		};
+	}
+
+	private ShapeShiftNumber ReadNegativeEpochOffset()
+	{
+		ulong representation;
+		try
+		{
+			representation = this.reader.ReadCborNegativeIntegerRepresentation();
+			this.CompleteValue();
+		}
+		catch (CborContentException ex)
+		{
+			throw this.MalformedInput(ex);
+		}
+		catch (InvalidOperationException ex)
+		{
+			throw this.TokenMismatch(ex);
+		}
+
+		if (representation <= long.MaxValue)
+		{
+			return new ShapeShiftInteger(-1 - (long)representation);
+		}
+
+		return new ShapeShiftBigInteger(BigInteger.MinusOne - new BigInteger(representation));
+	}
+
 	private DecoderException MalformedInput(CborContentException exception) => new("The CBOR input is malformed.", exception);
 
 	private DecoderException TokenMismatch(InvalidOperationException exception) => new("The CBOR token does not match the requested value.", exception);
 
 	private DecoderException NumberTooLarge(OverflowException exception) => new("The CBOR number does not fit the requested value.", exception);
-
-	/// <summary>
-	/// Gets a value indicating whether the next data item is a map key.
-	/// </summary>
-	/// <returns><see langword="true"/> when the next item is a key of the current map.</returns>
-	private bool IsReadingMapKey() => this.depth > 0 && this.frames[this.depth - 1].IsMap && this.frames[this.depth - 1].ExpectingProperty;
 
 	/// <summary>
 	/// Records that one data item of the current map has been fully consumed.
