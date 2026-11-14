@@ -136,6 +136,55 @@ public partial class CborDataMapTests
 	}
 
 	[Test]
+	public async Task TextKeyAfterIntegerKey_IsAccepted()
+	{
+		ShapeShiftDataMap map = (ShapeShiftDataMap)this.serializer.Deserialize<ShapeShiftValue>(Convert.FromHexString("A20102616103"))!;
+
+		await Assert.That(map.Entries).Count().IsEqualTo(2);
+		await Assert.That(map.Entries[0].Key).IsEqualTo((ShapeShiftValue)1UL);
+		await Assert.That(map.Entries[0].Value).IsEqualTo((ShapeShiftValue)2UL);
+		await Assert.That(map.Entries[1].Key).IsEqualTo((ShapeShiftValue)"a");
+		await Assert.That(map.Entries[1].Value).IsEqualTo((ShapeShiftValue)3UL);
+	}
+
+	[Test]
+	public async Task NestedTag1Key_IsRejected()
+	{
+		Func<ShapeShiftValue?> readPair = () => this.serializer.Deserialize<ShapeShiftValue>(new byte[] { 0xa1, 0xc1, 0xc1, 0x00, 0x80 });
+		byte[] chain = new byte[10_003];
+		chain[0] = 0xa1;
+		chain.AsSpan(1, 10_000).Fill(0xc1);
+		chain[10_001] = 0x00;
+		chain[10_002] = 0x80;
+		Func<ShapeShiftValue?> readChain = () => this.serializer.Deserialize<ShapeShiftValue>(chain);
+
+		await Assert.That(readPair).Throws<DecoderException>();
+		await Assert.That(readChain).Throws<DecoderException>();
+	}
+
+	[Test]
+	public async Task UnsignedKeys_ThatShareANarrowHashCode_StayDistinct()
+	{
+		ShapeShiftDataMapEntry[] entries = new ShapeShiftDataMapEntry[32];
+		for (int i = 0; i < entries.Length; i++)
+		{
+			ulong key = ((ulong)(uint)i << 32) | (uint)i;
+			entries[i] = new ShapeShiftDataMapEntry(key, (long)i);
+		}
+
+		ShapeShiftValue? actual = this.serializer.Deserialize<ShapeShiftValue>(this.serializer.Serialize<ShapeShiftValue>(new ShapeShiftDataMap(entries)));
+		ShapeShiftDataMap map = actual as ShapeShiftDataMap ?? throw new InvalidOperationException("Expected a data map.");
+
+		await Assert.That(map.Entries).Count().IsEqualTo(entries.Length);
+		IEqualityComparer<ShapeShiftValue> comparer = StructuralEqualityComparer.CreateCollisionResistant<ShapeShiftValue>();
+		await Assert.That(comparer.GetHashCode((ShapeShiftValue)0UL)).IsNotEqualTo(comparer.GetHashCode((ShapeShiftValue)((1UL << 32) | 1UL)));
+		for (int i = 0; i < entries.Length; i++)
+		{
+			await Assert.That(map.Entries[i].Key).IsEqualTo(entries[i].Key);
+		}
+	}
+
+	[Test]
 	public async Task MixedTextAndIntegerKeys_KeepTextKeysInsideTheDataMap()
 	{
 		byte[] encoded = Convert.FromHexString("A26161010102");

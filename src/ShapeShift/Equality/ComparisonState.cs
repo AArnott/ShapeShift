@@ -20,6 +20,11 @@ namespace ShapeShift.Equality;
 /// Because a failed comparison aborts the whole operation, retaining pairs after
 /// they have been fully compared is sound, and doubles as memoization that keeps
 /// heavily shared (DAG shaped) graphs from being compared exponentially often.
+/// A search that keeps going after a candidate comparison fails, such as matching
+/// data-map entries, must <see cref="Rollback"/> to that candidate's
+/// <see cref="Checkpoint"/>. Otherwise a pair that was not equal stays assumed
+/// equal for the next candidate. Ancestors recorded before the checkpoint stay,
+/// so a cycle that encloses the search is still detected.
 /// </para>
 /// <para>
 /// The tracking set is allocated lazily once recursion exceeds a fixed number of
@@ -36,6 +41,7 @@ internal struct ComparisonState
 	private const int TrackingDepthThreshold = 16;
 
 	private HashSet<ReferencePair>? assumedEqual;
+	private List<ReferencePair>? recorded;
 	private int depth;
 
 	/// <summary>
@@ -59,13 +65,62 @@ internal struct ComparisonState
 		}
 
 		this.assumedEqual ??= new HashSet<ReferencePair>();
-		return !this.assumedEqual.Add(new ReferencePair(x, y));
+		this.recorded ??= [];
+		ReferencePair pair = new(x, y);
+		if (!this.assumedEqual.Add(pair))
+		{
+			return true;
+		}
+
+		this.recorded.Add(pair);
+		return false;
 	}
 
 	/// <summary>
 	/// Leaves a node pair previously entered via <see cref="EnterOrAssumeEqual"/>.
 	/// </summary>
 	internal void Exit() => this.depth--;
+
+	/// <summary>
+	/// Captures the assumptions recorded so far.
+	/// </summary>
+	/// <returns>A checkpoint that <see cref="Rollback"/> can restore.</returns>
+	internal AssumptionCheckpoint Checkpoint() => new(this.recorded?.Count ?? 0);
+
+	/// <summary>
+	/// Drops assumptions recorded after <paramref name="checkpoint"/>.
+	/// </summary>
+	/// <param name="checkpoint">A checkpoint taken before the speculative comparison.</param>
+	/// <remarks>
+	/// Pairs recorded earlier remain. Those are the ancestors of the comparison that is still
+	/// in progress, including the pairs a cycle must be able to recognize.
+	/// </remarks>
+	internal void Rollback(AssumptionCheckpoint checkpoint)
+	{
+		if (this.recorded is null)
+		{
+			return;
+		}
+
+		while (this.recorded.Count > checkpoint.Count)
+		{
+			int last = this.recorded.Count - 1;
+			this.assumedEqual!.Remove(this.recorded[last]);
+			this.recorded.RemoveAt(last);
+		}
+	}
+
+	/// <summary>
+	/// The number of recorded assumptions at one moment in a comparison.
+	/// </summary>
+	/// <param name="count">The number of assumptions recorded when the checkpoint was taken.</param>
+	internal readonly struct AssumptionCheckpoint(int count)
+	{
+		/// <summary>
+		/// Gets the number of assumptions recorded when this checkpoint was taken.
+		/// </summary>
+		internal int Count { get; } = count;
+	}
 
 	/// <summary>
 	/// An ordered pair of object references compared by reference identity.

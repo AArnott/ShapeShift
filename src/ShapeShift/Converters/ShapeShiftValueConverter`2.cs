@@ -16,7 +16,7 @@ internal sealed class ShapeShiftValueConverter<TEncoder, TDecoder> : ShapeShiftC
 	where TEncoder : IEncoder, allows ref struct
 	where TDecoder : IDecoder, allows ref struct
 {
-	private static readonly ShapeShiftValueComparer KeyComparer = new(HashingPolicy.Deterministic);
+	private static readonly ShapeShiftValueComparer KeyComparer = new(HashingPolicy.CollisionResistant);
 
 	/// <inheritdoc/>
 	public override ShapeShiftValue Read(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context)
@@ -88,6 +88,13 @@ internal sealed class ShapeShiftValueConverter<TEncoder, TDecoder> : ShapeShiftC
 		return ShapeShiftValue.Null;
 	}
 
+	private static ShapeShiftString ReadTextKey(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context)
+	{
+		string name = decoder.ReadPropertyName().ToString();
+		ValidateLength(name.Length, context.MaxStringLength, "String");
+		return new(name);
+	}
+
 	private static ShapeShiftValue ReadString(ref TDecoder decoder, SerializationContext<TEncoder, TDecoder> context)
 	{
 		string value = decoder.ReadString();
@@ -130,8 +137,7 @@ internal sealed class ShapeShiftValueConverter<TEncoder, TDecoder> : ShapeShiftC
 		{
 			if (entries is null && decoder.NextTokenType == TokenType.PropertyName)
 			{
-				string name = decoder.ReadPropertyName().ToString();
-				ValidateLength(name.Length, context.MaxStringLength, "String");
+				string name = ReadTextKey(ref decoder, context).Value;
 				ShapeShiftValue item = this.Read(ref decoder, context);
 				if (!properties!.TryAdd(name, item))
 				{
@@ -156,7 +162,9 @@ internal sealed class ShapeShiftValueConverter<TEncoder, TDecoder> : ShapeShiftC
 				properties = null;
 			}
 
-			ShapeShiftValue keyValue = this.Read(ref decoder, context);
+			ShapeShiftValue keyValue = decoder.NextTokenType == TokenType.PropertyName
+				? ReadTextKey(ref decoder, context)
+				: this.Read(ref decoder, context);
 			ShapeShiftValue itemValue = this.Read(ref decoder, context);
 			if (!seen!.TryAdd(keyValue, entries.Count))
 			{

@@ -335,6 +335,57 @@ public partial class StructuralEqualityTests
 	}
 
 	[Test]
+	public async Task ShapeShiftValue_DataMapKeySearch_DoesNotReuseAFailedDeepComparison()
+	{
+		IEqualityComparer<ShapeShiftValue> comparer = StructuralEqualityComparer.Create<ShapeShiftValue>();
+		ShapeShiftArray shared = Nest(20, 1L);
+		ShapeShiftArray different = Nest(20, 2L);
+		ShapeShiftValue left = new ShapeShiftDataMap(
+		[
+			new ShapeShiftDataMapEntry(shared, "v"),
+			new ShapeShiftDataMapEntry(shared, "v"),
+		]);
+		ShapeShiftValue right = new ShapeShiftDataMap(
+		[
+			new ShapeShiftDataMapEntry(different, "v"),
+			new ShapeShiftDataMapEntry(shared, "v"),
+		]);
+		ShapeShiftValue reordered = new ShapeShiftDataMap(
+		[
+			new ShapeShiftDataMapEntry(different, "w"),
+			new ShapeShiftDataMapEntry(shared, "v"),
+		]);
+		ShapeShiftValue reorderedOther = new ShapeShiftDataMap(
+		[
+			new ShapeShiftDataMapEntry(shared, "v"),
+			new ShapeShiftDataMapEntry(different, "w"),
+		]);
+
+		await Assert.That(comparer.Equals(left, right)).IsFalse();
+		await Assert.That(comparer.Equals(reordered, reorderedOther)).IsTrue();
+		await Assert.That(comparer.GetHashCode(reordered)).IsEqualTo(comparer.GetHashCode(reorderedOther));
+		await Assert.That(comparer.Equals(CyclicKey(), CyclicKey())).IsTrue();
+	}
+
+	[Test]
+	public async Task ShapeShiftValue_CollisionResistantHashes_CoverWholeNumbers()
+	{
+		IEqualityComparer<ShapeShiftValue> comparer = StructuralEqualityComparer.CreateCollisionResistant<ShapeShiftValue>();
+		ShapeShiftValue zero = 0UL;
+		ShapeShiftValue folded = (1UL << 32) | 1UL;
+
+		await Assert.That(comparer.Equals(zero, folded)).IsFalse();
+		await Assert.That(comparer.GetHashCode(zero)).IsNotEqualTo(comparer.GetHashCode(folded));
+		await Assert.That(comparer.Equals(new ShapeShiftDecimal(1.0m), new ShapeShiftDecimal(1.00m))).IsTrue();
+		await Assert.That(comparer.GetHashCode(new ShapeShiftDecimal(1.0m))).IsEqualTo(comparer.GetHashCode(new ShapeShiftDecimal(1.00m)));
+		await Assert.That(comparer.Equals(new ShapeShiftDecimal(0.0m), new ShapeShiftDecimal(-0.0m))).IsTrue();
+		await Assert.That(comparer.GetHashCode(new ShapeShiftDecimal(0.0m))).IsEqualTo(comparer.GetHashCode(new ShapeShiftDecimal(-0.0m)));
+		await Assert.That(comparer.Equals(new ShapeShiftFloat(0.0d), new ShapeShiftFloat(-0.0d))).IsTrue();
+		await Assert.That(comparer.GetHashCode(new ShapeShiftFloat(0.0d))).IsEqualTo(comparer.GetHashCode(new ShapeShiftFloat(-0.0d)));
+		await Assert.That(comparer.GetHashCode(new ShapeShiftFloat(double.NaN))).IsEqualTo(comparer.GetHashCode(new ShapeShiftFloat(double.CopySign(double.NaN, -1))));
+	}
+
+	[Test]
 	public async Task ShapeShiftValue_ArraysAndBinaryCompareByContent()
 	{
 		IEqualityComparer<ShapeShiftValue> comparer = StructuralEqualityComparer.Create<ShapeShiftValue>();
@@ -509,6 +560,30 @@ public partial class StructuralEqualityTests
 		await Assert.That(comparer.Equals(new(double.NaN), new(double.NaN))).IsTrue();
 		await Assert.That(comparer.GetHashCode(new(double.NaN))).IsEqualTo(comparer.GetHashCode(new(double.NaN)));
 		await Assert.That(comparer.GetHashCode(new(0.0))).IsEqualTo(comparer.GetHashCode(new(-0.0)));
+	}
+
+	private static ShapeShiftArray Nest(int depth, ShapeShiftValue leaf)
+	{
+		ShapeShiftValue current = leaf;
+		for (int i = 0; i < depth; i++)
+		{
+			current = new ShapeShiftArray([current]);
+		}
+
+		return (ShapeShiftArray)current;
+	}
+
+	private static ShapeShiftValue CyclicKey()
+	{
+		List<ShapeShiftValue> leaf = [ShapeShiftValue.Null];
+		ShapeShiftValue node = new ShapeShiftArray(leaf);
+		for (int i = 0; i < 20; i++)
+		{
+			node = new ShapeShiftArray([node]);
+		}
+
+		leaf[0] = node;
+		return new ShapeShiftDataMap([new ShapeShiftDataMapEntry(node, "v")]);
 	}
 
 	private static ITypeShape<T> ShapeOf<T>()

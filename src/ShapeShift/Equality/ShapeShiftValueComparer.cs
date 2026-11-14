@@ -86,15 +86,15 @@ internal sealed class ShapeShiftValueComparer(HashingPolicy policy) : Structural
 			case ShapeShiftBoolean booleanNode:
 				return HashCombiner.Finalize(HashCombiner.Combine(BooleanSeed, booleanNode.Value ? 1 : 0));
 			case ShapeShiftInteger integerNode:
-				return HashCombiner.Finalize(HashCombiner.Combine(IntegerSeed, policy.HashOpaque(integerNode.Value.GetHashCode())));
+				return HashCombiner.Finalize(HashCombiner.Combine(IntegerSeed, policy.HashInt64(integerNode.Value)));
 			case ShapeShiftUnsignedInteger unsignedNode:
-				return HashCombiner.Finalize(HashCombiner.Combine(UnsignedSeed, policy.HashOpaque(unsignedNode.Value.GetHashCode())));
+				return HashCombiner.Finalize(HashCombiner.Combine(UnsignedSeed, policy.HashUInt64(unsignedNode.Value)));
 			case ShapeShiftBigInteger bigNode:
-				return HashCombiner.Finalize(HashCombiner.Combine(BigIntegerSeed, policy.HashOpaque(bigNode.Value.GetHashCode())));
+				return HashCombiner.Finalize(HashCombiner.Combine(BigIntegerSeed, policy.HashBigInteger(bigNode.Value)));
 			case ShapeShiftFloat floatNode:
-				return HashCombiner.Finalize(HashCombiner.Combine(FloatSeed, policy.HashOpaque(floatNode.Value.GetHashCode())));
+				return HashCombiner.Finalize(HashCombiner.Combine(FloatSeed, policy.HashDouble(floatNode.Value)));
 			case ShapeShiftDecimal decimalNode:
-				return HashCombiner.Finalize(HashCombiner.Combine(DecimalSeed, policy.HashOpaque(decimalNode.Value.GetHashCode())));
+				return HashCombiner.Finalize(HashCombiner.Combine(DecimalSeed, policy.HashDecimal(decimalNode.Value)));
 			case ShapeShiftString stringNode:
 				return HashCombiner.Finalize(HashCombiner.Combine(StringSeed, policy.HashString(stringNode.Value)));
 			case ShapeShiftBinary binaryNode:
@@ -224,14 +224,19 @@ internal sealed class ShapeShiftValueComparer(HashingPolicy policy) : Structural
 				int match = -1;
 				for (int i = 0; i < unmatched.Count; i++)
 				{
-					if (this.EqualsWithNullHandling(entry.Key, unmatched[i].Key, ref state))
+					ComparisonState.AssumptionCheckpoint checkpoint = state.Checkpoint();
+					if (!this.EqualsWithNullHandling(entry.Key, unmatched[i].Key, ref state)
+						|| !this.EqualsWithNullHandling(entry.Value, unmatched[i].Value, ref state))
 					{
-						match = i;
-						break;
+						state.Rollback(checkpoint);
+						continue;
 					}
+
+					match = i;
+					break;
 				}
 
-				if (match < 0 || !this.EqualsWithNullHandling(entry.Value, unmatched[match].Value, ref state))
+				if (match < 0)
 				{
 					result = false;
 					break;

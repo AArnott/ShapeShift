@@ -61,8 +61,9 @@ half-precision infinity, NaN, or zero is written back as half-precision, while
 a value such as `0.1` is written as double-precision. CBOR simple values,
 including undefined (simple value 23), read as `ShapeShiftUnsignedInteger` of
 their code; writing that value writes an
-integer, not a simple value. A tag 1 key is the numeric content of the tag,
-because the dynamic model has no date type. A map that contains both an integer
+integer, not a simple value. A tag 1 key is the numeric content of the tag
+when that content is an untagged integer or float, because the dynamic model
+has no date type. A nested tag is rejected. A map that contains both an integer
 and the same integer under tag 1 therefore has two equal keys and is rejected
 when read as `ShapeShiftValue`. The token decoder still accepts that document:
 text keys are `TokenType.PropertyName`, and every other key is the token of

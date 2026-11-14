@@ -553,8 +553,9 @@ public ref struct CborDecoder : IDecoder
 	/// <remarks>
 	/// Half-precision values, including signed zero, are returned as <see cref="double"/>.
 	/// CBOR simple values, including undefined (simple value 23), are returned as their integer code
-	/// because the dynamic model has no simple-value type. A tag 1 key is returned as its numeric
-	/// seconds offset; tag 1 in value position is rejected here.
+	/// because the dynamic model has no simple-value type. A tag 1 key whose content is an untagged
+	/// integer or float is returned as that number. A nested tag, including another tag 1, is rejected.
+	/// Tag 1 in value position is rejected here.
 	/// </remarks>
 	public ShapeShiftNumber ReadDynamicNumber()
 	{
@@ -627,7 +628,9 @@ public ref struct CborDecoder : IDecoder
 		}
 
 		// A map key may be tag 1. The dynamic model has no date type, so the key is the numeric
-		// content. Value position is left unchanged: a tagged date/time there is not a dynamic number.
+		// content. The content has to be an untagged integer or float: reading it through
+		// ReadDynamicNumber while this method is still the active key would follow another tag 1
+		// and recurse without the serializer's depth limit. Value position is left unchanged.
 		if (tag == CborTag.UnixTimeSeconds && this.IsReadingMapKey())
 		{
 			try
@@ -641,6 +644,12 @@ public ref struct CborDecoder : IDecoder
 			catch (InvalidOperationException ex)
 			{
 				throw this.TokenMismatch(ex);
+			}
+
+			CborReaderState content = this.GetNextCborReaderState();
+			if (content is not (CborReaderState.UnsignedInteger or CborReaderState.NegativeInteger or CborReaderState.HalfPrecisionFloat or CborReaderState.SinglePrecisionFloat or CborReaderState.DoublePrecisionFloat))
+			{
+				throw new DecoderException("A CBOR tag 1 map key must contain an untagged integer or floating-point number.");
 			}
 
 			return this.ReadDynamicNumber();
