@@ -52,4 +52,4 @@ Unlike JSON or MessagePack, TOML:
 
 ## Reader security
 
-Tomlyn validates TOML 1.0 syntax, duplicate keys, and table redefinitions before ShapeShift begins conversion. ShapeShift then enforces missing required constructor arguments and the shared `StartingContext` depth and security limits.
+Tomlyn validates TOML 1.0 syntax, duplicate keys, and table redefinitions before ShapeShift begins conversion. Its nesting limit follows `StartingContext.MaxDepth`, and a parse failure is reported as a decoder error. ShapeShift then enforces missing required constructor arguments and the shared depth and security limits.

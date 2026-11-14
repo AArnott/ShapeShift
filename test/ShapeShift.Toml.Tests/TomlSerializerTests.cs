@@ -258,6 +258,34 @@ public partial class TomlSerializerTests : TestBase
 	}
 
 	[Test]
+	public async Task DeepArray_HonorsRaisedDepthBudget()
+	{
+		string toml = "a = " + new string('[', 70) + "1" + new string(']', 70);
+		TomlSerializer serializer = new()
+		{
+			StartingContext = new SerializationContext<TomlEncoder, TomlDecoder> { MaxDepth = 80 },
+		};
+
+		ShapeShiftValue? value = serializer.Deserialize<ShapeShiftValue>(toml);
+
+		await Assert.That(value).IsNotNull();
+	}
+
+	[Test]
+	public async Task DeepArray_BeyondTheDefaultBudget_IsADecoderException()
+	{
+		string toml = "a = " + new string('[', 80) + "1" + new string(']', 80);
+
+		void Parse()
+		{
+			StringReader reader = new(toml);
+			_ = new TomlDecoder(reader);
+		}
+
+		await Assert.That(Parse).Throws<DecoderException>();
+	}
+
+	[Test]
 	public async Task DateTime_DynamicValueIsCanonicalText()
 	{
 		TomlSerializer serializer = new();
