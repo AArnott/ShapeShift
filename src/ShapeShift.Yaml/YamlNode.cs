@@ -75,6 +75,9 @@ internal sealed class YamlNode
 	/// <summary>Gets or sets mapping entries in source order.</summary>
 	public List<YamlPair>? Pairs { get; set; }
 
+	/// <summary>Gets or sets how many times the decoder has read this node. The first read is not an expansion.</summary>
+	internal int Reads { get; set; }
+
 	/// <summary>Creates an empty plain scalar, which the core schema resolves as null.</summary>
 	/// <returns>The scalar.</returns>
 	public static YamlNode NullScalar() => new() { Kind = YamlNodeKind.Scalar, Style = YamlScalarStyle.Plain, Scalar = string.Empty };

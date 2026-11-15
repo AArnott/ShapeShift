@@ -57,8 +57,9 @@ After each document, `NextTokenType` is `EndDocument`. `TryAdvanceDocument` move
   name: Ada
   name: Grace
   ```
-- `MaxDepth` defaults to 256. Block scalars do not count toward the limit.
-- `MaxAliasExpansions` defaults to 4096. This bounds how many times aliases may be substituted in one document.
+- `MaxDepth` defaults to 256. Block scalars do not count. The same limit applies when an alias is expanded, so a chain of collections that each alias the previous one cannot nest deeper than the limit. Parsing recurses up to this depth.
+- `MaxAliasExpansions` defaults to 4096. Each alias that is followed counts as one.
+- `MaxExpandedNodes` defaults to 1048576. The first read of a node is free. Each later read through an alias counts as one node, so a large anchored collection cannot be replayed without bound. A replayed string is the same string, not a copy.
 
 [!code-csharp[YamlLoadOptions](../../samples/cs/YamlSerialization.cs#YamlLoadOptions)]
 

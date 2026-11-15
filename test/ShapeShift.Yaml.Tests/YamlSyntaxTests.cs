@@ -150,6 +150,62 @@ public partial class YamlSyntaxTests
 	}
 
 	[Test]
+	public async Task AliasExpansionHonorsMaxDepth()
+	{
+		const string anchoredBesideDeepAlias = "a: &a [[1]]\nb: [*a]\n";
+		YamlDecoder fits = Open(anchoredBesideDeepAlias, new YamlLoadOptions { MaxDepth = 4 });
+		fits.Skip();
+		YamlDecoder over = Open(anchoredBesideDeepAlias, new YamlLoadOptions { MaxDepth = 3 });
+		await Assert.That(SkipFailure(ref over)).Contains("maximum depth of 3");
+
+		const string aliasInsideAnchor = "[&inner [[1]], [*inner]]\n";
+		YamlDecoder insideFits = Open(aliasInsideAnchor, new YamlLoadOptions { MaxDepth = 4 });
+		insideFits.Skip();
+		YamlDecoder insideOver = Open(aliasInsideAnchor, new YamlLoadOptions { MaxDepth = 3 });
+		await Assert.That(SkipFailure(ref insideOver)).Contains("maximum depth of 3");
+
+		YamlDecoder chainFits = Open(NestedAliasChain(3), new YamlLoadOptions { MaxDepth = 4 });
+		chainFits.ReadStartMap();
+		_ = chainFits.ReadPropertyName();
+		chainFits.Skip();
+		_ = chainFits.ReadPropertyName();
+		chainFits.Skip();
+		_ = chainFits.ReadPropertyName();
+		chainFits.ReadStartVector();
+		chainFits.ReadStartVector();
+		chainFits.ReadStartVector();
+		await Assert.That(chainFits.ReadInt32()).IsEqualTo(1);
+
+		YamlDecoder chainOver = Open(NestedAliasChain(4), new YamlLoadOptions { MaxDepth = 4 });
+		await Assert.That(SkipFailure(ref chainOver)).Contains("maximum depth of 4");
+
+		await Assert.That(FailureMessage(() => Open(AliasChainKey(8), new YamlLoadOptions { MaxDepth = 4 }))).Contains("maximum depth of 4");
+		YamlDecoder keyFits = Open(AliasChainKey(3), new YamlLoadOptions { MaxDepth = 8 });
+		await Assert.That(keyFits.NextTokenType).IsEqualTo(TokenType.StartMap);
+	}
+
+	[Test]
+	public async Task AliasReplayIsBoundedByNodeVisits()
+	{
+		const string replayed = "a: &a [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]\nb: [*a, *a]\n";
+		YamlDecoder allowed = Open(replayed, new YamlLoadOptions { MaxExpandedNodes = 100 });
+		allowed.Skip();
+		YamlDecoder bounded = Open(replayed, new YamlLoadOptions { MaxExpandedNodes = 5 });
+		await Assert.That(SkipFailure(ref bounded)).Contains("maximum of 5 nodes");
+
+		YamlDecoder shared = Open("a: &a hello\nb: [*a, *a]\n");
+		shared.ReadStartMap();
+		_ = shared.ReadPropertyName();
+		string anchor = shared.ReadString();
+		_ = shared.ReadPropertyName();
+		shared.ReadStartVector();
+		string first = shared.ReadString();
+		string second = shared.ReadString();
+		await Assert.That(ReferenceEquals(anchor, first)).IsTrue();
+		await Assert.That(ReferenceEquals(first, second)).IsTrue();
+	}
+
+	[Test]
 	public async Task InvalidStructureIsRejected()
 	{
 		await Assert.That(() => Open("map:\n  key: value\n bad\n")).Throws<DecoderException>();
@@ -361,6 +417,45 @@ public partial class YamlSyntaxTests
 		}
 
 		return string.Empty;
+	}
+
+	private static string FailureMessage(Action read)
+	{
+		try
+		{
+			read();
+		}
+		catch (DecoderException exception)
+		{
+			return exception.Message;
+		}
+
+		return string.Empty;
+	}
+
+	private static string SkipFailure(ref YamlDecoder decoder)
+	{
+		try
+		{
+			decoder.Skip();
+		}
+		catch (DecoderException exception)
+		{
+			return exception.Message;
+		}
+
+		return string.Empty;
+	}
+
+	private static string NestedAliasChain(int levels)
+	{
+		System.Text.StringBuilder yaml = new("n0: &n0 [1]\n");
+		for (int i = 1; i < levels; i++)
+		{
+			yaml.Append('n').Append(i).Append(": &n").Append(i).Append(" [*n").Append(i - 1).Append("]\n");
+		}
+
+		return yaml.ToString();
 	}
 
 	private static string AliasBombKeys()

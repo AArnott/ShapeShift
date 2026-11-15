@@ -27,11 +27,14 @@ namespace ShapeShift.Yaml;
 public ref struct YamlDecoder : IDecoder
 {
 	private readonly YamlNode[] documents;
+	private readonly int maxDepth;
 	private readonly int maxAliasExpansions;
+	private readonly int maxExpandedNodes;
 	private Frame[] frames;
 	private int frameCount;
 	private int documentIndex;
 	private int aliasExpansions;
+	private int expandedNodes;
 	private bool rootStarted;
 	private bool hasToken;
 	private bool consumePops;
@@ -78,8 +81,15 @@ public ref struct YamlDecoder : IDecoder
 			throw new ArgumentOutOfRangeException(nameof(options), "MaxAliasExpansions must be positive.");
 		}
 
+		if (options.MaxExpandedNodes <= 0)
+		{
+			throw new ArgumentOutOfRangeException(nameof(options), "MaxExpandedNodes must be positive.");
+		}
+
 		this.documents = [.. YamlParser.Parse(reader.ReadToEnd(), options)];
+		this.maxDepth = options.MaxDepth;
 		this.maxAliasExpansions = options.MaxAliasExpansions;
+		this.maxExpandedNodes = options.MaxExpandedNodes;
 		this.frames = new Frame[8];
 		this.tokenText = string.Empty;
 	}
@@ -145,6 +155,7 @@ public ref struct YamlDecoder : IDecoder
 		this.rootStarted = false;
 		this.frameCount = 0;
 		this.aliasExpansions = 0;
+		this.expandedNodes = 0;
 		this.hasToken = false;
 		this.consumePops = false;
 		this.advancePhaseOnConsume = false;
@@ -597,6 +608,7 @@ public ref struct YamlDecoder : IDecoder
 
 					YamlPair pair = frame.Node.Pairs![frame.Index];
 					YamlNode key = this.Follow(pair.Key);
+					this.NoteVisit(key);
 					if (key.Kind == YamlNodeKind.Scalar)
 					{
 						this.tokenType = TokenType.PropertyName;
@@ -632,6 +644,7 @@ public ref struct YamlDecoder : IDecoder
 	private void Open(YamlNode node)
 	{
 		node = this.Follow(node);
+		this.NoteVisit(node);
 		if (node.Kind == YamlNodeKind.Scalar)
 		{
 			this.SetScalar(node);
@@ -643,12 +656,33 @@ public ref struct YamlDecoder : IDecoder
 
 	private void Push(YamlNode node)
 	{
+		if (this.frameCount >= this.maxDepth)
+		{
+			throw new DecoderException($"YAML nesting exceeds the maximum depth of {this.maxDepth}.");
+		}
+
 		if (this.frameCount == this.frames.Length)
 		{
 			Array.Resize(ref this.frames, this.frames.Length * 2);
 		}
 
 		this.frames[this.frameCount++] = new Frame { Node = node, Phase = FramePhase.Start };
+	}
+
+	/// <summary>
+	/// Counts a repeated read of a node. The first read is free.
+	/// </summary>
+	/// <param name="node">The node being read, after aliases have been followed.</param>
+	private void NoteVisit(YamlNode node)
+	{
+		if (++node.Reads > 1)
+		{
+			this.expandedNodes++;
+			if (this.expandedNodes > this.maxExpandedNodes)
+			{
+				throw new DecoderException($"YAML alias expansion exceeds the maximum of {this.maxExpandedNodes} nodes.");
+			}
+		}
 	}
 
 	private YamlNode Follow(YamlNode node)

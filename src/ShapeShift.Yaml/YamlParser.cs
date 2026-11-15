@@ -46,6 +46,7 @@ internal static class YamlParser
 		private readonly YamlLoadOptions options;
 		private readonly Dictionary<string, YamlNode> anchors = new(StringComparer.Ordinal);
 		private readonly Dictionary<YamlNode, HashSet<YamlNode>> seenKeys = new();
+		private readonly Dictionary<YamlNode, int> keyHeights = [];
 		private readonly KeyComparer keyComparer;
 		private readonly HashSet<YamlNode> constructing = [];
 		private readonly Dictionary<string, string> tagHandles = new(StringComparer.Ordinal);
@@ -1736,68 +1737,86 @@ internal static class YamlParser
 		private int KeyHash(YamlNode key)
 		{
 			this.keyAliasExpansions = 0;
-			return this.HashNode(key, [], []);
+			return this.HashNode(key, [], [], 0).Code;
 		}
 
-		private int HashNode(YamlNode node, Dictionary<YamlNode, int> done, HashSet<YamlNode> stack)
+		private (int Code, int Height) HashNode(YamlNode node, Dictionary<YamlNode, int> done, HashSet<YamlNode> stack, int depth)
 		{
 			node = this.FollowKey(node);
+			this.RejectExpandedDepth(node, depth);
 			if (done.TryGetValue(node, out int cached))
 			{
-				return cached;
+				return (cached, node.Kind == YamlNodeKind.Scalar ? 0 : this.keyHeights[node]);
 			}
 
 			if (!stack.Add(node))
 			{
-				return 0;
+				return (0, 0);
 			}
 
 			int hash;
+			int height;
 			if (node.Kind == YamlNodeKind.Scalar)
 			{
 				hash = HashCode.Combine(1, YamlSchema.CanonicalScalar(node));
+				height = 0;
 			}
 			else if (node.Kind == YamlNodeKind.Sequence)
 			{
 				HashCode code = default;
 				code.Add(2);
 				code.Add(node.Items!.Count);
+				int maxChild = 0;
 				foreach (YamlNode item in node.Items)
 				{
-					code.Add(this.HashNode(item, done, stack));
+					(int childCode, int childHeight) = this.HashNode(item, done, stack, depth + 1);
+					code.Add(childCode);
+					if (childHeight > maxChild)
+					{
+						maxChild = childHeight;
+					}
 				}
 
 				hash = code.ToHashCode();
+				height = maxChild + 1;
 			}
 			else
 			{
 				HashCode code = default;
 				code.Add(3);
 				code.Add(node.Pairs!.Count);
+				int maxChild = 0;
 				foreach (YamlPair pair in node.Pairs)
 				{
-					code.Add(this.HashNode(pair.Key, done, stack));
-					code.Add(this.HashNode(pair.Value, done, stack));
+					(int keyCode, int keyHeight) = this.HashNode(pair.Key, done, stack, depth + 1);
+					(int valueCode, int valueHeight) = this.HashNode(pair.Value, done, stack, depth + 1);
+					code.Add(keyCode);
+					code.Add(valueCode);
+					maxChild = Math.Max(maxChild, Math.Max(keyHeight, valueHeight));
 				}
 
 				hash = code.ToHashCode();
+				height = maxChild + 1;
 			}
 
 			stack.Remove(node);
+			this.keyHeights[node] = height;
 			done[node] = hash;
-			return hash;
+			return (hash, height);
 		}
 
 		private bool SameKey(YamlNode left, YamlNode right)
 		{
 			this.keyAliasExpansions = 0;
-			return this.SameNode(left, right, []);
+			return this.SameNode(left, right, [], 0);
 		}
 
-		private bool SameNode(YamlNode left, YamlNode right, Dictionary<(YamlNode Left, YamlNode Right), bool> memo)
+		private bool SameNode(YamlNode left, YamlNode right, Dictionary<(YamlNode Left, YamlNode Right), bool> memo, int depth)
 		{
 			left = this.FollowKey(left);
 			right = this.FollowKey(right);
+			this.RejectExpandedDepth(left, depth);
+			this.RejectExpandedDepth(right, depth);
 			if (ReferenceEquals(left, right))
 			{
 				return true;
@@ -1811,12 +1830,12 @@ internal static class YamlParser
 
 			// Assume equality until a difference is found so a cycle does not recurse forever.
 			memo[pair] = true;
-			bool equal = left.Kind == right.Kind && this.SameContent(left, right, memo);
+			bool equal = left.Kind == right.Kind && this.SameContent(left, right, memo, depth);
 			memo[pair] = equal;
 			return equal;
 		}
 
-		private bool SameContent(YamlNode left, YamlNode right, Dictionary<(YamlNode Left, YamlNode Right), bool> memo)
+		private bool SameContent(YamlNode left, YamlNode right, Dictionary<(YamlNode Left, YamlNode Right), bool> memo, int depth)
 		{
 			switch (left.Kind)
 			{
@@ -1830,7 +1849,7 @@ internal static class YamlParser
 
 					for (int i = 0; i < left.Items.Count; i++)
 					{
-						if (!this.SameNode(left.Items[i], right.Items[i], memo))
+						if (!this.SameNode(left.Items[i], right.Items[i], memo, depth + 1))
 						{
 							return false;
 						}
@@ -1845,8 +1864,8 @@ internal static class YamlParser
 
 					for (int i = 0; i < left.Pairs.Count; i++)
 					{
-						if (!this.SameNode(left.Pairs[i].Key, right.Pairs[i].Key, memo) ||
-							!this.SameNode(left.Pairs[i].Value, right.Pairs[i].Value, memo))
+						if (!this.SameNode(left.Pairs[i].Key, right.Pairs[i].Key, memo, depth + 1) ||
+							!this.SameNode(left.Pairs[i].Value, right.Pairs[i].Value, memo, depth + 1))
 						{
 							return false;
 						}
@@ -1855,6 +1874,31 @@ internal static class YamlParser
 					return true;
 			}
 		}
+
+		private void RejectExpandedDepth(YamlNode node, int depth)
+		{
+			if (node.Kind == YamlNodeKind.Scalar)
+			{
+				return;
+			}
+
+			if (this.keyHeights.TryGetValue(node, out int height))
+			{
+				if (depth + height > this.options.MaxDepth)
+				{
+					throw this.NestingTooDeep();
+				}
+
+				return;
+			}
+
+			if (depth + 1 > this.options.MaxDepth)
+			{
+				throw this.NestingTooDeep();
+			}
+		}
+
+		private DecoderException NestingTooDeep() => this.Error($"YAML nesting exceeds the maximum depth of {this.options.MaxDepth}.");
 
 		private YamlNode FollowKey(YamlNode node)
 		{

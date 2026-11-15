@@ -41,6 +41,7 @@ internal static partial class YamlSerializationSample
                 AllowDuplicateKeys = true,
                 MaxDepth = 64,
                 MaxAliasExpansions = 1024,
+                MaxExpandedNodes = 100_000,
             },
         };
         #endregion
