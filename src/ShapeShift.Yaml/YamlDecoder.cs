@@ -3,56 +3,163 @@
 
 using System.Globalization;
 using System.Numerics;
-using System.Text;
 
 namespace ShapeShift.Yaml;
 
 /// <summary>
-/// A ShapeShift-compatible YAML decoder.
+/// Reads YAML 1.2 as ShapeShift tokens.
 /// </summary>
-/// <param name="reader">The underlying text reader from which to get the YAML.</param>
-public ref struct YamlDecoder(TextReader reader) : IDecoder
+/// <remarks>
+/// <para>
+/// The reader accepts the YAML 1.2 syntax: block and flow collections, plain, quoted, and block scalars,
+/// anchors and aliases, tags, directives, and multi-document streams. Scalars use the YAML 1.2 core schema.
+/// Quoted and block scalars stay strings unless a tag says otherwise. A non-specific <c>!</c> tag forces a
+/// string, so <c>! true</c> and <c>! 12</c> are text. <c>yes</c>, <c>no</c>, <c>on</c>, and <c>off</c> are
+/// strings. Timestamps stay strings, so <see cref="ReadDateTime"/> and <see cref="ReadTimeSpan"/> still parse text.
+/// </para>
+/// <para>
+/// The constructor reads the whole stream and rejects a document that is not valid YAML. After each document,
+/// <see cref="NextTokenType"/> is <see cref="TokenType.EndDocument"/> until <see cref="TryAdvanceDocument"/>
+/// moves to the next one. An empty or comment-only stream has <see cref="DocumentCount"/> zero and presents
+/// one null so a caller that reads a single value still sees a complete document.
+/// </para>
+/// </remarks>
+public ref struct YamlDecoder : IDecoder
 {
-	private const NumberStyles FloatingPointStyle = NumberStyles.Float;
-	private const NumberStyles IntegerPointStyle = NumberStyles.Integer; // | NumberStyles.AllowHexSpecifier (cannot be combined with allowing leading signs).
+	private readonly YamlNode[] documents;
+	private readonly int maxDepth;
+	private readonly int maxAliasExpansions;
+	private readonly int maxExpandedNodes;
+	private Frame[] frames;
+	private int frameCount;
+	private int documentIndex;
+	private int aliasExpansions;
+	private int expandedNodes;
+	private bool rootStarted;
+	private bool hasToken;
+	private bool consumePops;
+	private bool advancePhaseOnConsume;
+	private FramePhase phaseAfterConsume;
+	private TokenType tokenType;
+	private NumberKind numberKind;
+	private string tokenText;
+	private bool tokenBoolean;
+	private BigInteger tokenInteger;
+	private double tokenFloat;
+	private byte[]? tokenBinary;
 
-	private readonly string text = reader.ReadToEnd();
-	private int scanOffset;
-
-	private ContainerFrame[] containers = new ContainerFrame[8];
-	private int containerDepth;
-
-	private Token[] queuedTokens = new Token[4];
-	private int queuedTokenCount;
-
-	private Token bufferedToken;
-	private bool hasBufferedToken;
-
-	private bool rootContainerEmitted;
-
-	private enum ContainerKind
+	/// <summary>
+	/// Initializes a new instance of the <see cref="YamlDecoder"/> struct with the default load options.
+	/// </summary>
+	/// <param name="reader">The YAML text. The reader is consumed immediately.</param>
+	/// <exception cref="ArgumentNullException"><paramref name="reader"/> is <see langword="null"/>.</exception>
+	/// <exception cref="DecoderException">The text is not valid YAML 1.2.</exception>
+	public YamlDecoder(TextReader reader)
+		: this(reader, new YamlLoadOptions())
 	{
-		Map,
-		Vector,
 	}
 
+	/// <summary>
+	/// Initializes a new instance of the <see cref="YamlDecoder"/> struct.
+	/// </summary>
+	/// <param name="reader">The YAML text. The reader is consumed immediately.</param>
+	/// <param name="options">Duplicate-key and resource limits. <see langword="null"/> uses the defaults.</param>
+	/// <exception cref="ArgumentNullException"><paramref name="reader"/> is <see langword="null"/>.</exception>
+	/// <exception cref="ArgumentOutOfRangeException">A limit in <paramref name="options"/> is not positive.</exception>
+	/// <exception cref="DecoderException">The text is not valid YAML 1.2.</exception>
+	public YamlDecoder(TextReader reader, YamlLoadOptions? options)
+	{
+		ArgumentNullException.ThrowIfNull(reader);
+		options ??= new YamlLoadOptions();
+		if (options.MaxDepth <= 0)
+		{
+			throw new ArgumentOutOfRangeException(nameof(options), "MaxDepth must be positive.");
+		}
+
+		if (options.MaxAliasExpansions <= 0)
+		{
+			throw new ArgumentOutOfRangeException(nameof(options), "MaxAliasExpansions must be positive.");
+		}
+
+		if (options.MaxExpandedNodes <= 0)
+		{
+			throw new ArgumentOutOfRangeException(nameof(options), "MaxExpandedNodes must be positive.");
+		}
+
+		this.documents = [.. YamlParser.Parse(reader.ReadToEnd(), options)];
+		this.maxDepth = options.MaxDepth;
+		this.maxAliasExpansions = options.MaxAliasExpansions;
+		this.maxExpandedNodes = options.MaxExpandedNodes;
+		this.frames = new Frame[8];
+		this.tokenText = string.Empty;
+	}
+
+	private enum FramePhase
+	{
+		Start,
+		Entry,
+		Value,
+		End,
+	}
+
+	private enum NumberKind
+	{
+		None,
+		Integer,
+		Float,
+	}
+
+	/// <summary>
+	/// Gets the number of documents in the stream. An empty or comment-only stream has zero documents.
+	/// </summary>
+	/// <value>The document count.</value>
+	public int DocumentCount => this.documents.Length;
+
+	/// <summary>
+	/// Gets the zero-based index of the document <see cref="NextTokenType"/> is reading.
+	/// </summary>
+	/// <value>The current document index. An empty stream reports zero.</value>
+	public int DocumentIndex => this.documentIndex;
+
 	/// <inheritdoc/>
-	/// <remarks>
-	/// Reports <see cref="TokenType.EndDocument"/> once the input is exhausted rather than throwing, so
-	/// callers may always ask what comes next -- which is exactly what a loop that reads until a container
-	/// or document ends needs to do.
-	/// </remarks>
 	public TokenType NextTokenType
 	{
 		get
 		{
-			if (!this.TryEnsureBufferedToken())
-			{
-				return TokenType.EndDocument;
-			}
-
-			return this.bufferedToken.Type;
+			this.EnsureToken();
+			return this.hasToken ? this.tokenType : TokenType.EndDocument;
 		}
+	}
+
+	/// <summary>
+	/// Moves to the next document after the current one has been fully read.
+	/// </summary>
+	/// <returns>
+	/// <see langword="true"/> when another document is now current;
+	/// <see langword="false"/> when the stream has no further document.
+	/// </returns>
+	/// <exception cref="InvalidOperationException">The current document still has unread tokens.</exception>
+	public bool TryAdvanceDocument()
+	{
+		if (this.NextTokenType != TokenType.EndDocument)
+		{
+			throw new InvalidOperationException("The current YAML document has not been fully read.");
+		}
+
+		if (this.documentIndex + 1 >= this.documents.Length)
+		{
+			return false;
+		}
+
+		this.documentIndex++;
+		this.rootStarted = false;
+		this.frameCount = 0;
+		this.aliasExpansions = 0;
+		this.expandedNodes = 0;
+		this.hasToken = false;
+		this.consumePops = false;
+		this.advancePhaseOnConsume = false;
+		return true;
 	}
 
 	/// <inheritdoc/>
@@ -63,72 +170,55 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 			return false;
 		}
 
-		this.ReadNull();
+		this.Consume();
 		return true;
 	}
 
 	/// <inheritdoc/>
 	public int? ReadStartMap()
 	{
-		this.EnsureBufferedToken();
-		if (this.bufferedToken.Type != TokenType.StartMap)
-		{
-			throw new DecoderException($"Expected a {TokenType.StartMap} token but instead got {this.bufferedToken.Type}.");
-		}
-
-		int indent = this.bufferedToken.ContainerIndent;
-		this.ConsumeBufferedToken();
-		this.Push(ContainerKind.Map, indent);
+		this.ReadStructural(TokenType.StartMap);
 		return null;
 	}
 
 	/// <inheritdoc/>
-	public void ReadEndMap()
-	{
-		this.ReadToken(TokenType.EndMap);
-	}
+	public void ReadEndMap() => this.ReadStructural(TokenType.EndMap);
 
 	/// <inheritdoc/>
 	public int? ReadStartVector()
 	{
-		this.EnsureBufferedToken();
-		if (this.bufferedToken.Type != TokenType.StartVector)
-		{
-			throw new DecoderException($"Expected a {TokenType.StartVector} token but instead got {this.bufferedToken.Type}.");
-		}
-
-		int indent = this.bufferedToken.ContainerIndent;
-		this.ConsumeBufferedToken();
-		this.Push(ContainerKind.Vector, indent);
+		this.ReadStructural(TokenType.StartVector);
 		return null;
 	}
 
 	/// <inheritdoc/>
-	public void ReadEndVector()
-	{
-		this.ReadToken(TokenType.EndVector);
-	}
+	public void ReadEndVector() => this.ReadStructural(TokenType.EndVector);
 
 	/// <inheritdoc/>
 	public ReadOnlySpan<char> ReadPropertyName()
 	{
-		return this.ReadToken(TokenType.PropertyName);
+		this.Require(TokenType.PropertyName);
+		ReadOnlySpan<char> name = this.tokenText.AsSpan();
+		this.Consume();
+		return name;
 	}
 
 	/// <inheritdoc/>
 	public void Skip()
 	{
-		this.EnsureBufferedToken();
-		switch (this.bufferedToken.Type)
+		switch (this.NextTokenType)
 		{
 			case TokenType.StartMap:
 				this.ReadStartMap();
 				while (this.NextTokenType != TokenType.EndMap)
 				{
-					// Skip property name then value.
 					if (this.NextTokenType == TokenType.PropertyName)
 					{
 						_ = this.ReadPropertyName();
+					}
+					else
+					{
+						this.Skip();
 					}
 
 					this.Skip();
@@ -147,146 +237,125 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 				break;
 			case TokenType.EndMap:
 			case TokenType.EndVector:
-				// Let caller consume structural end tokens.
+			case TokenType.EndDocument:
 				return;
 			default:
-				this.ConsumeBufferedToken();
+				this.Consume();
 				break;
 		}
 	}
 
-	public void ReadNull()
-	{
-		this.ReadToken(TokenType.Null);
-	}
+	/// <inheritdoc/>
+	public void ReadNull() => this.Require(TokenType.Null);
 
 	/// <inheritdoc/>
 	public bool ReadBoolean()
 	{
-		ReadOnlySpan<char> token = this.ReadToken(TokenType.String);
-		return token switch
-		{
-			"false" => false,
-			"true" => true,
-			_ => throw new DecoderException($"Invalid boolean value: {token.ToString()}."),
-		};
-	}
-
-	/// <inheritdoc/>
-	public long ReadInt64()
-	{
-		ReadOnlySpan<char> token = this.ReadToken(TokenType.Number);
-		if (!long.TryParse(token, IntegerPointStyle, CultureInfo.InvariantCulture, out long value))
-		{
-			throw new DecoderException($"Invalid integer value: {token.ToString()}.");
-		}
-
+		this.Require(TokenType.Boolean);
+		bool value = this.tokenBoolean;
+		this.Consume();
 		return value;
 	}
 
 	/// <inheritdoc/>
-	public ulong ReadUInt64()
-	{
-		ReadOnlySpan<char> token = this.ReadToken(TokenType.Number);
-		if (!ulong.TryParse(token, IntegerPointStyle, CultureInfo.InvariantCulture, out ulong value))
-		{
-			throw new DecoderException($"Invalid integer value: {token.ToString()}.");
-		}
-
-		return value;
-	}
+	public long ReadInt64() => (long)this.ReadInteger(long.MinValue, long.MaxValue);
 
 	/// <inheritdoc/>
-	public Int128 ReadInt128()
-	{
-		ReadOnlySpan<char> token = this.ReadToken(TokenType.Number);
-		if (!Int128.TryParse(token, IntegerPointStyle, CultureInfo.InvariantCulture, out Int128 value))
-		{
-			throw new DecoderException($"Invalid integer value: {token.ToString()}.");
-		}
-
-		return value;
-	}
+	public ulong ReadUInt64() => (ulong)this.ReadInteger(ulong.MinValue, ulong.MaxValue);
 
 	/// <inheritdoc/>
-	public UInt128 ReadUInt128()
-	{
-		ReadOnlySpan<char> token = this.ReadToken(TokenType.Number);
-		if (!UInt128.TryParse(token, IntegerPointStyle, CultureInfo.InvariantCulture, out UInt128 value))
-		{
-			throw new DecoderException($"Invalid integer value: {token.ToString()}.");
-		}
+	public Int128 ReadInt128() => (Int128)this.ReadInteger(Int128.MinValue, Int128.MaxValue);
 
-		return value;
-	}
+	/// <inheritdoc/>
+	public UInt128 ReadUInt128() => (UInt128)this.ReadInteger(UInt128.MinValue, UInt128.MaxValue);
 
 	/// <inheritdoc/>
 	public BigInteger ReadBigInteger()
 	{
-		ReadOnlySpan<char> token = this.ReadToken(TokenType.Number);
-		if (!BigInteger.TryParse(token, IntegerPointStyle, CultureInfo.InvariantCulture, out BigInteger value))
-		{
-			throw new DecoderException($"Invalid BigInteger value: {token.ToString()}.");
-		}
-
+		this.RequireInteger();
+		BigInteger value = this.tokenInteger;
+		this.Consume();
 		return value;
 	}
 
 	/// <inheritdoc/>
 	public Half ReadHalf()
 	{
-		ReadOnlySpan<char> token = this.ReadToken(TokenType.Number);
-		if (!Half.TryParse(token, FloatingPointStyle, CultureInfo.InvariantCulture, out Half value))
+		double value = this.ReadDouble();
+		if (double.IsNaN(value))
 		{
-			throw new DecoderException($"Invalid floating point value: {token.ToString()}.");
+			return Half.NaN;
 		}
 
-		return value;
+		if (double.IsPositiveInfinity(value))
+		{
+			return Half.PositiveInfinity;
+		}
+
+		if (double.IsNegativeInfinity(value))
+		{
+			return Half.NegativeInfinity;
+		}
+
+		if (value > (double)Half.MaxValue || value < -(double)Half.MaxValue)
+		{
+			throw new DecoderException($"Invalid floating point value: {value.ToString(CultureInfo.InvariantCulture)}.");
+		}
+
+		return (Half)value;
 	}
 
 	/// <inheritdoc/>
 	public float ReadSingle()
 	{
-		ReadOnlySpan<char> token = this.ReadToken(TokenType.Number);
-		if (!float.TryParse(token, FloatingPointStyle, CultureInfo.InvariantCulture, out float value))
+		double value = this.ReadDouble();
+		if (double.IsNaN(value) || double.IsInfinity(value))
 		{
-			throw new DecoderException($"Invalid floating point value: {token.ToString()}.");
+			return (float)value;
 		}
 
-		return value;
+		if (value > float.MaxValue || value < -float.MaxValue)
+		{
+			throw new DecoderException($"Invalid floating point value: {value.ToString(CultureInfo.InvariantCulture)}.");
+		}
+
+		return (float)value;
 	}
 
 	/// <inheritdoc/>
 	public double ReadDouble()
 	{
-		ReadOnlySpan<char> token = this.ReadToken(TokenType.Number);
-		if (!double.TryParse(token, FloatingPointStyle, CultureInfo.InvariantCulture, out double value))
-		{
-			throw new DecoderException($"Invalid floating point value: {token.ToString()}.");
-		}
-
+		this.RequireNumber();
+		double value = this.numberKind == NumberKind.Integer ? (double)this.tokenInteger : this.tokenFloat;
+		this.Consume();
 		return value;
 	}
 
 	/// <inheritdoc/>
 	public decimal ReadDecimal()
 	{
-		ReadOnlySpan<char> token = this.ReadToken(TokenType.Number);
-		if (!decimal.TryParse(token, FloatingPointStyle, CultureInfo.InvariantCulture, out decimal value))
+		this.RequireNumber();
+		try
 		{
-			throw new DecoderException($"Invalid floating point value: {token.ToString()}.");
+			decimal value = this.numberKind == NumberKind.Integer
+				? (decimal)this.tokenInteger
+				: this.DecimalFromFloatText();
+			this.Consume();
+			return value;
 		}
-
-		return value;
+		catch (OverflowException ex)
+		{
+			throw new DecoderException("The number is outside the range of decimal.", ex);
+		}
 	}
 
 	/// <inheritdoc/>
 	public DateTime ReadDateTime()
 	{
-		ReadOnlySpan<char> token = this.ReadToken(TokenType.String);
-		if (!DateTime.TryParse(token, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out DateTime value))
+		string text = this.ReadString();
+		if (!DateTime.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out DateTime value))
 		{
-			throw new DecoderException($"Invalid DateTime value: {token.ToString()}.");
+			throw new DecoderException($"Invalid DateTime value: {text}.");
 		}
 
 		return value;
@@ -295,10 +364,10 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 	/// <inheritdoc/>
 	public TimeSpan ReadTimeSpan()
 	{
-		ReadOnlySpan<char> token = this.ReadToken(TokenType.String);
-		if (!TimeSpan.TryParse(token, CultureInfo.InvariantCulture, out TimeSpan value))
+		string text = this.ReadString();
+		if (!TimeSpan.TryParse(text, CultureInfo.InvariantCulture, out TimeSpan value))
 		{
-			throw new DecoderException($"Invalid TimeSpan value: {token.ToString()}.");
+			throw new DecoderException($"Invalid TimeSpan value: {text}.");
 		}
 
 		return value;
@@ -307,770 +376,415 @@ public ref struct YamlDecoder(TextReader reader) : IDecoder
 	/// <inheritdoc/>
 	public string ReadString()
 	{
-		ReadOnlySpan<char> token = this.ReadToken(TokenType.String);
-		return this.UnescapeString(token);
+		this.Require(TokenType.String);
+		string value = this.tokenText;
+		this.Consume();
+		return value;
 	}
 
+	/// <inheritdoc/>
 	public ReadOnlySpan<char> ReadCharSpan()
 	{
-		ReadOnlySpan<char> token = this.ReadToken(TokenType.String);
-		return this.UnescapeString(token, Span<char>.Empty, out _);
+		this.Require(TokenType.String);
+		ReadOnlySpan<char> value = this.tokenText.AsSpan();
+		this.Consume();
+		return value;
 	}
 
 	/// <inheritdoc/>
 	public ReadOnlySpan<char> ReadCharSpan(scoped Span<char> buffer, out int charactersWritten)
 	{
-		ReadOnlySpan<char> token = this.ReadToken(TokenType.String);
-		return this.UnescapeString(token, buffer, out charactersWritten);
+		charactersWritten = -1;
+		return this.ReadCharSpan();
 	}
 
 	/// <inheritdoc/>
-	public byte[] ReadByteArray() => throw new NotSupportedException("YAML binary values are not yet supported.");
+	public byte[] ReadByteArray()
+	{
+		this.Require(TokenType.Binary);
+		byte[] value = this.tokenBinary ?? [];
+		this.Consume();
+		return value;
+	}
 
 	/// <inheritdoc/>
-	public ShapeShiftNumber ReadDynamicNumber() => new ShapeShiftDecimal(this.ReadDecimal());
-
-	/// <summary>
-	/// Determines whether an unquoted scalar should be classified as <see cref="TokenType.Number"/>.
-	/// </summary>
-	/// <param name="span">The trimmed scalar text.</param>
-	/// <returns><see langword="true" /> when the text is a decimal number in the round-trip form the encoder writes.</returns>
-	/// <remarks>
-	/// This recognizes the same shapes .NET's <see cref="NumberStyles.Float"/> parsing accepts -- an optional sign,
-	/// digits with an optional fractional part, and an optional exponent -- because the encoder writes every
-	/// numeric type with its invariant round-trip form. Recognizing only whole numbers would classify a
-	/// <see cref="double"/> or <see cref="decimal"/> as a string, and the matching read would then fail on a
-	/// value this decoder itself had written.
-	/// </remarks>
-	internal static bool LooksLikeNumberCore(ReadOnlySpan<char> span)
+	public ShapeShiftNumber ReadDynamicNumber()
 	{
-		if (span.IsEmpty)
+		this.RequireNumber();
+		ShapeShiftNumber value;
+		if (this.numberKind == NumberKind.Integer)
 		{
-			return false;
-		}
-
-		int i = 0;
-		if (span[i] is '-' or '+')
-		{
-			i++;
-		}
-
-		int integerDigits = 0;
-		while (i < span.Length && char.IsAsciiDigit(span[i]))
-		{
-			i++;
-			integerDigits++;
-		}
-
-		int fractionDigits = 0;
-		if (i < span.Length && span[i] == '.')
-		{
-			i++;
-			while (i < span.Length && char.IsAsciiDigit(span[i]))
+			BigInteger integer = this.tokenInteger;
+			if (integer >= long.MinValue && integer <= long.MaxValue)
 			{
-				i++;
-				fractionDigits++;
+				value = new ShapeShiftInteger((long)integer);
 			}
-		}
-
-		if (integerDigits == 0 && fractionDigits == 0)
-		{
-			return false;
-		}
-
-		if (i < span.Length && (span[i] is 'e' or 'E'))
-		{
-			i++;
-			if (i < span.Length && span[i] is '-' or '+')
+			else if (integer > long.MaxValue && integer <= ulong.MaxValue)
 			{
-				i++;
-			}
-
-			int exponentDigits = 0;
-			while (i < span.Length && char.IsAsciiDigit(span[i]))
-			{
-				i++;
-				exponentDigits++;
-			}
-
-			if (exponentDigits == 0)
-			{
-				return false;
-			}
-		}
-
-		return i == span.Length;
-	}
-
-	private ReadOnlySpan<char> ReadToken(TokenType expectedType)
-	{
-		this.EnsureBufferedToken();
-		if (this.bufferedToken.Type != expectedType)
-		{
-			throw new DecoderException($"Expected a {expectedType} token but instead got {this.bufferedToken.Type}.");
-		}
-
-		ReadOnlySpan<char> span = this.bufferedToken.IsSynthetic ? ReadOnlySpan<char>.Empty : this.text.AsSpan(this.bufferedToken.Start, this.bufferedToken.Length);
-		this.ConsumeBufferedToken();
-		return span;
-	}
-
-	private void EnsureBufferedToken()
-	{
-		if (!this.TryEnsureBufferedToken())
-		{
-			throw new DecoderException("Unexpected end of YAML input.");
-		}
-	}
-
-	private bool TryEnsureBufferedToken()
-	{
-		if (this.hasBufferedToken)
-		{
-			return true;
-		}
-
-		if (this.queuedTokenCount > 0)
-		{
-			this.bufferedToken = this.DequeueToken();
-			this.hasBufferedToken = true;
-			return true;
-		}
-
-		this.EnqueueNextTokens();
-		if (this.queuedTokenCount == 0)
-		{
-			return false;
-		}
-
-		this.bufferedToken = this.DequeueToken();
-		this.hasBufferedToken = true;
-		return true;
-	}
-
-	private void ConsumeBufferedToken()
-	{
-		this.hasBufferedToken = false;
-		this.bufferedToken = default;
-	}
-
-	private Token DequeueToken()
-	{
-		Token t = this.queuedTokens[0];
-		for (int i = 1; i < this.queuedTokenCount; i++)
-		{
-			this.queuedTokens[i - 1] = this.queuedTokens[i];
-		}
-
-		this.queuedTokenCount--;
-		return t;
-	}
-
-	private void Enqueue(Token token)
-	{
-		if (this.queuedTokenCount == this.queuedTokens.Length)
-		{
-			Array.Resize(ref this.queuedTokens, this.queuedTokens.Length * 2);
-		}
-
-		this.queuedTokens[this.queuedTokenCount++] = token;
-	}
-
-	private void EnqueueSyntheticStart(TokenType startType, int indent)
-	{
-		this.Enqueue(new Token
-		{
-			Type = startType,
-			IsSynthetic = true,
-			ContainerIndent = indent,
-		});
-	}
-
-	private void EnqueueSyntheticEndForTopContainer()
-	{
-		if (this.containerDepth == 0)
-		{
-			return;
-		}
-
-		TokenType endType = this.containers[this.containerDepth - 1].Kind == ContainerKind.Map ? TokenType.EndMap : TokenType.EndVector;
-		this.Enqueue(new Token { Type = endType, IsSynthetic = true });
-	}
-
-	private bool ShouldCloseTopContainer(int nextLineStart, int nextIndent)
-	{
-		if (nextLineStart < 0 || nextIndent < this.containers[this.containerDepth - 1].Indent)
-		{
-			return true;
-		}
-
-		ContainerFrame top = this.containers[this.containerDepth - 1];
-		if (top.Kind != ContainerKind.Vector || nextIndent != top.Indent)
-		{
-			return false;
-		}
-
-		int lineEnd = this.GetLineEndNoNewline(nextLineStart);
-		if (this.IsSequenceItemLine(nextLineStart, lineEnd, nextIndent, out _, out _))
-		{
-			return false;
-		}
-
-		// A key at this column belongs to an ancestor map, not to this sequence.
-		for (int i = this.containerDepth - 2; i >= 0; i--)
-		{
-			if (this.containers[i].Kind == ContainerKind.Map && this.containers[i].Indent == nextIndent)
-			{
-				return this.TrySplitMappingLine(nextLineStart, lineEnd, nextIndent, out _, out _, out _, out _);
-			}
-		}
-
-		return false;
-	}
-
-	private void EnqueueNextTokens()
-	{
-		// Close containers on dedent, EOF, or a mapping key that resumes an ancestor map
-		// at the same column as a block sequence.
-		int nextLineStart = this.FindNextSignificantLineStart(this.scanOffset, out int nextIndent);
-		while (this.containerDepth > 0 && this.ShouldCloseTopContainer(nextLineStart, nextIndent))
-		{
-			this.EnqueueSyntheticEndForTopContainer();
-			this.Pop();
-
-			// Emit one end token at a time.
-			return;
-		}
-
-		if (nextLineStart < 0)
-		{
-			return;
-		}
-
-		// If we haven't emitted a root container token yet, do it now when appropriate.
-		if (!this.rootContainerEmitted && this.containerDepth == 0)
-		{
-			int lineStart = nextLineStart;
-			int indent = nextIndent;
-			if (lineStart < 0)
-			{
-				return;
-			}
-
-			int lineEndNoNewline = this.GetLineEndNoNewline(lineStart);
-			if (this.IsSequenceItemLine(lineStart, lineEndNoNewline, indent, out _, out _))
-			{
-				this.rootContainerEmitted = true;
-				this.EnqueueSyntheticStart(TokenType.StartVector, indent);
-				return;
-			}
-
-			if (this.TrySplitMappingLine(lineStart, lineEndNoNewline, indent, out _, out _, out _, out _))
-			{
-				this.rootContainerEmitted = true;
-				this.EnqueueSyntheticStart(TokenType.StartMap, indent);
-				return;
-			}
-
-			// Root scalar.
-			this.rootContainerEmitted = true;
-			this.scanOffset = this.AdvanceToAfterLine(lineStart);
-			this.EnqueueScalarToken(lineStart + indent, lineEndNoNewline);
-			return;
-		}
-
-		// Parse next line in the context of the current container (or as scalar if none).
-		int start = nextLineStart;
-		int currentIndent = nextIndent;
-		if (start < 0)
-		{
-			return;
-		}
-
-		int lineEndNoNewline2 = this.GetLineEndNoNewline(start);
-		this.scanOffset = this.AdvanceToAfterLine(start);
-
-		if (this.containerDepth == 0)
-		{
-			// No container active; treat as scalar.
-			this.EnqueueScalarToken(start + currentIndent, lineEndNoNewline2);
-			return;
-		}
-
-		ContainerFrame top = this.containers[this.containerDepth - 1];
-		if (top.Kind == ContainerKind.Map)
-		{
-			if (!this.TrySplitMappingLine(start, lineEndNoNewline2, currentIndent, out int keyStart, out int keyLength, out int valueStart, out int valueLength))
-			{
-				throw new DecoderException("Expected a mapping entry.");
-			}
-
-			this.Enqueue(new Token { Type = TokenType.PropertyName, Start = keyStart, Length = keyLength, IsSynthetic = false });
-
-			if (valueLength > 0)
-			{
-				this.EnqueueScalarToken(valueStart, valueStart + valueLength);
+				value = new ShapeShiftUnsignedInteger((ulong)integer);
 			}
 			else
 			{
-				this.EnqueueNestedValueStartOrScalar(currentIndent, sequenceMayShareIndent: true);
+				value = new ShapeShiftBigInteger(integer);
 			}
-
-			return;
 		}
-
-		// Vector
-		if (!this.IsSequenceItemLine(start, lineEndNoNewline2, currentIndent, out int itemStart, out int itemLength))
+		else if (!double.IsFinite(this.tokenFloat))
 		{
-			throw new DecoderException("Expected a sequence item.");
+			value = new ShapeShiftFloat(this.tokenFloat);
 		}
-
-		if (itemLength > 0)
+		else if (this.TryExactDecimal(out decimal exact))
 		{
-			// Check if the inline item content is a mapping entry (has a colon separator).
-			// We need to check from itemStart (where the actual content begins) to the end of the line.
-			int inlineIndent = itemStart - start;
-			if (this.TrySplitMappingLine(start, lineEndNoNewline2, inlineIndent, out int keyStart, out int keyLength, out int valueStart, out int valueLength))
-			{
-				// The inline content is a mapping entry. Enqueue StartMap, then the property.
-				this.EnqueueSyntheticStart(TokenType.StartMap, inlineIndent);
-				this.Enqueue(new Token { Type = TokenType.PropertyName, Start = keyStart, Length = keyLength, IsSynthetic = false });
-
-				if (valueLength > 0)
-				{
-					this.EnqueueScalarToken(valueStart, valueStart + valueLength);
-				}
-				else
-				{
-					// Property value is on following indented lines.
-					this.EnqueueNestedValueStartOrScalar(inlineIndent, sequenceMayShareIndent: true);
-				}
-			}
-			else
-			{
-				// Inline scalar value.
-				this.EnqueueScalarToken(itemStart, itemStart + itemLength);
-			}
+			value = new ShapeShiftDecimal(exact);
 		}
 		else
 		{
-			// An empty "- " item. A dash at this same column is the next sibling, not a nested sequence.
-			this.EnqueueNestedValueStartOrScalar(currentIndent, sequenceMayShareIndent: false);
+			value = new ShapeShiftFloat(this.tokenFloat);
 		}
+
+		this.Consume();
+		return value;
 	}
 
-	private void EnqueueNestedValueStartOrScalar(int parentIndent, bool sequenceMayShareIndent)
+	/// <summary>
+	/// Determines whether an unquoted scalar should be classified as a decimal number by the encoder.
+	/// </summary>
+	/// <param name="span">The scalar text.</param>
+	/// <returns><see langword="true"/> when the text is a decimal integer or floating-point literal.</returns>
+	internal static bool LooksLikeNumberCore(ReadOnlySpan<char> span) => YamlSchema.LooksLikeDecimalNumber(span);
+
+	private decimal DecimalFromFloatText()
 	{
-		int childLineStart = this.FindNextSignificantLineStart(this.scanOffset, out int childIndent);
-		if (childLineStart < 0)
+		if (!double.IsFinite(this.tokenFloat))
 		{
-			// Missing value -> null.
-			this.Enqueue(new Token { Type = TokenType.Null, IsSynthetic = true });
-			return;
+			throw new DecoderException("A non-finite float cannot be read as a decimal.");
 		}
 
-		int childLineEndNoNewline = this.GetLineEndNoNewline(childLineStart);
-
-		// A mapping value may be a block sequence at the key's own column: "key:\n- item".
-		// An empty sequence item still requires a nested collection to be indented further.
-		bool sequenceSharesColumn = sequenceMayShareIndent && childIndent == parentIndent;
-		if ((childIndent > parentIndent || sequenceSharesColumn) && this.IsSequenceItemLine(childLineStart, childLineEndNoNewline, childIndent, out _, out _))
+		decimal value;
+		try
 		{
-			this.EnqueueSyntheticStart(TokenType.StartVector, childIndent);
-			return;
+			value = decimal.Parse(this.tokenText, NumberStyles.Float, CultureInfo.InvariantCulture);
+		}
+		catch (FormatException ex)
+		{
+			throw new DecoderException("The number is not a valid decimal.", ex);
 		}
 
-		if (childIndent <= parentIndent)
+		if (value == 0m && this.tokenFloat != 0d)
 		{
-			// Missing indented value -> null.
-			this.Enqueue(new Token { Type = TokenType.Null, IsSynthetic = true });
-			return;
+			throw new DecoderException("The number is outside the range of decimal.");
 		}
 
-		if (this.TrySplitMappingLine(childLineStart, childLineEndNoNewline, childIndent, out _, out _, out _, out _))
-		{
-			this.EnqueueSyntheticStart(TokenType.StartMap, childIndent);
-			return;
-		}
-
-		// Indented scalar value.
-		this.scanOffset = this.AdvanceToAfterLine(childLineStart);
-		this.EnqueueScalarToken(childLineStart + childIndent, childLineEndNoNewline);
+		return value;
 	}
 
-	private void EnqueueScalarToken(int start, int endExclusive)
+	private bool TryExactDecimal(out decimal value)
 	{
-		(int trimmedStart, int trimmedEnd) = this.Trim(start, endExclusive);
-		int length = trimmedEnd - trimmedStart;
-		ReadOnlySpan<char> span = length > 0 ? this.text.AsSpan(trimmedStart, length) : ReadOnlySpan<char>.Empty;
-
-		if (span.IsEmpty)
+		value = 0m;
+		if (!double.IsFinite(this.tokenFloat))
 		{
-			this.Enqueue(new Token { Type = TokenType.String, Start = trimmedStart, Length = 0, IsSynthetic = false });
-			return;
-		}
-
-		if (span.Equals("null".AsSpan(), StringComparison.OrdinalIgnoreCase) || span.SequenceEqual("~".AsSpan()))
-		{
-			this.Enqueue(new Token { Type = TokenType.Null, Start = trimmedStart, Length = length, IsSynthetic = false });
-			return;
-		}
-
-		if (this.LooksLikeNumber(span))
-		{
-			this.Enqueue(new Token { Type = TokenType.Number, Start = trimmedStart, Length = length, IsSynthetic = false });
-			return;
-		}
-
-		this.Enqueue(new Token { Type = TokenType.String, Start = trimmedStart, Length = length, IsSynthetic = false });
-	}
-
-	private bool LooksLikeNumber(ReadOnlySpan<char> span) => LooksLikeNumberCore(span);
-
-	private int FindNextSignificantLineStart(int from, out int indent)
-	{
-		indent = 0;
-		int i = from;
-		while (i < this.text.Length)
-		{
-			// Skip line breaks
-			if (this.text[i] == '\r')
-			{
-				i++;
-				continue;
-			}
-
-			if (this.text[i] == '\n')
-			{
-				i++;
-				continue;
-			}
-
-			int lineStart = i;
-			int currentIndent = 0;
-			while (i < this.text.Length && this.text[i] == ' ')
-			{
-				currentIndent++;
-				i++;
-			}
-
-			// Empty line
-			if (i >= this.text.Length)
-			{
-				return -1;
-			}
-
-			int contentStart = i;
-			int lineEndNoNewline = this.GetLineEndNoNewline(lineStart);
-			ReadOnlySpan<char> line = this.text.AsSpan(lineStart, lineEndNoNewline - lineStart);
-			ReadOnlySpan<char> trimmed = line.Slice(contentStart - lineStart).Trim();
-			if (trimmed.IsEmpty)
-			{
-				i = this.AdvanceToAfterLine(lineStart);
-				continue;
-			}
-
-			if (trimmed[0] == '#')
-			{
-				i = this.AdvanceToAfterLine(lineStart);
-				continue;
-			}
-
-			indent = currentIndent;
-			return lineStart;
-		}
-
-		return -1;
-	}
-
-	private int AdvanceToAfterLine(int lineStart)
-	{
-		int i = lineStart;
-		while (i < this.text.Length && this.text[i] != '\n')
-		{
-			i++;
-		}
-
-		if (i < this.text.Length)
-		{
-			i++;
-		}
-
-		return i;
-	}
-
-	private int GetLineEndNoNewline(int lineStart)
-	{
-		int i = lineStart;
-		while (i < this.text.Length && this.text[i] != '\n')
-		{
-			i++;
-		}
-
-		// Exclude a trailing '\r' if present.
-		int end = i;
-		if (end > lineStart && this.text[end - 1] == '\r')
-		{
-			end--;
-		}
-
-		return end;
-	}
-
-	private bool IsSequenceItemLine(int lineStart, int lineEndNoNewline, int indent, out int itemStart, out int itemLength)
-	{
-		int contentStart = lineStart + indent;
-		if (contentStart >= lineEndNoNewline)
-		{
-			itemStart = 0;
-			itemLength = 0;
 			return false;
 		}
 
-		if (this.text[contentStart] != '-')
+		try
 		{
-			itemStart = 0;
-			itemLength = 0;
+			value = decimal.Parse(this.tokenText, NumberStyles.Float, CultureInfo.InvariantCulture);
+		}
+		catch (FormatException)
+		{
+			return false;
+		}
+		catch (OverflowException)
+		{
 			return false;
 		}
 
-		int afterDash = contentStart + 1;
-		if (afterDash >= lineEndNoNewline)
+		if (value == 0m && this.tokenFloat != 0d)
 		{
-			itemStart = 0;
-			itemLength = 0;
-			return true;
-		}
-
-		if (this.text[afterDash] != ' ')
-		{
-			itemStart = 0;
-			itemLength = 0;
 			return false;
 		}
 
-		int start = afterDash + 1;
-		(int ts, int te) = this.Trim(start, lineEndNoNewline);
-		itemStart = ts;
-		itemLength = te - ts;
 		return true;
 	}
 
-	private bool TrySplitMappingLine(int lineStart, int lineEndNoNewline, int indent, out int keyStart, out int keyLength, out int valueStart, out int valueLength)
+	private BigInteger ReadInteger(BigInteger min, BigInteger max)
 	{
-		int contentStart = lineStart + indent;
-		if (contentStart >= lineEndNoNewline)
+		this.RequireInteger();
+		BigInteger value = this.tokenInteger;
+		if (value < min || value > max)
 		{
-			keyStart = 0;
-			keyLength = 0;
-			valueStart = 0;
-			valueLength = 0;
-			return false;
+			throw new DecoderException($"Invalid integer value: {value.ToString(CultureInfo.InvariantCulture)}.");
 		}
 
-		int colonIndex = this.text.IndexOf(':', contentStart, lineEndNoNewline - contentStart);
-		if (colonIndex < 0)
-		{
-			keyStart = 0;
-			keyLength = 0;
-			valueStart = 0;
-			valueLength = 0;
-			return false;
-		}
-
-		// Require ':' to be end-of-line or followed by whitespace.
-		if (colonIndex + 1 < lineEndNoNewline && !char.IsWhiteSpace(this.text[colonIndex + 1]))
-		{
-			keyStart = 0;
-			keyLength = 0;
-			valueStart = 0;
-			valueLength = 0;
-			return false;
-		}
-
-		(int ks, int ke) = this.Trim(contentStart, colonIndex);
-		if (ks >= ke)
-		{
-			keyStart = 0;
-			keyLength = 0;
-			valueStart = 0;
-			valueLength = 0;
-			return false;
-		}
-
-		int vs = colonIndex + 1;
-		while (vs < lineEndNoNewline && this.text[vs] == ' ')
-		{
-			vs++;
-		}
-
-		(int vts, int vte) = this.Trim(vs, lineEndNoNewline);
-
-		keyStart = ks;
-		keyLength = ke - ks;
-		valueStart = vts;
-		valueLength = vte - vts;
-		return true;
+		this.Consume();
+		return value;
 	}
 
-	private string UnescapeString(scoped ReadOnlySpan<char> token)
+	private void RequireInteger()
 	{
-		token = token.Trim();
-		if (token.Length >= 2 && token[0] == '"' && token[^1] == '"')
+		this.RequireNumber();
+		if (this.numberKind != NumberKind.Integer)
 		{
-			ReadOnlySpan<char> inner = token.Slice(1, token.Length - 2);
-			if (inner.IndexOf('\\') < 0)
-			{
-				return inner.ToString();
-			}
+			throw new DecoderException("Expected an integer.");
+		}
+	}
 
-			StringBuilder sb = new(inner.Length);
-			for (int i = 0; i < inner.Length; i++)
+	private void RequireNumber() => this.Require(TokenType.Number);
+
+	private void ReadStructural(TokenType expected) => this.Require(expected);
+
+	private void Require(TokenType expected)
+	{
+		this.EnsureToken();
+		if (!this.hasToken || this.tokenType != expected)
+		{
+			TokenType actual = this.hasToken ? this.tokenType : TokenType.EndDocument;
+			throw new DecoderException($"Expected a {expected} token but instead got {actual}.");
+		}
+
+		if (expected is TokenType.Null or TokenType.StartMap or TokenType.EndMap or TokenType.StartVector or TokenType.EndVector)
+		{
+			this.Consume();
+		}
+	}
+
+	private void EnsureToken()
+	{
+		if (this.hasToken)
+		{
+			return;
+		}
+
+		while (true)
+		{
+			if (this.frameCount == 0)
 			{
-				char c = inner[i];
-				if (c == '\\' && i + 1 < inner.Length)
+				if (!this.rootStarted)
 				{
-					char esc = inner[++i];
-					c = esc switch
+					this.rootStarted = true;
+					if (this.documents.Length == 0)
 					{
-						'n' => '\n',
-						'r' => '\r',
-						't' => '\t',
-						'\\' => '\\',
-						'"' => '"',
-						_ => esc,
-					};
+						this.SetNull();
+						return;
+					}
+
+					this.Open(this.documents[this.documentIndex]);
+					continue;
 				}
 
-				sb.Append(c);
+				return;
 			}
 
-			return sb.ToString();
-		}
-
-		if (token.Length >= 2 && token[0] == '\'' && token[^1] == '\'')
-		{
-			// Single-quoted YAML escapes '' -> '
-			ReadOnlySpan<char> inner = token.Slice(1, token.Length - 2);
-			return inner.ToString().Replace("''", "'", StringComparison.Ordinal);
-		}
-
-		return token.ToString();
-	}
-
-	private ReadOnlySpan<char> UnescapeString(ReadOnlySpan<char> token, scoped Span<char> buffer, out int charactersWritten)
-	{
-		charactersWritten = -1;
-		token = token.Trim();
-		if (token is ['"', .., '"'])
-		{
-			ReadOnlySpan<char> inner = token[1..^1];
-			if (inner.IndexOf('\\') < 0)
+			ref Frame frame = ref this.frames[this.frameCount - 1];
+			switch (frame.Phase)
 			{
-				return inner;
-			}
-
-			if (buffer.Length < inner.Length)
-			{
-				return this.UnescapeString(token);
-			}
-
-			int length = 0;
-			for (int i = 0; i < inner.Length; i++)
-			{
-				char c = inner[i];
-				if (c == '\\' && i + 1 < inner.Length)
-				{
-					char esc = inner[++i];
-					c = esc switch
+				case FramePhase.Start:
+					bool mapping = frame.Node.Kind == YamlNodeKind.Mapping;
+					bool empty = mapping
+						? frame.Node.Pairs!.Count == 0
+						: frame.Node.Items!.Count == 0;
+					this.tokenType = mapping ? TokenType.StartMap : TokenType.StartVector;
+					this.hasToken = true;
+					this.advancePhaseOnConsume = true;
+					this.phaseAfterConsume = empty ? FramePhase.End : FramePhase.Entry;
+					return;
+				case FramePhase.Entry:
+					if (frame.Node.Kind == YamlNodeKind.Sequence)
 					{
-						'n' => '\n',
-						'r' => '\r',
-						't' => '\t',
-						'\\' => '\\',
-						'"' => '"',
-						_ => esc,
-					};
-				}
+						YamlNode item = frame.Node.Items![frame.Index];
+						frame.Index++;
+						if (frame.Index >= frame.Node.Items.Count)
+						{
+							frame.Phase = FramePhase.End;
+						}
 
-				buffer[length++] = c;
+						this.Open(item);
+						if (this.hasToken)
+						{
+							return;
+						}
+
+						continue;
+					}
+
+					YamlPair pair = frame.Node.Pairs![frame.Index];
+					YamlNode key = this.Follow(pair.Key);
+					this.NoteVisit(key);
+					if (key.Kind == YamlNodeKind.Scalar)
+					{
+						this.tokenType = TokenType.PropertyName;
+						this.tokenText = key.Scalar;
+						this.hasToken = true;
+						frame.Phase = FramePhase.Value;
+						return;
+					}
+
+					frame.Phase = FramePhase.Value;
+					this.Push(key);
+					continue;
+				case FramePhase.Value:
+					YamlNode value = frame.Node.Pairs![frame.Index].Value;
+					frame.Index++;
+					frame.Phase = frame.Index >= frame.Node.Pairs.Count ? FramePhase.End : FramePhase.Entry;
+					this.Open(value);
+					if (this.hasToken)
+					{
+						return;
+					}
+
+					continue;
+				default:
+					this.tokenType = frame.Node.Kind == YamlNodeKind.Mapping ? TokenType.EndMap : TokenType.EndVector;
+					this.hasToken = true;
+					this.consumePops = true;
+					return;
 			}
+		}
+	}
 
-			charactersWritten = length;
-			return [];
+	private void Open(YamlNode node)
+	{
+		node = this.Follow(node);
+		this.NoteVisit(node);
+		if (node.Kind == YamlNodeKind.Scalar)
+		{
+			this.SetScalar(node);
+			return;
 		}
 
-		if (token is ['\'', .., '\''])
+		this.Push(node);
+	}
+
+	private void Push(YamlNode node)
+	{
+		if (this.frameCount >= this.maxDepth)
 		{
-			ReadOnlySpan<char> inner = token.Slice(1, token.Length - 2);
-			if (inner.IndexOf("''") < 0)
+			throw new DecoderException($"YAML nesting exceeds the maximum depth of {this.maxDepth}.");
+		}
+
+		if (this.frameCount == this.frames.Length)
+		{
+			Array.Resize(ref this.frames, this.frames.Length * 2);
+		}
+
+		this.frames[this.frameCount++] = new Frame { Node = node, Phase = FramePhase.Start };
+	}
+
+	/// <summary>
+	/// Counts a repeated read of a node. The first read is free.
+	/// </summary>
+	/// <param name="node">The node being read, after aliases have been followed.</param>
+	private void NoteVisit(YamlNode node)
+	{
+		if (++node.Reads > 1)
+		{
+			this.expandedNodes++;
+			if (this.expandedNodes > this.maxExpandedNodes)
 			{
-				return inner;
+				throw new DecoderException($"YAML alias expansion exceeds the maximum of {this.maxExpandedNodes} nodes.");
 			}
+		}
+	}
 
-			if (buffer.Length < inner.Length)
+	private YamlNode Follow(YamlNode node)
+	{
+		while (node.Alias is not null)
+		{
+			this.aliasExpansions++;
+			if (this.aliasExpansions > this.maxAliasExpansions)
 			{
-				return this.UnescapeString(token);
+				throw new DecoderException($"YAML alias expansion exceeds the maximum of {this.maxAliasExpansions}.");
 			}
 
-			int length = 0;
-			for (int i = 0; i < inner.Length; i++)
+			node = node.Alias;
+		}
+
+		for (int i = 0; i < this.frameCount; i++)
+		{
+			if (ReferenceEquals(this.frames[i].Node, node))
 			{
-				char c = inner[i];
-				if (c == '\'' && i + 1 < inner.Length && inner[i + 1] == '\'')
-				{
-					i++;
-				}
+				throw new DecoderException("A YAML alias refers to a node that is still being read.");
+			}
+		}
 
-				buffer[length++] = c;
+		return node;
+	}
+
+	private void SetScalar(YamlNode node)
+	{
+		YamlResolved resolved = YamlSchema.Resolve(node);
+		this.tokenText = resolved.Text ?? node.Scalar;
+		this.numberKind = NumberKind.None;
+		this.tokenBinary = null;
+		this.hasToken = true;
+		switch (resolved.Kind)
+		{
+			case YamlScalarKind.Null:
+				this.tokenType = TokenType.Null;
+				break;
+			case YamlScalarKind.Boolean:
+				this.tokenType = TokenType.Boolean;
+				this.tokenBoolean = resolved.Boolean;
+				break;
+			case YamlScalarKind.Integer:
+				this.tokenType = TokenType.Number;
+				this.numberKind = NumberKind.Integer;
+				this.tokenInteger = resolved.Integer;
+				break;
+			case YamlScalarKind.Float:
+				this.tokenType = TokenType.Number;
+				this.numberKind = NumberKind.Float;
+				this.tokenFloat = resolved.Float;
+				break;
+			case YamlScalarKind.Binary:
+				this.tokenType = TokenType.Binary;
+				this.tokenBinary = resolved.Binary;
+				break;
+			default:
+				this.tokenType = TokenType.String;
+				this.tokenText = node.Scalar;
+				break;
+		}
+	}
+
+	private void SetNull()
+	{
+		this.tokenType = TokenType.Null;
+		this.tokenText = string.Empty;
+		this.numberKind = NumberKind.None;
+		this.hasToken = true;
+	}
+
+	private void Consume()
+	{
+		if (!this.hasToken)
+		{
+			this.EnsureToken();
+		}
+
+		this.hasToken = false;
+		if (this.consumePops)
+		{
+			this.consumePops = false;
+			if (this.frameCount > 0)
+			{
+				this.frameCount--;
 			}
 
-			charactersWritten = length;
-			return [];
+			return;
 		}
 
-		return token;
-	}
-
-	private void Push(ContainerKind kind, int indent)
-	{
-		if (this.containerDepth == this.containers.Length)
+		if (this.advancePhaseOnConsume && this.frameCount > 0)
 		{
-			Array.Resize(ref this.containers, this.containers.Length * 2);
+			this.frames[this.frameCount - 1].Phase = this.phaseAfterConsume;
 		}
 
-		this.containers[this.containerDepth++] = new ContainerFrame { Kind = kind, Indent = indent };
+		this.advancePhaseOnConsume = false;
 	}
 
-	private void Pop() => this.containerDepth--;
-
-	private (int Start, int EndExclusive) Trim(int start, int endExclusive)
+	private struct Frame
 	{
-		while (start < endExclusive && char.IsWhiteSpace(this.text[start]))
-		{
-			start++;
-		}
-
-		while (endExclusive > start && char.IsWhiteSpace(this.text[endExclusive - 1]))
-		{
-			endExclusive--;
-		}
-
-		return (start, endExclusive);
-	}
-
-	private struct ContainerFrame
-	{
-		public ContainerKind Kind;
-		public int Indent;
-	}
-
-	private struct Token
-	{
-		public TokenType Type;
-		public int Start;
-		public int Length;
-		public int ContainerIndent;
-		public bool IsSynthetic;
+		public YamlNode Node;
+		public int Index;
+		public FramePhase Phase;
 	}
 }

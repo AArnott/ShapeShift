@@ -363,7 +363,7 @@ public ref struct YamlEncoder(TextWriter writer) : IEncoder
 
 		// Avoid ambiguous YAML indicators.
 		char first = value[0];
-		if (first is '-' or ':' or '?' or '#' or '!' or '&' or '*' or '|' or '>' or '\'' or '"' or '%' or '@' or '`')
+		if (first is '-' or ':' or '?' or '#' or '!' or '&' or '*' or '|' or '>' or '\'' or '"' or '%' or '@' or '`' or '[' or '{')
 		{
 			return true;
 		}
@@ -385,7 +385,8 @@ public ref struct YamlEncoder(TextWriter writer) : IEncoder
 			value.Equals("null".AsSpan(), StringComparison.OrdinalIgnoreCase) ||
 			value.Equals("true".AsSpan(), StringComparison.OrdinalIgnoreCase) ||
 			value.Equals("false".AsSpan(), StringComparison.OrdinalIgnoreCase) ||
-			YamlDecoder.LooksLikeNumberCore(value))
+			YamlDecoder.LooksLikeNumberCore(value) ||
+			YamlSchema.LooksLikeNonDecimalCore(value))
 		{
 			return true;
 		}

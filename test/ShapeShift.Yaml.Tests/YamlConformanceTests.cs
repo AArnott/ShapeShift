@@ -87,6 +87,9 @@ public class YamlConformanceTests
 			// Indentation is not length-prefixed, so a container's size is known only after reading it.
 			ReportsContainerCounts = false,
 
+			// An empty stream is a valid empty document, which the reader presents as null.
+			AllowsEmptyDocument = true,
+
 			// Truncating a line-oriented text document usually yields another valid document.
 			DetectsTruncatedInput = false,
 
@@ -102,14 +105,6 @@ public class YamlConformanceTests
 			SupportsDynamicValues = false,
 
 			MaxTestedNestingDepth = 12,
-		};
-
-		/// <inheritdoc/>
-		public override TokenType GetExpectedTokenType(ConformanceValueKind kind) => kind switch
-		{
-			// YAML scalars are untyped text.
-			ConformanceValueKind.Boolean => TokenType.String,
-			_ => base.GetExpectedTokenType(kind),
 		};
 
 		/// <inheritdoc/>

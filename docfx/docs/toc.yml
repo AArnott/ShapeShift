@@ -17,6 +17,8 @@ items:
   href: protobuf.md
 - name: TOML
   href: toml.md
+- name: YAML
+  href: yaml.md
 - name: Schema and contract inspection
   href: schema.md
 - name: Structural equality and hashing

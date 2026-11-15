@@ -89,14 +89,14 @@ public partial class YamlSerializerTests : TestBase
 		ShapeShiftArray one = (ShapeShiftArray)map.Properties["one"];
 
 		await Assert.That(one.Items.Count).IsEqualTo(2);
-		await Assert.That(one.Items[0]).IsEqualTo((ShapeShiftValue)2m);
-		await Assert.That(one.Items[1]).IsEqualTo((ShapeShiftValue)3m);
-		await Assert.That(map.Properties["four"]).IsEqualTo((ShapeShiftValue)5m);
+		await Assert.That(one.Items[0]).IsEqualTo((ShapeShiftValue)2L);
+		await Assert.That(one.Items[1]).IsEqualTo((ShapeShiftValue)3L);
+		await Assert.That(map.Properties["four"]).IsEqualTo((ShapeShiftValue)5L);
 
 		ShapeShiftValue? indented = serializer.Deserialize<ShapeShiftValue>("foo:\n- 42\nbar:\n  - 44\n");
 		ShapeShiftMap indentedMap = (ShapeShiftMap)indented!;
-		await Assert.That(((ShapeShiftArray)indentedMap.Properties["foo"]).Items[0]).IsEqualTo((ShapeShiftValue)42m);
-		await Assert.That(((ShapeShiftArray)indentedMap.Properties["bar"]).Items[0]).IsEqualTo((ShapeShiftValue)44m);
+		await Assert.That(((ShapeShiftArray)indentedMap.Properties["foo"]).Items[0]).IsEqualTo((ShapeShiftValue)42L);
+		await Assert.That(((ShapeShiftArray)indentedMap.Properties["bar"]).Items[0]).IsEqualTo((ShapeShiftValue)44L);
 	}
 
 	[Test]
@@ -108,13 +108,13 @@ public partial class YamlSerializerTests : TestBase
 
 		await Assert.That(items.Items.Count).IsEqualTo(2);
 		await Assert.That(items.Items[0]).IsEqualTo(ShapeShiftValue.Null);
-		await Assert.That(items.Items[1]).IsEqualTo((ShapeShiftValue)2m);
+		await Assert.That(items.Items[1]).IsEqualTo((ShapeShiftValue)2L);
 
 		ShapeShiftValue? nested = serializer.Deserialize<ShapeShiftValue>("items:\n  -\n    - 2\n");
 		ShapeShiftArray nestedItems = (ShapeShiftArray)((ShapeShiftMap)nested!).Properties["items"];
 		ShapeShiftArray child = (ShapeShiftArray)nestedItems.Items[0];
 		await Assert.That(child.Items.Count).IsEqualTo(1);
-		await Assert.That(child.Items[0]).IsEqualTo((ShapeShiftValue)2m);
+		await Assert.That(child.Items[0]).IsEqualTo((ShapeShiftValue)2L);
 	}
 
 	[Test]

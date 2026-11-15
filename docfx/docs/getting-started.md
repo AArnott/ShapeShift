@@ -26,7 +26,7 @@ From there:
 - [Customizing the core](customization.md) covers immutable serializer
   configuration, the naming, default-value, strictness, and security policies,
   and custom converters and converter factories.
-- [JSON](json.md), [MessagePack](msgpack.md), and [CBOR](cbor.md) document the
-  format-specific APIs and wire representations.
+- [JSON](json.md), [MessagePack](msgpack.md), [CBOR](cbor.md), [YAML](yaml.md), and
+  [TOML](toml.md) document the format-specific APIs and wire representations.
 - [Authoring a format package](format-authoring.md) explains how to add a
   format of your own.
